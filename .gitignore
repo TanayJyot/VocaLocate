@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+# Pipeline outputs: the lake holds audio and must not be committed.
+lake/
+pipeline/lake/
+*.duckdb
+*.duckdb.tmp
