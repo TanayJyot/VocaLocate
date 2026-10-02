@@ -1,0 +1,60 @@
+digraph G {
+  rankdir=TB; newrank=true; nodesep=0.3; ranksep=0.35; pad=0.2; dpi=200;
+  graph [fontname="Helvetica", fontsize=13, labeljust=l];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#ffffff", color="#5b6b7b", penwidth=1.2, margin="0.14,0.08"];
+  edge  [fontname="Helvetica", fontsize=9, color="#5b6b7b", arrowsize=0.7];
+
+  subgraph cluster_sources {
+    label="Sources"; style="rounded,filled"; fillcolor="#eef3f8"; color="#c5d3e0";
+    vim   [label="VimSketch\n12.5k imitations, 542 refs"];
+    qvim  [label="QVIM DEV set\n(held-out benchmark)"];
+    esc   [label="ESC-50 / FSD50K\n(stand-in library)"];
+    team  [label="Team recordings\n+ text hints (CSV)"];
+    lib   [label="User's SFX folders\n(stay on device)"];
+  }
+
+  subgraph cluster_ingest {
+    label="1. Ingest"; style="rounded,filled"; fillcolor="#f4f1fa"; color="#d6cde8";
+    ing [label="Dataset ingesters\nparse metadata, SHA-256 hash\nPython csv / pathlib"];
+    scan [label="Library scanner\nstat + hash only new/changed\nPython pathlib"];
+  }
+
+  bronze [label="Bronze\nraw files (read-only)\n+ raw_files manifest\nParquet (PyArrow)", fillcolor="#f3e3cf", color="#b08a5a"];
+
+  subgraph cluster_clean {
+    label="2. Clean"; style="rounded,filled"; fillcolor="#f4f1fa"; color="#d6cde8";
+    clean [label="decode → mono → 32 kHz\n→ trim silence → cap 20 s\n→ RMS -20 dBFS / peak -1 dBFS\nreject silent / short / corrupt\nflag clipped, dedupe by hash\nsoundfile, SciPy, NumPy"];
+  }
+
+  silver [label="Silver\nclean WAV (32 kHz mono)\nclips, pairs, queries\nParquet", fillcolor="#e3e6ea", color="#7d8794"];
+
+  subgraph cluster_transform {
+    label="3. Transform"; style="rounded,filled"; fillcolor="#f4f1fa"; color="#d6cde8";
+    feat [label="log-mel (128 bands,\nQVIM baseline settings)\n+ 256-d summary vector\nNumPy"];
+    split [label="train / val / test\ngrouped by reference sound\nseeded hash"];
+  }
+
+  gold [label="Gold\nfeatures (.npy float16)\nfeatures, splits\nParquet", fillcolor="#f6e7a8", color="#b39a2e"];
+
+  wh [label="4. Load: Warehouse\nDuckDB\nv_training_pairs, v_triples,\nv_library_index, v_clip_quality", fillcolor="#d9ecdf", color="#4f8a63"];
+
+  subgraph cluster_use {
+    label="Consumers"; style="rounded,filled"; fillcolor="#eef3f8"; color="#c5d3e0";
+    train [label="Fine-tuning\nMobileNetV3 (PyTorch)"];
+    evalb [label="Evaluation\nMRR on QVIM DEV"];
+    idx   [label="Search index\nFAISS (planned)"];
+  }
+
+  orch [label="Orchestration: CLI (argparse) run by cron / GitHub Actions now; Prefect planned\nLineage: pipeline_runs table (run_id, counts, config fingerprint)", shape=note, fillcolor="#fffbe6", color="#c9b458", fontsize=10];
+
+  vim -> ing; qvim -> ing; esc -> ing; team -> ing;
+  lib -> scan;
+  ing -> bronze; scan -> bronze;
+  bronze -> clean -> silver;
+  silver -> feat; silver -> split;
+  feat -> gold; split -> gold;
+  gold -> wh; silver -> wh [style=dashed];
+  wh -> train; wh -> evalb; wh -> idx;
+  {rank=same; orch; bronze}
+  orch -> bronze [style=invis];
+}
