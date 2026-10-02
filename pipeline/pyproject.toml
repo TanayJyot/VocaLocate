@@ -19,6 +19,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 
+[project.scripts]
+vocalocate-pipeline = "vocalocate_pipeline.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
