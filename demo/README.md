@@ -61,6 +61,28 @@ What was added to the pipeline for this (all covered by its tests):
   and metadata) and `v_hard_negatives` (mined negatives joined with metadata);
   `v_training_pairs` now carries the feature paths.
 
+## The app
+
+```bash
+vocalocate-demo app --workdir demo_out            # after `vocalocate-demo run`; opens on http://127.0.0.1:8765
+vocalocate-demo app --workdir demo_mn_491 --text  # MobileNetV3 run with CLAP text hints
+vocalocate-demo app --lake demo_out/lake --root ~/SFX --name mine --text
+```
+
+A local web UI over the same pipeline and models, following the product flow:
+
+1. **Library**: add folders (paths on this machine, nothing is uploaded). They are indexed by the A2
+   library flow (incremental: unchanged files are skipped, moved files are recognised) and embedded
+   once per model. Progress shows each folder, its file count and the current step.
+2. **Search**: record an imitation in the browser (or upload a file, or pick one of the demo's held-out
+   example imitations), add an optional text hint, and pick VocaLocate B, A or the baseline.
+3. **Results** (a separate page): file name, project folder, path, similarity, a 5-second preview,
+   copy path and drag-and-drop into an editor. Changing the hint or model reruns the search
+   without re-embedding the query or the library.
+
+The server is standard-library Python (`app.py`) and binds to localhost only. It serves only
+files that are in a library index.
+
 ## The synthetic data
 
 `synth.py` writes a dataset in the `sfx_meta` layout so the demo runs offline

@@ -6,6 +6,7 @@
     search    index a folder and search it with a recorded imitation
     summarize average results over several seeds
     fetch-models  download the pretrained MobileNetV3 and CLAP weights
+    app       the VocaLocate web app: index folders, record an imitation, search, preview, drag out
 """
 
 from __future__ import annotations
@@ -98,6 +99,16 @@ def _parser() -> argparse.ArgumentParser:
     fm.add_argument("--pretrained", default=TrainConfig().pretrained, help="EfficientAT model name")
     _clap_args(fm)
 
+    ap = sub.add_parser("app", help="start the VocaLocate web app (record, search, preview, drag out)")
+    ap.add_argument("--workdir", type=Path, help="a demo run folder: uses its lake, indexes its library/, offers its queries/")
+    ap.add_argument("--source", default="sfx_meta", help="which trained models to use (lake/models/<source>)")
+    ap.add_argument("--root", type=Path, action="append", help="library folder to index at start (repeatable)")
+    ap.add_argument("--name", default="default", help="library name for --root")
+    ap.add_argument("--text", action="store_true", help="enable CLAP text hints")
+    ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--port", type=int, default=8765)
+    _clap_args(ap)
+
     sm = sub.add_parser("summarize", help="average several runs' results.json (mean ± std over seeds)")
     sm.add_argument("runs", type=Path, nargs="+", help="workdirs or results.json files")
     sm.add_argument("--out", type=Path, help="also write the table to this file")
@@ -131,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(asctime)s %(message)s")
     lake = args.lake
-    if args.command == "run" and lake is None:
+    if args.command in ("run", "app") and lake is None and getattr(args, "workdir", None):
         lake = args.workdir / "lake"
     cfg = load_config(_default_config(args), lake_root=lake, workers=args.workers)
 
@@ -159,6 +170,21 @@ def main(argv: list[str] | None = None) -> int:
         out = cfg.lake_root / "models" / args.source / "report.md"
         write_report(results, out)
         print(out.read_text(encoding="utf-8"))
+    elif args.command == "app":
+        from .app import AppState, serve
+
+        examples = args.workdir / "queries" if args.workdir else None
+        state = AppState(cfg, args.source, clap=_clap(args) if args.text else None, examples=examples)
+        if args.workdir and (args.workdir / "library").is_dir():
+            state.add_library("demo", [str(args.workdir / "library")])
+        if args.root:
+            state.add_library(args.name, [str(r) for r in args.root])
+        server = serve(state, args.host, args.port)
+        print(f"VocaLocate is running at http://{args.host}:{args.port}  (Ctrl+C to stop)")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
     elif args.command == "fetch-models":
         import torch
 

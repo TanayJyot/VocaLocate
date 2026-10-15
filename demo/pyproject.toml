@@ -28,5 +28,8 @@ vocalocate-demo = "vocalocate_demo.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+vocalocate_demo = ["ui/*", "efficientat/LICENSE"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
