@@ -74,7 +74,7 @@ class ClapScorer:
         with self.torch.no_grad():
             for i in range(0, len(texts), self.batch_size):
                 tok = self.tokenizer(texts[i : i + self.batch_size], padding=True, return_tensors="pt").to(self.device)
-                out.append(self.model.get_text_features(**tok).float().cpu().numpy())
+                out.append(_features(self.model.get_text_features(**tok)))
         return _normalize(np.concatenate(out)) if out else np.zeros((0, 512), np.float32)
 
     # -- audio --------------------------------------------------------------
@@ -92,8 +92,15 @@ class ClapScorer:
                     waves, sampling_rate=CLAP_SR, return_tensors="pt", truncation="fusion" if fusion else "rand_trunc"
                 )
                 feats = {k: v.to(self.device) for k, v in feats.items() if k in ("input_features", "is_longer")}
-                out.append(self.model.get_audio_features(**feats).float().cpu().numpy())
+                out.append(_features(self.model.get_audio_features(**feats)))
         return _normalize(np.concatenate(out)) if out else np.zeros((0, 512), np.float32)
+
+
+def _features(out) -> np.ndarray:
+    """transformers 4.x returns the projected embeddings as a tensor; 5.x wraps them in an output object."""
+    if not hasattr(out, "float"):
+        out = out.pooler_output
+    return out.float().cpu().numpy()
 
 
 # Fake backend: words and file names hash to fixed random directions, so a hint

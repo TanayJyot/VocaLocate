@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 # CLAP text branch (--text-branch, search --text)
-text = ["transformers>=4.40"]
+text = ["transformers>=4.40"]  # 4.x and 5.x both work
 
 [project.scripts]
 vocalocate-demo = "vocalocate_demo.cli:main"
