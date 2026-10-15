@@ -301,6 +301,7 @@ async function handleUpload(file) {
 async function chooseExample(ex) {
   stopRecording(true);
   releaseQuery();
+  $("#rec-time").textContent = "0.0 s";  // the old recording's length no longer applies
   state.query = { kind: "example", exampleId: ex.id, url: `/api/example/${ex.id}`, label: `Example: ${ex.name}`, samples: null };
   if (ex.hint && state.status.text) { state.hint = ex.hint; $("#hint").value = ex.hint; renderChips(); }
   renderQuery();
@@ -650,6 +651,9 @@ function route() {
   const view = (location.hash.match(/^#\/(\w+)/) || [])[1];
   const v = ["library", "search", "results"].includes(view) ? view : "search";
   clearTimers();
+  // Status messages belong to the page that produced them.
+  $("#live").textContent = "";
+  $("#live").classList.remove("error");
   if (v !== "search") stopRecording(true);
   stopPlayback();
   state.view = v;
@@ -699,6 +703,9 @@ function bind() {
   $("#r-play").addEventListener("click", () => state.last && play("query", state.last.query.url));
   const rerun = () => {
     if (!state.last) return;
+    const r = state.results;
+    // Picking a model already reruns the search; skip a second identical run from "Update".
+    if (r && r.model === $("#r-model").value && (r.text || "") === $("#r-hint").value.trim()) return;
     runSearch(state.last.query, state.last.library, $("#r-model").value, $("#r-hint").value.trim(), "#r-error");
   };
   $("#r-go").addEventListener("click", rerun);

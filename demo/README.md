@@ -77,8 +77,12 @@ A local web UI over the same pipeline and models, following the product flow:
 2. **Search**: record an imitation in the browser (or upload a file, or pick one of the demo's held-out
    example imitations), add an optional text hint, and pick VocaLocate B, A or the baseline.
 3. **Results** (a separate page): file name, project folder, path, similarity, a 5-second preview,
-   copy path and drag-and-drop into an editor. Changing the hint or model reruns the search
-   without re-embedding the query or the library.
+   copy path and drag-and-drop into an editor. Changing the hint reruns the search with the
+   cached query embedding and library index; changing the model embeds the query once with that
+   model (the library's embeddings for every model are cached at indexing time).
+
+A 68-second walkthrough is in [`docs/app_walkthrough.mp4`](docs/app_walkthrough.mp4) (demo CNN model,
+synthetic library, Chromium's fake microphone).
 
 | Search | Results |
 | --- | --- |
