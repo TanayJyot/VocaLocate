@@ -56,3 +56,32 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
         assert main(argv) == 0
     hits = json.loads(buf.getvalue())["metadata"][query]
     assert len(hits) == 3 and hits[0]["score"] >= hits[-1]["score"]
+
+    # External benchmark: score the trained models on a QVIM DEV-style set they never saw.
+    import csv
+
+    import numpy as np
+    import soundfile as sf
+    from vocalocate_pipeline.flows import run_dataset_flow
+    from vocalocate_demo.experiment import run_benchmark
+
+    qvim = tmp_path / "qvim-dev"
+    rows = []
+    for i, cls in enumerate(["Dog", "Bell", "Engine"]):
+        t = np.arange(32_000) / 32_000
+        for kind, sub, freq in (("item", "Items", 300 + 200 * i), ("q", "Queries", 320 + 200 * i)):
+            path = qvim / sub / cls / f"{kind}{i}.wav"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(str(path), (0.4 * np.sin(2 * np.pi * freq * t)).astype("float32"), 32_000)
+        rows.append(["X", cls, f"item{i}.wav", f"q{i}.wav", "", ""])
+    with open(qvim / "DEV Dataset.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("DEV set,,,,,\n")
+        w = csv.writer(f)
+        w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
+        w.writerows(rows)
+    run_dataset_flow("qvim_dev", qvim, cfg)
+    bench = run_benchmark(cfg, "sfx_meta", "qvim_dev", device="cpu")
+    assert set(bench["models"]) == {"baseline", "random", "retrieval", "metadata"}
+    assert all(m["n_queries"] == 3 and m["n_candidates"] == 3 for m in bench["models"].values())
+    assert bench["published_mrr"]["challenge winner"] == 0.293
+

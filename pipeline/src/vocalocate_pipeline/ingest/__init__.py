@@ -59,7 +59,7 @@ class IngestResult:
 
 
 def _registry() -> dict[str, Callable[[Path], IngestResult]]:
-    from . import esc50, qvim_dev, sfx_meta, team, vimsketch
+    from . import esc50, qvim_dev, sfx_meta, team, vimsketch, vocal_imitation_set
 
     return {
         "esc50": esc50.ingest,
@@ -67,10 +67,11 @@ def _registry() -> dict[str, Callable[[Path], IngestResult]]:
         "qvim_dev": qvim_dev.ingest,
         "team": team.ingest,
         "sfx_meta": sfx_meta.ingest,
+        "vis": vocal_imitation_set.ingest,
     }
 
 
-SOURCES = ("esc50", "vimsketch", "qvim_dev", "team", "sfx_meta")
+SOURCES = ("esc50", "vimsketch", "qvim_dev", "team", "sfx_meta", "vis")
 
 
 def ingest(source: str, root: Path) -> IngestResult:

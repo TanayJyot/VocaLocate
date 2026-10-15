@@ -43,7 +43,17 @@ def ingest(root: Path) -> IngestResult:
         raise FileNotFoundError(f"SFX metadata manifest not found at {meta}")
     with open(meta, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    return ingest_rows(rows, root)
 
+
+def ingest_rows(
+    rows: list[dict], root: Path, source: str = SOURCE, version: str = VERSION, licence: str | None = None
+) -> IngestResult:
+    """Turn metadata rows (the metadata.csv columns) into raw files, SFX metadata and text-hint queries.
+
+    Other datasets with semantic metadata (e.g. the Vocal Imitation Set) convert their own
+    metadata to these rows and call this under their own source name. `file` may be absolute.
+    """
     recording_of: dict[str, str] = {}
     reference_of_recording: dict[str, str] = {}
     for row in rows:
@@ -70,17 +80,18 @@ def ingest(root: Path) -> IngestResult:
         if role == "imitation":
             target = row["imitates"].strip()
             recording = recording_of.get(target)
-            group = f"{SOURCE}:{recording}" if target in reference_of_recording.values() else None
+            group = f"{source}:{recording}" if target in reference_of_recording.values() else None
             files.append(
                 RawFile(
-                    source=SOURCE,
-                    source_version=VERSION,
+                    source=source,
+                    source_version=version,
                     source_key=row["file"],
                     path=path,
                     role="imitation",
                     label=_clean(row.get("category")),
                     group_key=group,
                     imitator_id=_clean(row.get("imitator_id")),
+                    licence=licence,
                 )
             )
             hint = _clean(row.get("text_hint"))
@@ -99,13 +110,14 @@ def ingest(root: Path) -> IngestResult:
         tags = [t.strip() for t in (row.get("tags") or "").split(";") if t.strip()]
         files.append(
             RawFile(
-                source=SOURCE,
-                source_version=VERSION,
+                source=source,
+                source_version=version,
                 source_key=row["file"],
                 path=path,
                 role=role,
                 label=_clean(row.get("category")),
-                group_key=f"{SOURCE}:{recording_of[sound_id]}",
+                group_key=f"{source}:{recording_of[sound_id]}",
+                licence=licence,
                 extra={"sound_id": sound_id},
             )
         )

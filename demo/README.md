@@ -87,6 +87,35 @@ A local web UI over the same pipeline and models, following the product flow:
 The server is standard-library Python (`app.py`) and binds to localhost only. It serves only
 files that are in a library index.
 
+## Real data: Vocal Imitation Set + QVIM DEV benchmark
+
+The synthetic set is too small and too unlike real audio to settle the mining question (see Results).
+The same pipeline and commands run on real data:
+
+* **Training and evaluation: the [Vocal Imitation Set](https://github.com/interactiveaudiolab/VocalImitationSet)**
+  (`ingest-dataset --source vis`). It has 302 AudioSet classes, one imitated Freesound reference per
+  class, and about 2,700 other recordings of the same classes (`non_reference`, the fine-grained
+  distractors the dataset was built for). There are 5,601 accepted imitations. Mining metadata
+  comes straight from the dataset:
+  * category = AudioSet class, tags = its ontology path (depth 1-6),
+  * recording = Freesound ID;
+  * each imitator's own written description of the sound is the text hint for CLAP.
+* **External benchmark: the QVIM challenge DEV set** (`ingest-dataset --source qvim_dev`,
+  `vocalocate-demo benchmark --source vis --on qvim_dev`). The models never train or tune on it.
+  The table prints next to the published MRRs: random 0.044, the challenge's MobileNetV3
+  baseline 0.273, the winner 0.293. Those models trained on all of VimSketch, which is larger than
+  the Vocal Imitation Set and contains it, so they are a reference point, not an equal comparison.
+
+```bash
+vocalocate-pipeline --config demo/configs/demo.toml --lake runs_real/lake --workers 6 \
+    ingest-dataset --source vis --path ~/data/VocalImitationSet
+vocalocate-pipeline --config demo/configs/demo.toml --lake runs_real/lake ingest-dataset --source qvim_dev --path ~/data/qvim-dev
+vocalocate-demo --lake runs_real/lake -v train --source vis --encoder mobilenetv3 --text-branch \
+    --device cuda --frames 1000 --batch-size 16 --epochs 20 --ft-epochs 5 --seed 490
+vocalocate-demo --lake runs_real/lake benchmark --source vis --on qvim_dev
+vocalocate-demo app --lake runs_real/lake --source vis --root ~/SFX --text   # search your own library with these models
+```
+
 ## The synthetic data
 
 `synth.py` writes a dataset in the `sfx_meta` layout so the demo runs offline

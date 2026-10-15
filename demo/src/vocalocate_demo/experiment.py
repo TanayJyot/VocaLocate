@@ -196,6 +196,35 @@ def run_text_branch(cfg: PipelineConfig, source: str, ds: Dataset, models: dict,
     return out
 
 
+# Published QVIM DEV-set MRRs (A2 Part Two), for the benchmark table.
+QVIM_DEV_PUBLISHED = {
+    "random ranking": 0.044,
+    "QVIM challenge MobileNetV3 baseline (trained on VimSketch)": 0.273,
+    "challenge winner": 0.293,
+}
+
+
+def run_benchmark(cfg: PipelineConfig, model_source: str, bench_source: str = "qvim_dev",
+                  names: tuple[str, ...] = ("baseline", "random", "retrieval", "metadata"), device: str = "auto") -> dict:
+    """Score models trained on `model_source` on the held-out test split of another source (external benchmark).
+
+    Every imitation in the benchmark ranks all of its reference sounds, as in the QVIM challenge.
+    Nothing is trained or tuned on the benchmark.
+    """
+    ds = load_dataset(cfg, [bench_source])
+    out = {"model_source": model_source, "benchmark": bench_source, "models": {}}
+    for name in names:
+        path = model_dir(cfg, model_source) / f"{name}.pt"
+        if not path.exists():
+            continue
+        model, tcfg, ckpt = T.load(path, device)
+        out["models"][name] = {"model_version": ckpt["model_version"], **evaluate_split(model, ds, "test", tcfg)}
+    if bench_source == "qvim_dev":
+        out["published_mrr"] = QVIM_DEV_PUBLISHED
+    (model_dir(cfg, model_source) / f"benchmark_{bench_source}.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return out
+
+
 def _score(model, ds: Dataset, tcfg: T.TrainConfig, version: str, hist: list[dict], sec: float) -> dict:
     best = max(hist, key=lambda h: h["val_mrr"]) if hist else {"epoch": 0, "val_mrr": None}
     return {
