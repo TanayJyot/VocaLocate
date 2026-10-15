@@ -135,7 +135,7 @@ def run_experiment(
         results["models"][strategy] = _score(model, ds, tcfg, version, hist, time.time() - t0)
 
     warehouse.load(cfg)
-    (out_dir / "results.json").write_text(json.dumps(results, indent=2, default=str))
+    (out_dir / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     return results
 
 

@@ -12,10 +12,15 @@ from .report import METRICS
 
 
 def summarize(paths: list[Path]) -> str:
-    runs = []
+    runs, missing = [], []
     for p in paths:
         p = p / "results.json" if p.is_dir() else p
-        runs.append(json.loads(p.read_text()))
+        if p.exists():
+            runs.append(json.loads(p.read_text(encoding="utf-8")))
+        else:
+            missing.append(str(p))
+    if not runs:
+        raise ValueError(f"no results.json found in {[str(p) for p in paths]}")
     seeds = [r["train_config"]["seed"] for r in runs]
     lines = [
         f"# VocaLocate mining demo: {len(runs)} seeds ({', '.join(map(str, seeds))})",
@@ -44,4 +49,6 @@ def summarize(paths: list[Path]) -> str:
             picked = {k: (v["config"]["band"], v["config"]["dup_quantile"]) for k, v in r["mining"].items()}
             lines.append(f"* seed {r['train_config']['seed']}: " + ", ".join(
                 f"{k} band {b} dup {d}" for k, (b, d) in picked.items()))
+    if missing:
+        lines += ["", f"Skipped {len(missing)} run(s) without results.json: " + ", ".join(missing)]
     return "\n".join(lines) + "\n"

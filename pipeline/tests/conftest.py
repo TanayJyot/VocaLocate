@@ -40,7 +40,7 @@ def esc50_dir(tmp_path) -> Path:
         ("3-300-A-2.wav", np.zeros(5 * 44_100, dtype=np.float32), 44_100, "pig", "300", "A"),  # silent
         ("4-400-A-3.wav", tone(300, 25, 22_050), 22_050, "cow", "400", "A"),  # too long
     ]
-    with open(_mk(root / "meta" / "esc50.csv"), "w", newline="") as f:
+    with open(_mk(root / "meta" / "esc50.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["filename", "fold", "target", "category", "esc10", "src_file", "take"])
         for i, (name, x, sr, cat, src, take) in enumerate(rows):
@@ -65,8 +65,8 @@ def vimsketch_dir(tmp_path) -> Path:
         write(root / "references" / name, tone(300 + 200 * i, 3, 48_000), 48_000)
     for i, name in enumerate(imits):
         write(root / "vocal_imitations" / name, tone(250 + 150 * i, 2, 16_000), 16_000)
-    (root / "reference_file_names.csv").write_text("\n".join(refs) + "\n")
-    (root / "vocal_imitation_file_names.csv").write_text("\n".join(imits) + "\n")
+    (root / "reference_file_names.csv").write_text("\n".join(refs) + "\n", encoding="utf-8")
+    (root / "vocal_imitation_file_names.csv").write_text("\n".join(imits) + "\n", encoding="utf-8")
     return root
 
 
@@ -76,7 +76,7 @@ def qvim_dir(tmp_path) -> Path:
     write(root / "Items" / "Dog" / "bark.wav", tone(500, 2, 32_000), 32_000)
     write(root / "Queries" / "Dog" / "q1.wav", tone(520, 1, 32_000), 32_000)
     write(root / "Queries" / "Dog" / "q2.wav", tone(540, 1, 32_000), 32_000)
-    with open(_mk(root / "DEV Dataset.csv"), "w", newline="") as f:
+    with open(_mk(root / "DEV Dataset.csv"), "w", newline="", encoding="utf-8") as f:
         f.write("DEV set,,,,,\n")
         w = csv.writer(f)
         w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
@@ -104,7 +104,7 @@ def sfx_meta_dir(tmp_path) -> Path:
         ("imitations/b/bell_1.wav", "imitation", "", "bell_A", "bell", "", ""),
         ("imitations/a/gong_0.wav", "imitation", "", "gong_A", "bell", "", ""),
     ]
-    with open(_mk(root / "metadata.csv"), "w", newline="") as f:
+    with open(_mk(root / "metadata.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id"])
         for i, (name, role, sid, imit, cat, tags, rec) in enumerate(rows):

@@ -22,7 +22,7 @@ def ingest(root: Path) -> IngestResult:
     if not meta.exists():
         raise FileNotFoundError(f"ESC-50 metadata not found at {meta}")
     files, missing = [], []
-    with open(meta, newline="") as f:
+    with open(meta, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             path = root / "audio" / row["filename"]
             if not path.exists():

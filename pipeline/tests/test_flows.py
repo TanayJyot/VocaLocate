@@ -58,7 +58,7 @@ def test_team_recordings_become_triples_linked_to_another_source(cfg, esc50_dir,
     run_dataset_flow("esc50", esc50_dir, cfg)
     team = tmp_path / "team"
     write(team / "tanay" / "dog_bark.wav", tone(450, 1, 48_000), 48_000)
-    with open(team / "recordings.csv", "w", newline="") as f:
+    with open(team / "recordings.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["file", "imitator_id", "target_group_key", "text_hint", "hint_type"])
         w.writerow(["tanay/dog_bark.wav", "tanay", "esc50:200", "short", "length"])

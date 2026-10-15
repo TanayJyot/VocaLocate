@@ -38,7 +38,7 @@ def ingest(root: Path) -> IngestResult:
     meta = root / "metadata.csv"
     if not meta.exists():
         raise FileNotFoundError(f"SFX metadata manifest not found at {meta}")
-    with open(meta, newline="") as f:
+    with open(meta, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
     recording_of: dict[str, str] = {}

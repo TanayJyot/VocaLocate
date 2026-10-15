@@ -34,7 +34,7 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
     demo = results["search_demo"]
     assert len(demo["queries"]) == 2
     assert all(r["target_rank"] >= 1 for q in demo["queries"] for r in q["results"].values())
-    assert (tmp_path / "report.md").read_text().startswith("# VocaLocate")
+    assert (tmp_path / "report.md").read_text(encoding="utf-8").startswith("# VocaLocate")
 
     # Second search via the CLI reuses the cached embeddings and the library index.
     out = tmp_path / "search.json"

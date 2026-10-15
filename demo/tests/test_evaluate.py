@@ -38,6 +38,6 @@ def test_summarize_averages_seeds(tmp_path):
 
     for seed, (b, m) in {1: (0.4, 0.6), 2: (0.4, 0.3)}.items():
         (tmp_path / f"s{seed}").mkdir()
-        (tmp_path / f"s{seed}" / "results.json").write_text(json.dumps(run(seed, b, m)))
+        (tmp_path / f"s{seed}" / "results.json").write_text(json.dumps(run(seed, b, m)), encoding="utf-8")
     text = summarize([tmp_path / "s1", tmp_path / "s2"])
     assert "0.450 ± 0.150" in text and "+0.050 (1/2 seeds better)" in text

@@ -19,9 +19,9 @@ def test_ingest_groups_takes_and_imitations_by_recording(sfx_meta_dir):
 
 def test_two_references_for_one_recording_is_an_error(sfx_meta_dir):
     path = sfx_meta_dir / "metadata.csv"
-    rows = list(csv.reader(open(path)))
+    rows = list(csv.reader(open(path, encoding="utf-8")))
     rows[2][1] = "reference"  # bell_B becomes a second reference of recording "bell"
-    with open(path, "w", newline="") as f:
+    with open(path, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerows(rows)
     with pytest.raises(ValueError, match="two references"):
         ingest("sfx_meta", sfx_meta_dir)

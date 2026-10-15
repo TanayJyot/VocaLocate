@@ -79,7 +79,7 @@ def build_messy_library(cfg: PipelineConfig, workdir: Path, n_queries: int, seed
         dest = qdir / f"{Path(uri).stem}.wav"
         shutil.copy(uri, dest)
         queries.append({"query": str(dest.resolve()), "category": label, "target": new_name[ref]})
-    with open(qdir / "queries.csv", "w", newline="") as f:
+    with open(qdir / "queries.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["query", "category", "target"])
         w.writeheader()
         w.writerows(queries)
@@ -136,6 +136,6 @@ def run_demo(
     queries = build_messy_library(cfg, workdir, n_queries)
     results["search_demo"] = demo_searches(cfg, workdir, queries)
     results["total_sec"] = round(time.time() - t0, 1)
-    (workdir / "results.json").write_text(json.dumps(results, indent=2, default=str))
+    (workdir / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     write_report(results, workdir / "report.md")
     return results

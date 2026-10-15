@@ -39,7 +39,7 @@ class TrainConfig:
     lr: float = 1e-3
     tau: float = 0.07
     ft_epochs: int = 12
-    ft_lr: float = 3e-4
+    ft_lr: float = 1e-4
     triplet_margin: float = 0.2
     triplet_weight: float = 1.0
     freq_mask: int = 16  # SpecAugment-style frequency masking while training
@@ -113,15 +113,18 @@ def _fit(
     rng = _seed(cfg.seed)
     pairs = ds.split_pairs("train")
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    steps_per_epoch = len(_unique_reference_batches(pairs, cfg.batch_size, np.random.default_rng(0)))
-    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=max(epochs * steps_per_epoch, 1) + 10)
+    # Shuffle every epoch up front: the number of batches varies with the shuffle, and the
+    # one-cycle schedule needs the exact total.
+    epoch_batches = [_unique_reference_batches(pairs, cfg.batch_size, rng) for _ in range(epochs)]
+    total_steps = max(sum(len(b) for b in epoch_batches), 1)
+    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=total_steps)
 
     best = (_val_mrr(model, ds, cfg) if negatives is not None else -1.0, copy.deepcopy(model.state_dict()), 0)
     history = [{"epoch": 0, "val_mrr": best[0]}] if negatives is not None else []
-    for epoch in range(1, epochs + 1):
+    for epoch, batches in enumerate(epoch_batches, start=1):
         model.train()
         t0, losses = time.time(), []
-        for idx in _unique_reference_batches(pairs, cfg.batch_size, rng):
+        for idx in batches:
             rows = pairs.iloc[idx]
             q = model.embed_imitation(_batch(ds, list(rows.imitation_clip_id), cfg, rng, device))
             p = model.embed_sfx(_batch(ds, list(rows.reference_clip_id), cfg, rng, device))

@@ -303,7 +303,7 @@ def generate(
                 sf.write(str(_mk(out / path)), y, VOICE_SR)
                 rows.append([path, "imitation", "", f"{rec.recording_id}_A", rec.category, "", "", "", imitator["id"]])
 
-    with open(out / "metadata.csv", "w", newline="") as f:
+    with open(out / "metadata.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(
             ["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id"]

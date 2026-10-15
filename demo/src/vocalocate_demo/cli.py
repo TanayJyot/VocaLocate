@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.small and args.epochs == TrainConfig().epochs:
             tcfg.epochs, tcfg.ft_epochs = 6, 3
         run_demo(args.workdir, cfg, tcfg, mcfg, small=args.small, sweep=args.sweep)
-        print((args.workdir / "report.md").read_text())
+        print((args.workdir / "report.md").read_text(encoding="utf-8"))
     elif args.command == "train":
         from .experiment import run_experiment
         from .report import write_report
@@ -117,13 +117,13 @@ def main(argv: list[str] | None = None) -> int:
         results = run_experiment(cfg, args.source, tcfg, mcfg, sweep=args.sweep)
         out = cfg.lake_root / "models" / args.source / "report.md"
         write_report(results, out)
-        print(out.read_text())
+        print(out.read_text(encoding="utf-8"))
     elif args.command == "summarize":
         from .summarize import summarize
 
         text = summarize(args.runs)
         if args.out:
-            args.out.write_text(text)
+            args.out.write_text(text, encoding="utf-8")
         print(text)
     elif args.command == "search":
         from . import train as T

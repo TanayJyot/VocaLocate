@@ -94,4 +94,4 @@ def write_report(results: dict, path: Path) -> None:
         for q in demo["queries"]:
             ranks = " | ".join(str(v["target_rank"]) for v in q["results"].values())
             lines.append(f"| `{Path(q['query']).name}` | {q['category']} | {ranks} |")
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
