@@ -23,3 +23,21 @@ def test_fit_frames_pads_and_crops():
     padded = fit_frames(mel, 8)
     assert padded.shape == (4, 8) and np.all(padded[:, 5:] == PAD_VALUE)
     assert fit_frames(np.arange(40, dtype=np.float32).reshape(4, 10), 3).shape == (4, 3)
+
+
+def test_summarize_averages_seeds(tmp_path):
+    import json
+
+    from vocalocate_demo.summarize import summarize
+
+    def run(seed, base, mined):
+        test = lambda mrr: {"recall@1": mrr, "recall@5": mrr, "mrr": mrr, "fine_mrr": mrr, "ndcg@10": mrr}
+        return {"train_config": {"seed": seed}, "mining": {},
+                "models": {"baseline": {"test": test(base), "val": {"mrr": base}},
+                           "metadata": {"test": test(mined), "val": {"mrr": mined}}}}
+
+    for seed, (b, m) in {1: (0.4, 0.5), 2: (0.4, 0.3)}.items():
+        (tmp_path / f"s{seed}").mkdir()
+        (tmp_path / f"s{seed}" / "results.json").write_text(json.dumps(run(seed, b, m)))
+    text = summarize([tmp_path / "s1", tmp_path / "s2"])
+    assert "0.400 ± 0.100" in text and "+0.000 (1/2 seeds better)" in text

@@ -4,6 +4,7 @@
     generate  write the synthetic dataset only
     train     baseline + mining + fine-tuning + evaluation on a source already in the lake
     search    index a folder and search it with a recorded imitation
+    summarize average results over several seeds
 """
 
 from __future__ import annotations
@@ -65,6 +66,10 @@ def _parser() -> argparse.ArgumentParser:
     t.add_argument("--source", default="sfx_meta", help="pipeline source with imitation/reference pairs")
     _train_args(t)
 
+    sm = sub.add_parser("summarize", help="average several runs' results.json (mean ± std over seeds)")
+    sm.add_argument("runs", type=Path, nargs="+", help="workdirs or results.json files")
+    sm.add_argument("--out", type=Path, help="also write the table to this file")
+
     s = sub.add_parser("search", help="search a folder of SFX with a vocal imitation")
     s.add_argument("--root", type=Path, action="append", required=True, help="library folder (repeatable)")
     s.add_argument("--name", default="default", help="library name")
@@ -113,6 +118,13 @@ def main(argv: list[str] | None = None) -> int:
         out = cfg.lake_root / "models" / args.source / "report.md"
         write_report(results, out)
         print(out.read_text())
+    elif args.command == "summarize":
+        from .summarize import summarize
+
+        text = summarize(args.runs)
+        if args.out:
+            args.out.write_text(text)
+        print(text)
     elif args.command == "search":
         from . import train as T
         from .experiment import model_dir
