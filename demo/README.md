@@ -103,7 +103,39 @@ any source already in a lake. For example, VimSketch after
 
 ## Results
 
-RESULTS_PLACEHOLDER
+One CPU run of `vocalocate-demo run` (seed 490, 30 baseline + 12 fine-tuning
+epochs, no sweep; 12 minutes on a 4-core laptop-class CPU). Test split: 185
+imitation queries against 138 candidate SFX from 37 held-out recordings.
+
+| model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | val MRR |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| QVIM baseline | 0.200 | 0.714 | 0.421 | 0.492 | 0.615 | 0.564 |
+| Control: random negatives | 0.200 | 0.714 | 0.421 | 0.492 | 0.615 | 0.564 |
+| **A. retrieval-driven** | 0.232 | 0.627 | 0.408 | 0.487 | 0.582 | 0.575 |
+| **B. metadata-guided** | 0.232 | 0.714 | 0.427 | 0.504 | 0.596 | 0.580 |
+
+| mined negatives | mean baseline rank | mean gap s+ − s− | same category | unrelated |
+| --- | ---: | ---: | ---: | ---: |
+| A. retrieval-driven | 9.5 | 0.17 | 65% | 18% |
+| B. metadata-guided | 9.8 | 0.17 | 93% | 0% |
+| random | 197 | 0.87 | 7% | 70% |
+
+How to read this:
+
+* Random negatives never beat the baseline on validation, so model selection
+  kept the baseline weights. Easy negatives add nothing. Both mining
+  approaches did improve validation MRR and test Recall@1.
+* On test, B is a little better than the baseline on MRR and fine-grained MRR
+  (its negatives are almost all same-category). A gains Recall@1 but loses
+  Recall@5 and MRR.
+* Both lose some nDCG@10. Pushing apart same-category SFX also pushes down the
+  "usable substitute" takes that nDCG gives partial credit for. This is the
+  false-negative risk from the mining table showing up in a metric.
+* This is one seed on a small test set, so differences of a few hundredths
+  are within noise. The retrieval-driven filter also removed ~15% of top-K
+  candidates as near-duplicates, which may be too aggressive. Use `--sweep`
+  (validation-only tuning of the band and the near-duplicate cutoff) and
+  several `--seed`s before drawing conclusions.
 
 ## Limits and next steps
 
