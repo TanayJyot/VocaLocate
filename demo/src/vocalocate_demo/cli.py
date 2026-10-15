@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 from vocalocate_pipeline.config import load_config
@@ -90,6 +91,10 @@ def _default_config(args) -> Path | None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    # Reports contain characters like "−" and "Δ"; Windows consoles and redirects default to cp1252.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(asctime)s %(message)s")
     lake = args.lake
     if args.command == "run" and lake is None:

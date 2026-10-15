@@ -103,39 +103,45 @@ any source already in a lake. For example, VimSketch after
 
 ## Results
 
-One CPU run of `vocalocate-demo run` (seed 490, 30 baseline + 12 fine-tuning
-epochs, no sweep; 12 minutes on a 4-core laptop-class CPU). Test split: 185
-imitation queries against 138 candidate SFX from 37 held-out recordings.
+5 seeds (490–494) on an RTX 3070 Laptop GPU: `vocalocate-demo run --sweep
+--device cuda --epochs 60 --ft-epochs 20 --seed <s>`, about 5 minutes per seed.
+Each seed's test split has 185 imitation queries against 138 candidate SFX.
+Mean ± std over seeds; Δ MRR is each model minus the same seed's baseline.
 
-| model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | val MRR |
+| model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | Δ MRR vs baseline |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| QVIM baseline | 0.200 | 0.714 | 0.421 | 0.492 | 0.615 | 0.564 |
-| Control: random negatives | 0.200 | 0.714 | 0.421 | 0.492 | 0.615 | 0.564 |
-| **A. retrieval-driven** | 0.232 | 0.627 | 0.408 | 0.487 | 0.582 | 0.575 |
-| **B. metadata-guided** | 0.232 | 0.714 | 0.427 | 0.504 | 0.596 | 0.580 |
+| QVIM baseline | 0.197 ± 0.030 | 0.712 ± 0.038 | 0.423 ± 0.023 | 0.498 ± 0.028 | 0.605 ± 0.015 | – |
+| Control: random negatives | 0.205 ± 0.033 | 0.719 ± 0.048 | 0.429 ± 0.025 | 0.503 ± 0.025 | 0.605 ± 0.018 | +0.006 (better on 2/5 seeds) |
+| **A. retrieval-driven** | 0.219 ± 0.038 | 0.722 ± 0.046 | 0.434 ± 0.036 | 0.512 ± 0.018 | 0.602 ± 0.031 | +0.011 (3/5) |
+| **B. metadata-guided** | 0.224 ± 0.031 | 0.724 ± 0.044 | 0.443 ± 0.034 | 0.517 ± 0.027 | 0.605 ± 0.019 | +0.021 (3/5) |
 
-| mined negatives | mean baseline rank | mean gap s+ − s− | same category | unrelated |
-| --- | ---: | ---: | ---: | ---: |
-| A. retrieval-driven | 9.5 | 0.17 | 65% | 18% |
-| B. metadata-guided | 9.8 | 0.17 | 93% | 0% |
-| random | 197 | 0.87 | 7% | 70% |
+Mined negatives (seed 491; the other seeds are similar):
+
+| strategy | mean baseline rank | mean gap s+ − s− | relation to target |
+| --- | ---: | ---: | --- |
+| A. retrieval-driven | 7.1 | 0.13 | 71% same category, 15% unrelated |
+| B. metadata-guided | 7.5 | 0.13 | 84% same category, 16% shared tags |
+| random | 193 | 0.79 | 68% unrelated |
 
 How to read this:
 
-* Random negatives never beat the baseline on validation, so model selection
-  kept the baseline weights. Easy negatives add nothing. Both mining
-  approaches did improve validation MRR and test Recall@1.
-* On test, B is a little better than the baseline on MRR and fine-grained MRR
-  (its negatives are almost all same-category). A gains Recall@1 but loses
-  Recall@5 and MRR.
-* Both lose some nDCG@10. Pushing apart same-category SFX also pushes down the
-  "usable substitute" takes that nDCG gives partial credit for. This is the
-  false-negative risk from the mining table showing up in a metric.
-* This is one seed on a small test set, so differences of a few hundredths
-  are within noise. The retrieval-driven filter also removed ~15% of top-K
-  candidates as near-duplicates, which may be too aggressive. Use `--sweep`
-  (validation-only tuning of the band and the near-duplicate cutoff) and
-  several `--seed`s before drawing conclusions.
+* The ordering is B > A > random > baseline on R@1, MRR and fine-grained MRR.
+  It matches what the mining table predicts: candidate-side negatives that are
+  hard and related teach finer distinctions than easy random ones.
+* **The gains are small and not yet significant.** Seed-to-seed spread
+  (≈0.03 MRR) is larger than the mean gains (+0.01 to +0.02), and each
+  approach beats the baseline on only 3 of 5 seeds. nDCG@10 is unchanged:
+  pushing apart same-category SFX also pushes down the other takes that nDCG
+  counts as usable substitutes. That is the false-negative risk in the doc.
+* Validation picked different band / near-duplicate settings on different
+  seeds (`summarize` lists them), so the setting matters less than the noise
+  at this scale.
+* To get a clear answer we need more test queries and a stronger encoder,
+  i.e. real data (VimSketch + the Vocal Imitation Set's same-class
+  recordings) and the pretrained MobileNetV3, not more seeds of the synthetic set.
+
+The first single-seed CPU run (30 + 12 epochs, no sweep) gave the same
+ordering for B but not for A. See the commit history for that table.
 
 ## Limits and next steps
 
