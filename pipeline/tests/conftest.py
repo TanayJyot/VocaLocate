@@ -87,3 +87,28 @@ def qvim_dir(tmp_path) -> Path:
 def _mk(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+@pytest.fixture
+def sfx_meta_dir(tmp_path) -> Path:
+    """Two recordings with a reference and an extra take each, one distractor, three imitations."""
+    root = tmp_path / "sfx_meta"
+    rows = [
+        # file, role, sound_id, imitates, category, tags, recording_id
+        ("sfx/bell_A.wav", "reference", "bell_A", "", "bell", "metallic;ringing", "bell"),
+        ("sfx/bell_B.wav", "library", "bell_B", "", "bell", "metallic;ringing", "bell"),
+        ("sfx/gong_A.wav", "reference", "gong_A", "", "bell", "metallic;low", "gong"),
+        ("sfx/gong_B.wav", "library", "gong_B", "", "bell", "metallic;low", "gong"),
+        ("sfx/buzz.wav", "library", "buzz", "", "buzzer", "electronic", ""),
+        ("imitations/a/bell_0.wav", "imitation", "", "bell_A", "bell", "", ""),
+        ("imitations/b/bell_1.wav", "imitation", "", "bell_A", "bell", "", ""),
+        ("imitations/a/gong_0.wav", "imitation", "", "gong_A", "bell", "", ""),
+    ]
+    with open(_mk(root / "metadata.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id"])
+        for i, (name, role, sid, imit, cat, tags, rec) in enumerate(rows):
+            sr = 16_000 if role == "imitation" else 44_100
+            write(root / name, tone(300 + 97 * i, 1.5, sr), sr)
+            w.writerow([name, role, sid, imit, cat, tags, rec, "", name.split("/")[1] if role == "imitation" else ""])
+    return root

@@ -8,6 +8,7 @@ files that are new or changed.
 from __future__ import annotations
 
 import logging
+import multiprocessing
 import os
 import secrets
 from collections.abc import Iterable
@@ -126,7 +127,8 @@ def _run_parallel(jobs: list[tuple], cfg: PipelineConfig) -> list[dict]:
         return []
     if cfg.workers <= 1:
         return [process_clip(*job, cfg) for job in jobs]
-    with ProcessPoolExecutor(max_workers=cfg.workers) as pool:
+    # spawn, not fork: callers such as the search app may already run threaded code (e.g. torch).
+    with ProcessPoolExecutor(max_workers=cfg.workers, mp_context=multiprocessing.get_context("spawn")) as pool:
         futures = [pool.submit(process_clip, *job, cfg) for job in jobs]
         return [f.result() for f in futures]
 
@@ -291,6 +293,16 @@ def run_dataset_flow(source: str, root: Path, cfg: PipelineConfig, load: bool = 
             if q["source_key"] in clip_by_key
         ]
         lake.write("queries", source, to_table("queries", queries))
+        metadata = [
+            {
+                "clip_id": clip_by_key[m["source_key"]]["clip_id"],
+                "source": source,
+                **{k: v for k, v in m.items() if k != "source_key"},
+            }
+            for m in result.metadata
+            if m["source_key"] in clip_by_key
+        ]
+        lake.write("sfx_metadata", source, to_table("sfx_metadata", metadata))
     except Exception as exc:
         _record_run(lake, summary, cfg, started, "failed", f"{type(exc).__name__}: {exc}")
         raise

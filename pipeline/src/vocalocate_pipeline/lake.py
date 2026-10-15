@@ -4,9 +4,9 @@
       bronze/<source>/...                         raw downloads, never modified
       bronze/tables/raw_files/<source>.parquet    manifest of raw files
       silver/audio/<source>/<id[:2]>/<id>.wav     clean 32 kHz mono audio
-      silver/tables/{clips,pairs,queries}/<source>.parquet
+      silver/tables/{clips,pairs,queries,sfx_metadata}/<source>.parquet
       gold/features/<source>/<id[:2]>/<id>.npy    log-mel features (float16)
-      gold/tables/{features,splits}/<source>.parquet
+      gold/tables/{features,splits,embeddings,hard_negatives}/<part>.parquet
       state/library_files/<library>.parquet       incremental-indexing state
       runs/<run_id>.parquet                       one row per pipeline run
       warehouse/vocalocate.duckdb                 query layer over all tables
@@ -30,8 +30,11 @@ TABLE_LAYER = {
     "clips": "silver/tables",
     "pairs": "silver/tables",
     "queries": "silver/tables",
+    "sfx_metadata": "silver/tables",
     "features": "gold/tables",
     "splits": "gold/tables",
+    "embeddings": "gold/tables",
+    "hard_negatives": "gold/tables",
     "library_files": "state",
     "pipeline_runs": "runs",
 }
