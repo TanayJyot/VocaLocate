@@ -66,12 +66,18 @@ def write_report(results: dict, path: Path) -> None:
             "",
             f"Retrieval-driven filtering removed {r.get('filtered_same_recording', 0)} other takes of the target's "
             f"recording (metadata) and {r.get('filtered_near_duplicate', 0)} audio near-duplicates from the top-"
-            f"{r['config']['top_k']} lists; {r.get('above_positive', 0)} candidates scored above the positive and were "
+            f"{r['config']['top_k']} lists (band {r['config']['band']}, near-duplicate quantile {r['config']['dup_quantile']}); {r.get('above_positive', 0)} candidates scored above the positive and were "
             "left out as too risky.",
         ]
     m = results["mining"].get("metadata", {})
     if m:
         lines.append(f"The metadata-guided pools held {m.get('mean_metadata_pool_size', 0)} related SFX per target on average.")
+
+    if results.get("sweep") and len(results["sweep"]) > len(results["mining"]):
+        lines += ["", "## Validation sweep (stage 5)", "", "| strategy | band | dup quantile | val MRR |",
+                  "| --- | ---: | ---: | ---: |"]
+        for row in results["sweep"]:
+            lines.append(f"| {row['strategy']} | {row['band']} | {row['dup_quantile']} | {row['val_mrr']:.3f} |")
 
     demo = results.get("search_demo")
     if demo:

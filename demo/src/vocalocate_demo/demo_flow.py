@@ -15,7 +15,6 @@ import json
 import logging
 import shutil
 import time
-from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -119,6 +118,7 @@ def run_demo(
     mcfg: MiningConfig,
     small: bool = False,
     n_queries: int = 6,
+    sweep: bool = False,
 ) -> dict:
     workdir.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -129,14 +129,13 @@ def run_demo(
         generate(data_dir, **kwargs)
     log.info("running the A2 dataset flow")
     flow = run_dataset_flow(SOURCE, data_dir, cfg)
-    results = run_experiment(cfg, SOURCE, tcfg, mcfg)
+    results = run_experiment(cfg, SOURCE, tcfg, mcfg, sweep=sweep)
     results["pipeline_run"] = flow.as_dict()
     results["quality"] = [list(r) for r in warehouse.query(cfg, "SELECT * FROM v_clip_quality")]
 
     queries = build_messy_library(cfg, workdir, n_queries)
     results["search_demo"] = demo_searches(cfg, workdir, queries)
     results["total_sec"] = round(time.time() - t0, 1)
-    results["mining_config"] = asdict(mcfg)
     (workdir / "results.json").write_text(json.dumps(results, indent=2, default=str))
     write_report(results, workdir / "report.md")
     return results

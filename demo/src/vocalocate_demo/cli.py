@@ -33,6 +33,7 @@ def _train_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--top-k", type=int, default=m.top_k, help="retrieval-driven: candidates per query")
     p.add_argument("--band", type=float, default=m.band, help="semi-hard band below the positive score")
     p.add_argument("--n-neg", type=int, default=m.n_neg, help="negatives kept per imitation")
+    p.add_argument("--sweep", action="store_true", help="tune band / near-duplicate cutoff per strategy on validation")
 
 
 def _configs(args) -> tuple[TrainConfig, MiningConfig]:
@@ -101,14 +102,14 @@ def main(argv: list[str] | None = None) -> int:
         tcfg, mcfg = _configs(args)
         if args.small and args.epochs == TrainConfig().epochs:
             tcfg.epochs, tcfg.ft_epochs = 6, 3
-        run_demo(args.workdir, cfg, tcfg, mcfg, small=args.small)
+        run_demo(args.workdir, cfg, tcfg, mcfg, small=args.small, sweep=args.sweep)
         print((args.workdir / "report.md").read_text())
     elif args.command == "train":
         from .experiment import run_experiment
         from .report import write_report
 
         tcfg, mcfg = _configs(args)
-        results = run_experiment(cfg, args.source, tcfg, mcfg)
+        results = run_experiment(cfg, args.source, tcfg, mcfg, sweep=args.sweep)
         out = cfg.lake_root / "models" / args.source / "report.md"
         write_report(results, out)
         print(out.read_text())
