@@ -16,6 +16,9 @@ ROLES = {"reference", "imitation", "library"}
 STATUSES = {"ok", "rejected", "duplicate"}
 SPLITS = {"train", "val", "test"}
 LIBRARY_STATUSES = {"active", "deleted"}
+TOWERS = {"sfx", "imitation", "clap_audio"}
+MINING_STRATEGIES = {"retrieval", "metadata", "random"}
+MINING_SELECTIONS = {"band", "fallback", "random"}
 
 
 def _schema(*cols: tuple[str, pa.DataType, bool]) -> pa.Schema:
@@ -85,6 +88,18 @@ QUERIES = _schema(
     ("target_group_key", pa.string(), False),
 )
 
+# Silver: optional semantic metadata per SFX (the SFX_Metadata wish-list schema).
+# Only training-time mining and analysis read it; the deployed search never does.
+SFX_METADATA = _schema(
+    ("clip_id", pa.string(), False),
+    ("source", pa.string(), False),
+    ("category", pa.string(), True),
+    ("description", pa.string(), True),
+    ("tags", pa.list_(pa.string()), True),
+    # Clips cut from the same original recording share this ID (e.g. a Freesound ID).
+    ("recording_id", pa.string(), True),
+)
+
 # Gold: cached log-mel features and a fixed-size summary vector per clean clip.
 FEATURES = _schema(
     ("clip_id", pa.string(), False),
@@ -103,6 +118,31 @@ SPLITS_TABLE = _schema(
     ("group_key", pa.string(), False),
     ("split", pa.string(), False),
     ("strategy", pa.string(), False),
+)
+
+# Gold: encoder embeddings, cached per clip and model so re-indexing only embeds new clips.
+EMBEDDINGS = _schema(
+    ("clip_id", pa.string(), False),
+    ("source", pa.string(), False),
+    ("model_version", pa.string(), False),
+    ("tower", pa.string(), False),  # "sfx" or "imitation" (QVIM towers), or "clap_audio"
+    ("vector", pa.list_(pa.float32()), False),
+)
+
+# Gold: mined semi-hard negatives for fine-tuning. This is the "mined hard negatives"
+# dataset from A2 Part Two: the relevance schema with a model score instead of a human rating.
+HARD_NEGATIVES = _schema(
+    ("strategy", pa.string(), False),  # retrieval or metadata
+    ("model_version", pa.string(), False),  # the model that scored the candidates
+    ("imitation_clip_id", pa.string(), False),
+    ("positive_clip_id", pa.string(), False),
+    ("negative_clip_id", pa.string(), False),
+    ("negative_rank", pa.int32(), False),  # rank of the negative in the model's retrieval list
+    ("positive_score", pa.float32(), False),
+    ("negative_score", pa.float32(), False),
+    ("selection", pa.string(), False),  # band, fallback or random
+    ("relation", pa.string(), True),  # how metadata relates the negative to the target
+    ("run_id", pa.string(), False),
 )
 
 # State for incremental indexing of a user's own library.
@@ -141,8 +181,11 @@ TABLES: dict[str, pa.Schema] = {
     "clips": CLIPS,
     "pairs": PAIRS,
     "queries": QUERIES,
+    "sfx_metadata": SFX_METADATA,
     "features": FEATURES,
     "splits": SPLITS_TABLE,
+    "embeddings": EMBEDDINGS,
+    "hard_negatives": HARD_NEGATIVES,
     "library_files": LIBRARY_FILES,
     "pipeline_runs": PIPELINE_RUNS,
 }
@@ -152,6 +195,8 @@ _ENUMS: dict[str, dict[str, set[str]]] = {
     "clips": {"role": ROLES, "status": STATUSES},
     "splits": {"split": SPLITS},
     "library_files": {"status": LIBRARY_STATUSES},
+    "embeddings": {"tower": TOWERS},
+    "hard_negatives": {"strategy": MINING_STRATEGIES, "selection": MINING_SELECTIONS},
 }
 
 

@@ -49,7 +49,7 @@ def test_team_recordings_produce_text_hint_queries(tmp_path):
     root = tmp_path / "team"
     write(root / "carmen" / "creak.wav", tone(300, 1, 48_000), 48_000)
     write(root / "carmen" / "thud.wav", tone(80, 1, 48_000), 48_000)
-    with open(root / "recordings.csv", "w", newline="") as f:
+    with open(root / "recordings.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["file", "imitator_id", "target_group_key", "text_hint", "hint_type"])
         w.writerow(["carmen/creak.wav", "carmen", "esc50:200", "wooden", "material"])

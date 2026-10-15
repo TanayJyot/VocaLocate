@@ -21,8 +21,9 @@ and the folder layout is in [`lake.py`](src/vocalocate_pipeline/lake.py).
 
 ## Two flows
 
-* **Dataset flow** (`ingest-dataset`): VimSketch, the QVIM DEV set, ESC-50 and
-  team recordings. Run when a dataset is first downloaded, when its version
+* **Dataset flow** (`ingest-dataset`): VimSketch, the QVIM DEV set, ESC-50,
+  team recordings and `sfx_meta` (any SFX set with a category/tags/recording
+  metadata CSV). Run when a dataset is first downloaded, when its version
   changes, or when the cleaning/feature settings change.
 * **Library flow** (`index-library`): a user's SFX folders, processed
   incrementally. Unchanged files are skipped by size and modification time,
@@ -65,5 +66,9 @@ seconds.
 
 See the "Next steps" section of the A2 write-up. In short: Prefect
 orchestration and schedules, S3/MinIO storage, speech filtering for library
-files, Freesound and freesound-laion-640k ingestion, augmentation, hard-negative
-mining, FAISS indexing, and a parity test against the torchaudio feature code.
+files, Freesound and freesound-laion-640k ingestion, augmentation, FAISS indexing, and
+a parity test against the torchaudio feature code.
+
+Hard-negative mining and encoder embeddings now have tables here
+(`hard_negatives`, `embeddings`, plus `sfx_metadata` and the `sfx_meta`
+ingester); the code that fills them is in [`../demo`](../demo).

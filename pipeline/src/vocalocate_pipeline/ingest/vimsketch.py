@@ -27,7 +27,7 @@ def reference_name(filename: str) -> str:
 def _list(root: Path, folder: str, csv_name: str) -> list[str]:
     listing = root / csv_name
     if listing.exists():
-        return [line.strip() for line in listing.read_text().splitlines() if line.strip()]
+        return [line.strip() for line in listing.read_text(encoding="utf-8").splitlines() if line.strip()]
     return sorted(p.name for p in (root / folder).iterdir() if p.suffix.lower() in AUDIO_EXTENSIONS)
 
 

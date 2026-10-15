@@ -26,14 +26,14 @@ def test_cli_overrides_win_over_the_file(tmp_path):
 
 def test_unknown_config_key_is_an_error(tmp_path):
     bad = tmp_path / "bad.toml"
-    bad.write_text("[audio]\nsample_rte = 16000\n")
+    bad.write_text("[audio]\nsample_rte = 16000\n", encoding="utf-8")
     with pytest.raises(ValueError, match="sample_rte"):
         load_config(bad)
 
 
 def test_fingerprint_changes_with_output_settings_only(tmp_path):
     custom = tmp_path / "c.toml"
-    custom.write_text("[features]\nn_mels = 64\n")
+    custom.write_text("[features]\nn_mels = 64\n", encoding="utf-8")
     assert load_config(custom).fingerprint() != load_config().fingerprint()
     # Where the lake lives does not change what the pipeline produces.
     assert load_config(lake_root=tmp_path).fingerprint() == load_config().fingerprint()

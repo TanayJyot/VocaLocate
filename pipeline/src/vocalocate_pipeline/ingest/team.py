@@ -27,7 +27,7 @@ def ingest(root: Path) -> IngestResult:
     if not meta.exists():
         raise FileNotFoundError(f"Team recordings manifest not found at {meta}")
     files, queries, missing = [], [], []
-    with open(meta, newline="") as f:
+    with open(meta, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             path = root / row["file"]
             if not path.exists():

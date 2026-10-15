@@ -8,3 +8,7 @@ lake/
 pipeline/lake/
 *.duckdb
 *.duckdb.tmp
+
+# Demo outputs
+demo_out/
+demo/demo_out/

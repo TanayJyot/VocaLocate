@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vocalocate-demo"
+version = "0.1.0"
+description = "VocaLocate demos: retrieval-driven and metadata-guided semi-hard negative mining for query-by-vocal-imitation, on top of the A2 data pipeline."
+requires-python = ">=3.10"
+dependencies = [
+    "vocalocate-pipeline",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "soundfile>=0.12",
+    "pandas>=2.0",
+    "duckdb>=0.10",
+    "torch>=2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+# CLAP text branch (--text-branch, search --text)
+text = ["transformers>=4.40"]  # 4.x and 5.x both work
+
+[project.scripts]
+vocalocate-demo = "vocalocate_demo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vocalocate_demo = ["ui/*", "efficientat/LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

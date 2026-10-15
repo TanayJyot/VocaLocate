@@ -48,7 +48,7 @@ def ingest(root: Path) -> IngestResult:
             )
         )
 
-    with open(meta, newline="") as f:
+    with open(meta, newline="", encoding="utf-8") as f:
         next(f)  # the file has a title row above the header
         for row in csv.DictReader(f):
             cls, item = row["Class"], row["Items"]

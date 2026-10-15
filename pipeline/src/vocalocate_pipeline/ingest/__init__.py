@@ -53,21 +53,24 @@ class IngestResult:
     files: list[RawFile]
     # Text hints that come with some imitations (team recordings only, for now).
     queries: list[dict] = field(default_factory=list)
+    # Semantic metadata for SFX, keyed by source_key (sfx_meta only, for now).
+    metadata: list[dict] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
 
 
 def _registry() -> dict[str, Callable[[Path], IngestResult]]:
-    from . import esc50, qvim_dev, team, vimsketch
+    from . import esc50, qvim_dev, sfx_meta, team, vimsketch
 
     return {
         "esc50": esc50.ingest,
         "vimsketch": vimsketch.ingest,
         "qvim_dev": qvim_dev.ingest,
         "team": team.ingest,
+        "sfx_meta": sfx_meta.ingest,
     }
 
 
-SOURCES = ("esc50", "vimsketch", "qvim_dev", "team")
+SOURCES = ("esc50", "vimsketch", "qvim_dev", "team", "sfx_meta")
 
 
 def ingest(source: str, root: Path) -> IngestResult:
