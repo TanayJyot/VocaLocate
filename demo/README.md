@@ -80,6 +80,10 @@ A local web UI over the same pipeline and models, following the product flow:
    copy path and drag-and-drop into an editor. Changing the hint or model reruns the search
    without re-embedding the query or the library.
 
+| Search | Results |
+| --- | --- |
+| ![Search page](docs/app_search.png) | ![Results page](docs/app_results.png) |
+
 The server is standard-library Python (`app.py`) and binds to localhost only. It serves only
 files that are in a library index.
 

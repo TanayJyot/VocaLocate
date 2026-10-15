@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>VocaLocate</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23d9480f'/%3E%3Cpath d='M6 12h2M9 8v8M12 5v14M15 8v8M18 12h0' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor"/></symbol>
+      <symbol id="i-drag" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></g></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></g></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></g></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></g></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="#/search" aria-label="VocaLocate home">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M6 12h1M9 8.5v7M12 6v12M15 8.5v7M18 12h0" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>
+          <strong>VocaLocate</strong>
+          <small>Find the sound in your head, in the library you already own.</small>
+        </span>
+      </a>
+      <nav class="tabs" aria-label="Main">
+        <a href="#/library" data-nav="library">Library</a>
+        <a href="#/search" data-nav="search">Search</a>
+        <a href="#/results" data-nav="results">Results</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap" id="main">
+    <div id="live" class="live" role="status" aria-live="polite"></div>
+
+    <!-- Library -->
+    <section id="view-library" class="view" hidden aria-labelledby="h-library">
+      <h1 id="h-library">Your sound library</h1>
+      <p class="lead">Point VocaLocate at the folders you already use. Each file is indexed once; re-indexing the same folders only processes new or changed files, so it is quick.</p>
+
+      <div class="card">
+        <h2>Indexed libraries</h2>
+        <div id="lib-list"></div>
+      </div>
+
+      <form id="lib-form" class="card" novalidate>
+        <h2>Add or re-index a library</h2>
+        <div class="field">
+          <label for="lib-name">Library name</label>
+          <input id="lib-name" name="name" type="text" value="default" autocomplete="off" required>
+        </div>
+        <fieldset class="field">
+          <legend>Folders</legend>
+          <p class="note">Absolute paths on the machine running VocaLocate, for example <code>/Users/me/SFX</code>. Nothing is uploaded; files are read in place.</p>
+          <div id="root-rows"></div>
+          <button type="button" class="btn ghost small" id="add-root">+ Add another folder</button>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn primary" id="index-btn">Index</button>
+        </div>
+        <div id="lib-error" class="error" hidden></div>
+      </form>
+
+      <div id="progress" class="card" hidden aria-live="polite"></div>
+    </section>
+
+    <!-- Search -->
+    <section id="view-search" class="view" hidden aria-labelledby="h-search">
+      <h1 id="h-search">Search by imitation</h1>
+      <p class="lead">Make the sound with your voice, add an optional hint, and VocaLocate ranks your library by similarity.</p>
+
+      <div class="card grid2">
+        <div class="field">
+          <label for="sel-library">Library</label>
+          <select id="sel-library"></select>
+        </div>
+        <div class="field">
+          <label for="sel-model">Model</label>
+          <select id="sel-model"></select>
+        </div>
+        <p id="lib-note" class="note span2"></p>
+      </div>
+
+      <div class="card">
+        <h2>1. Your imitation</h2>
+        <div class="capture">
+          <div class="rec-box">
+            <button type="button" class="rec-btn" id="rec-btn" aria-pressed="false">
+              <svg class="ico" aria-hidden="true"><use href="#i-record"/></svg>
+              <span id="rec-label">Record</span>
+            </button>
+            <div class="rec-meta">
+              <span id="rec-time" class="mono">0.0 s</span>
+              <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
+              <span class="note">Press <kbd>Space</kbd> to start or stop.</span>
+            </div>
+          </div>
+          <div class="or">or</div>
+          <div class="upload">
+            <label class="btn ghost" for="file-in">
+              <svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg> Upload audio file
+            </label>
+            <input id="file-in" type="file" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.webm" class="sr-only">
+            <p class="note">Any format your browser can decode; it is converted to WAV here.</p>
+          </div>
+        </div>
+
+        <div id="query-preview" class="query-preview" hidden>
+          <button type="button" class="btn icon" id="q-play" aria-label="Play imitation">
+            <svg class="ico" aria-hidden="true"><use href="#i-play"/></svg>
+          </button>
+          <canvas id="q-wave" height="48" aria-hidden="true"></canvas>
+          <div class="q-info"><span id="q-desc"></span><button type="button" class="link" id="q-clear">Clear</button></div>
+        </div>
+
+        <details id="examples" class="examples">
+          <summary>Try an example imitation</summary>
+          <ul id="example-list" class="example-list"></ul>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>2. Text hint <span class="muted">(optional)</span></h2>
+        <div class="field">
+          <label for="hint">Describe the sound in a word or two</label>
+          <input id="hint" type="text" autocomplete="off" placeholder="e.g. metallic, distant">
+        </div>
+        <div id="hint-chips" class="chips"></div>
+        <p id="hint-note" class="note"></p>
+      </div>
+
+      <div class="actions sticky">
+        <div id="search-error" class="error" hidden></div>
+        <button type="button" class="btn primary big" id="search-btn" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg> Search
+        </button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="view-results" class="view" hidden aria-labelledby="h-results">
+      <div class="results-head">
+        <button type="button" class="btn ghost" id="refine-btn">
+          <svg class="ico" aria-hidden="true"><use href="#i-back"/></svg> Refine search
+        </button>
+        <h1 id="h-results">Results</h1>
+      </div>
+      <div id="results-empty" class="card" hidden>
+        <p>No search yet. <a href="#/search">Record an imitation</a> to get started.</p>
+      </div>
+      <div id="results-body" hidden>
+        <div class="card summary">
+          <div class="summary-row">
+            <button type="button" class="btn icon" id="r-play" aria-label="Play your imitation">
+              <svg class="ico" aria-hidden="true"><use href="#i-play"/></svg>
+            </button>
+            <div>
+              <div id="r-query" class="r-query"></div>
+              <div id="r-stats" class="note"></div>
+            </div>
+          </div>
+          <div class="quick">
+            <div class="field">
+              <label for="r-model">Model</label>
+              <select id="r-model"></select>
+            </div>
+            <div class="field grow">
+              <label for="r-hint">Hint</label>
+              <input id="r-hint" type="text" autocomplete="off" placeholder="No hint">
+            </div>
+            <button type="button" class="btn primary" id="r-go">Update</button>
+          </div>
+          <div id="r-error" class="error" hidden></div>
+        </div>
+        <p class="note drag-hint">
+          <svg class="ico" aria-hidden="true"><use href="#i-drag"/></svg>
+          Drag a row into your editor or file manager to use the file. Preview plays the first 5 seconds.
+        </p>
+        <ol id="result-list" class="result-list"></ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot" id="foot"></footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

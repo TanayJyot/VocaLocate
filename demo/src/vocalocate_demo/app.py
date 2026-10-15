@@ -116,6 +116,10 @@ class AppState:
             clean.append(str(p.resolve()))
         lib = Library(name=name, roots=clean)
         with self.lock:
+            old = self.libraries.get(name)
+            if old is not None and old.roots == clean:
+                # Keep searching the previous index while the incremental re-index runs.
+                lib.indexes = dict(old.indexes)
             self.libraries[name] = lib
         threading.Thread(target=self._index, args=(lib,), daemon=True).start()
         return lib
@@ -211,7 +215,9 @@ class AppState:
         idx = next(iter(lib.indexes.values()), None) if lib else None
         if idx is None or not 0 <= i < len(idx.paths):
             raise KeyError("unknown file")
-        return Path(idx.paths[i])  # only files the library index knows about are ever served
+        # Every model's index of a library comes from the same ORDER BY path query, so ids agree
+        # across models. Only files the library index knows about are ever served.
+        return Path(idx.paths[i])
 
     def status(self) -> dict:
         return {
@@ -222,7 +228,10 @@ class AppState:
             "clap": getattr(self.clap, "version", None),
             "alphas": self.alphas,
             "libraries": [lib.public() for lib in self.libraries.values()],
-            "examples": [{k: e[k] for k in ("id", "name", "category", "hint")} for e in self.examples],
+            "examples": [
+                {**{k: e[k] for k in ("id", "name", "category", "hint")}, "target": Path(e["target"]).name}
+                for e in self.examples
+            ],
             "hints": HINT_SUGGESTIONS,
         }
 
