@@ -140,10 +140,26 @@ any source already in a lake. For example, VimSketch after
 
 ## Results
 
-5 seeds (490–494) on an RTX 3070 Laptop GPU: `vocalocate-demo run --sweep
---device cuda --epochs 60 --ft-epochs 20 --seed <s>`, about 5 minutes per seed.
-Each seed's test split has 185 imitation queries against 138 candidate SFX.
+All runs: 5 seeds (490–494) on an RTX 3070 Laptop GPU, `--sweep` (mining settings tuned on
+validation only). Each seed's test split has 185 imitation queries against 138 candidate SFX.
 Mean ± std over seeds; Δ MRR is each model minus the same seed's baseline.
+
+### Pretrained MobileNetV3 (`--encoder mobilenetv3 --text-branch`, 30 + 10 epochs, 8–18 min per seed)
+
+| model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | Δ MRR vs baseline |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| QVIM baseline | 0.309 ± 0.019 | 0.811 ± 0.018 | 0.530 ± 0.013 | 0.538 ± 0.012 | 0.762 ± 0.006 | – |
+| Control: random negatives | 0.309 ± 0.019 | 0.811 ± 0.018 | 0.530 ± 0.013 | 0.538 ± 0.012 | 0.762 ± 0.006 | +0.000 (better on 0/5 seeds) |
+| **A. retrieval-driven** | 0.309 ± 0.017 | 0.813 ± 0.019 | 0.530 ± 0.013 | 0.539 ± 0.012 | 0.762 ± 0.006 | +0.000 (1/5) |
+| **B. metadata-guided** | 0.308 ± 0.018 | 0.813 ± 0.017 | 0.530 ± 0.013 | 0.538 ± 0.012 | 0.762 ± 0.006 | −0.000 (0/5) |
+
+Text branch (frozen `laion/clap-htsat-unfused`, 145 test imitations with a hint per seed):
+
+| | MRR voice only | MRR text only | MRR voice + text | α chosen on validation |
+| --- | ---: | ---: | ---: | ---: |
+| every model, every seed | 0.526–0.551 | 0.094 | = voice only | 1.0 (voice only) |
+
+### Small CNN from scratch (60 + 20 epochs, about 5 min per seed)
 
 | model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | Δ MRR vs baseline |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -152,38 +168,29 @@ Mean ± std over seeds; Δ MRR is each model minus the same seed's baseline.
 | **A. retrieval-driven** | 0.219 ± 0.038 | 0.722 ± 0.046 | 0.434 ± 0.036 | 0.512 ± 0.018 | 0.602 ± 0.031 | +0.011 (3/5) |
 | **B. metadata-guided** | 0.224 ± 0.031 | 0.724 ± 0.044 | 0.443 ± 0.034 | 0.517 ± 0.027 | 0.605 ± 0.019 | +0.021 (3/5) |
 
-Mined negatives (seed 491; the other seeds are similar):
+### How to read this
 
-| strategy | mean baseline rank | mean gap s+ − s− | relation to target |
-| --- | ---: | ---: | --- |
-| A. retrieval-driven | 7.1 | 0.13 | 71% same category, 15% unrelated |
-| B. metadata-guided | 7.5 | 0.13 | 84% same category, 16% shared tags |
-| random | 193 | 0.79 | 68% unrelated |
-
-How to read this:
-
-* The ordering is B > A > random > baseline on R@1, MRR and fine-grained MRR.
-  It matches what the mining table predicts: candidate-side negatives that are
-  hard and related teach finer distinctions than easy random ones.
-* **The gains are small and not yet significant.** Seed-to-seed spread
-  (≈0.03 MRR) is larger than the mean gains (+0.01 to +0.02), and each
-  approach beats the baseline on only 3 of 5 seeds. nDCG@10 is unchanged:
-  pushing apart same-category SFX also pushes down the other takes that nDCG
-  counts as usable substitutes. That is the false-negative risk in the doc.
-* Validation picked different band / near-duplicate settings on different
-  seeds (`summarize` lists them), so the setting matters less than the noise
-  at this scale.
-* To get a clear answer we need more test queries and a stronger encoder,
-  i.e. real data (VimSketch + the Vocal Imitation Set's same-class
-  recordings) and the pretrained MobileNetV3, not more seeds of the synthetic set.
-
-The first single-seed CPU run (30 + 12 epochs, no sweep) gave the same
-ordering for B but not for A. See the commit history for that table.
+* **The pretrained encoder is the big win.** MobileNetV3 pretrained on AudioSet lifts the baseline
+  from MRR 0.423 to 0.530 and nDCG@10 from 0.605 to 0.762, with much less seed-to-seed spread.
+  This is the encoder to build on.
+* **Mining helped the weak encoder a little and the strong one not at all.** With the CNN, the
+  ordering was B > A > random > baseline, but the gains (+0.01 to +0.02 MRR) were inside the
+  seed-to-seed noise. With MobileNetV3, 15 of the 20 fine-tuned models never beat the baseline on
+  validation, so model selection kept the baseline weights and the Δ column is 0. About 70% of the
+  mined negatives were fallbacks rather than in the semi-hard band: the pretrained embeddings leave
+  few candidates within 0.15 of the positive. The fine-tuning learning rate, epochs and band need
+  retuning for this encoder, and the synthetic set (99 training references) is likely too small
+  to show a mining effect on top of AudioSet pretraining.
+* **CLAP text hints add nothing on synthetic audio.** Text-only MRR is 0.094 (chance is about 0.04
+  for 138 candidates), so validation always picks α = 1 (voice only). Our procedural beeps, zaps
+  and clinks don't sound like the real-world audio CLAP was trained on, so hints like "metallic"
+  barely separate them. The text branch needs real SFX (BBC Sound Effects, or our team recordings
+  with hints) to be judged; on this data the honest result is "no effect".
+* **Next:** the same commands on real data (VimSketch + the Vocal Imitation Set's same-class
+  recordings as an `sfx_meta` CSV), with a lower fine-tuning learning rate and a sweep over the band.
 
 ## Limits and next steps
 
-* The Results section below is from the small CNN. The MobileNetV3 + CLAP
-  results replace it once the GPU runs finish.
 * The data is synthetic. With real data, approach B needs real metadata.
   VimSketch labels are one per reference, so they make no related pools. The
   Vocal Imitation Set's same-class recordings and AudioSet classes, or FSD50K
