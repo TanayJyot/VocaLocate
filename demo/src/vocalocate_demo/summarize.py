@@ -42,6 +42,32 @@ def summarize(paths: list[Path]) -> str:
         val = np.array([r["models"][name]["val"]["mrr"] for r in runs])
         delta = "–" if name == "baseline" else f"{d.mean():+.3f} ({wins}/{len(runs)} seeds better)"
         lines.append(f"| {MODEL_NAMES[name]} | " + " | ".join(cells) + f" | {delta} | {val.mean():.3f} |")
+    with_text = [r for r in runs if r.get("text", {}).get("models")]
+    if with_text:
+        lines += [
+            "",
+            f"Text branch ({with_text[0]['text']['clap']}), test imitations with a hint, mean ± std over "
+            f"{len(with_text)} seeds:",
+            "",
+            "| voice model | α | MRR voice only | MRR text only | MRR voice + text | Δ MRR from adding text |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+
+        def ms(values) -> str:
+            v = np.array(values)
+            return f"{v.mean():.3f} ± {v.std():.3f}"
+
+        for name in MODEL_NAMES:
+            rows = [r["text"]["models"][name] for r in with_text if name in r["text"]["models"]]
+            if len(rows) != len(with_text):
+                continue
+            gain = [m["test"]["fused"]["mrr"] - m["test"]["voice"]["mrr"] for m in rows]
+            wins = sum(g > 0 for g in gain)
+            lines.append(
+                f"| {MODEL_NAMES[name]} | {ms([m['alpha'] for m in rows])} | {ms([m['test']['voice']['mrr'] for m in rows])} | "
+                f"{ms([m['test']['text']['mrr'] for m in rows])} | {ms([m['test']['fused']['mrr'] for m in rows])} | "
+                f"{np.mean(gain):+.3f} ({wins}/{len(rows)} seeds better) |"
+            )
     sweeps = [row for r in runs for row in r.get("sweep", [])]
     if sweeps:
         lines += ["", "Mining settings picked by validation, per seed:", ""]
