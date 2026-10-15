@@ -28,6 +28,7 @@ def _train_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--batch-size", type=int, default=d.batch_size)
     p.add_argument("--frames", type=int, default=d.frames, help="log-mel frames per clip (10 ms each)")
     p.add_argument("--device", default="auto", help="auto, cpu, cuda or mps")
+    p.add_argument("--seed", type=int, default=d.seed, help="training and mining seed")
     m = MiningConfig()
     p.add_argument("--top-k", type=int, default=m.top_k, help="retrieval-driven: candidates per query")
     p.add_argument("--band", type=float, default=m.band, help="semi-hard band below the positive score")
@@ -37,9 +38,9 @@ def _train_args(p: argparse.ArgumentParser) -> None:
 def _configs(args) -> tuple[TrainConfig, MiningConfig]:
     tcfg = TrainConfig(
         epochs=args.epochs, ft_epochs=args.ft_epochs, batch_size=args.batch_size, frames=args.frames,
-        device=args.device,
+        device=args.device, seed=args.seed,
     )
-    return tcfg, MiningConfig(top_k=args.top_k, band=args.band, n_neg=args.n_neg)
+    return tcfg, MiningConfig(top_k=args.top_k, band=args.band, n_neg=args.n_neg, seed=args.seed)
 
 
 def _parser() -> argparse.ArgumentParser:
