@@ -16,6 +16,8 @@ What it contains, mirroring the real data:
   have to handle.
 * Distractor recordings with no imitations, like the extra same-class
   recordings of the Vocal Imitation Set or FSD50K used as a negative pool.
+* A short text hint ("metallic short", "high-pitched beep") for 75% of the
+  imitations, made from the target's tags, for the CLAP text branch.
 * Vocal imitations of each reference by several imitators. An imitation keeps
   the reference's loudness envelope, rhythm and pitch contour (folded into the
   voice range), but has a voice timbre, timing and pitch errors, background
@@ -247,6 +249,16 @@ def _tags(category: str, p: dict) -> list[str]:
     return tags
 
 
+HINT_TYPES = {"short": "length", "long": "length", "high-pitched": "pitch", "low-pitched": "pitch"}
+
+
+def _hint(tags: list[str], rng: np.random.Generator) -> tuple[str, str]:
+    """A short text hint like the team recordings': one or two of the target's tags, e.g. "metallic short"."""
+    picked = list(rng.choice(tags, size=int(rng.integers(1, 3)), replace=False))
+    types = sorted({HINT_TYPES.get(t, "quality") for t in picked})
+    return " ".join(picked), "+".join(types)
+
+
 def generate(
     out: Path,
     recordings_per_category: int = 14,
@@ -255,6 +267,7 @@ def generate(
     n_imitators: int = 8,
     categories: list[str] | None = None,
     seed: int = 490,
+    hint_rate: float = 0.75,
 ) -> Path:
     """Write the dataset to `out` in the sfx_meta layout and return the folder."""
     rng = np.random.default_rng(seed)
@@ -294,19 +307,24 @@ def generate(
             stereo = rng.random() < 0.3
             data = np.stack([audio, audio * 0.9], axis=1) if stereo else audio
             sf.write(str(_mk(out / path)), data, SFX_SR)
-            rows.append([path, role, sound_id, "", rec.category, tags, rec.recording_id, desc, ""])
+            take_tags = tags + (";distant" if take == "B_distant" else "")
+            rows.append([path, role, sound_id, "", rec.category, take_tags, rec.recording_id, desc, "", "", ""])
         if rec.imitated:
+            tag_list = _tags(rec.category, rec.params)
             for k, who in enumerate(rng.choice(len(imitators), imitations_per_reference, replace=False)):
                 imitator = imitators[who]
                 y = render_imitation(x, imitator, rng)
                 path = f"imitations/{imitator['id']}/{rec.recording_id}_{k}.wav"
                 sf.write(str(_mk(out / path)), y, VOICE_SR)
-                rows.append([path, "imitation", "", f"{rec.recording_id}_A", rec.category, "", "", "", imitator["id"]])
+                hint, hint_type = _hint(tag_list, rng) if rng.random() < hint_rate else ("", "")
+                rows.append([path, "imitation", "", f"{rec.recording_id}_A", rec.category, "", "", "", imitator["id"],
+                             hint, hint_type])
 
     with open(out / "metadata.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(
-            ["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id"]
+            ["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id",
+             "text_hint", "hint_type"]
         )
         w.writerows(rows)
     return out

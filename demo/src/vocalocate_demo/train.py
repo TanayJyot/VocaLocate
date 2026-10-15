@@ -32,6 +32,8 @@ log = logging.getLogger(__name__)
 @dataclass
 class TrainConfig:
     frames: int = 256  # 2.56 s at the pipeline's 10 ms hop
+    encoder: str = "cnn"  # "cnn" (from scratch) or "mobilenetv3" (AudioSet-pretrained EfficientAT mn10_as)
+    pretrained: str | None = "mn10_as"  # EfficientAT weights for the mobilenetv3 encoder
     dim: int = 128
     width: int = 16
     batch_size: int = 32
@@ -78,7 +80,7 @@ def embed(model: DualEncoder, ds: Dataset, ids: list[str], tower: str, cfg: Trai
     device = next(model.parameters()).device
     fn = model.embed_imitation if tower == "imitation" else model.embed_sfx
     out = [fn(_batch(ds, ids[i : i + bs], cfg, None, device)).cpu().numpy() for i in range(0, len(ids), bs)]
-    return np.concatenate(out) if out else np.zeros((0, cfg.dim), dtype=np.float32)
+    return np.concatenate(out) if out else np.zeros((0, model.hparams["dim"]), dtype=np.float32)
 
 
 def _unique_reference_batches(pairs, batch_size: int, rng: np.random.Generator) -> list[list[int]]:
@@ -167,7 +169,10 @@ def train_baseline(ds: Dataset, cfg: TrainConfig) -> tuple[DualEncoder, list[dic
     torch.set_num_threads(max(os.cpu_count() or 1, 1))
     _seed(cfg.seed)
     n_mels = ds.mel(ds.pairs.reference_clip_id.iloc[0]).shape[0]
-    model = DualEncoder(n_mels=n_mels, dim=cfg.dim, width=cfg.width, tau=cfg.tau).to(cfg.resolved_device())
+    model = DualEncoder(
+        n_mels=n_mels, dim=cfg.dim, width=cfg.width, tau=cfg.tau, encoder=cfg.encoder, pretrained=cfg.pretrained,
+        frames=cfg.frames,
+    ).to(cfg.resolved_device())
     return _fit(model, ds, cfg, cfg.epochs, cfg.lr, None, "baseline")
 
 
@@ -185,7 +190,8 @@ def save(model: DualEncoder, path, cfg: TrainConfig, extra: dict | None = None) 
 
 def load(path, device: str = "auto") -> tuple[DualEncoder, TrainConfig, dict]:
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
-    cfg = TrainConfig(**{**ckpt["train"], "device": device})
+    known = set(TrainConfig.__dataclass_fields__)
+    cfg = TrainConfig(**{**{k: v for k, v in ckpt["train"].items() if k in known}, "device": device})
     model = DualEncoder(**ckpt["hparams"])
     model.load_state_dict(ckpt["state"])
     return model.to(cfg.resolved_device()).eval(), cfg, ckpt

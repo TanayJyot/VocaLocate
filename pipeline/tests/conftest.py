@@ -106,9 +106,12 @@ def sfx_meta_dir(tmp_path) -> Path:
     ]
     with open(_mk(root / "metadata.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description", "imitator_id"])
+        w.writerow(["file", "role", "sound_id", "imitates", "category", "tags", "recording_id", "description",
+                    "imitator_id", "text_hint", "hint_type"])
         for i, (name, role, sid, imit, cat, tags, rec) in enumerate(rows):
             sr = 16_000 if role == "imitation" else 44_100
             write(root / name, tone(300 + 97 * i, 1.5, sr), sr)
-            w.writerow([name, role, sid, imit, cat, tags, rec, "", name.split("/")[1] if role == "imitation" else ""])
+            imitator = name.split("/")[1] if role == "imitation" else ""
+            hint = ("metallic", "quality") if name == "imitations/a/bell_0.wav" else ("", "")
+            w.writerow([name, role, sid, imit, cat, tags, rec, "", imitator, *hint])
     return root

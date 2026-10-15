@@ -27,7 +27,7 @@ from . import train as T
 from .experiment import MODEL_NAMES, model_dir, run_experiment
 from .mining import MiningConfig
 from .report import write_report
-from .search import embed_query, index_library, search
+from .search import embed_query, index_library, search, text_scores
 from .synth import generate
 
 log = logging.getLogger(__name__)
@@ -58,8 +58,9 @@ def build_messy_library(cfg: PipelineConfig, workdir: Path, n_queries: int, seed
 
     pairs = warehouse.query(
         cfg,
-        f"""SELECT p.imitation_clip_id, ri.uri, p.reference_clip_id, p.label FROM v_training_pairs p
+        f"""SELECT p.imitation_clip_id, ri.uri, p.reference_clip_id, p.label, q.text_hint FROM v_training_pairs p
             JOIN raw_files ri ON ri.source = p.source AND ri.file_sha256 = p.imitation_clip_id
+            LEFT JOIN queries q ON q.source = p.source AND q.imitation_clip_id = p.imitation_clip_id
             WHERE p.source = '{SOURCE}' AND p.split = 'test' ORDER BY p.imitation_clip_id""",
     )
     # One query per reference, spread over categories.
@@ -75,18 +76,18 @@ def build_messy_library(cfg: PipelineConfig, workdir: Path, n_queries: int, seed
             seen_cat.add(row[3])
     qdir.mkdir(parents=True, exist_ok=True)
     queries = []
-    for _, uri, ref, label in picked:
+    for _, uri, ref, label, hint in picked:
         dest = qdir / f"{Path(uri).stem}.wav"
         shutil.copy(uri, dest)
-        queries.append({"query": str(dest.resolve()), "category": label, "target": new_name[ref]})
+        queries.append({"query": str(dest.resolve()), "category": label, "target": new_name[ref], "hint": hint or ""})
     with open(qdir / "queries.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["query", "category", "target"])
+        w = csv.DictWriter(f, fieldnames=["query", "category", "target", "hint"])
         w.writeheader()
         w.writerows(queries)
     return queries
 
 
-def demo_searches(cfg: PipelineConfig, workdir: Path, queries: list[dict], k: int = 5) -> dict:
+def demo_searches(cfg: PipelineConfig, workdir: Path, queries: list[dict], k: int = 5, clap=None) -> dict:
     out = {"library": {}, "queries": []}
     indexes, models = {}, {}
     for name in MODEL_NAMES:
@@ -99,6 +100,8 @@ def demo_searches(cfg: PipelineConfig, workdir: Path, queries: list[dict], k: in
         idx = index_library(cfg, [workdir / "library"], "demo", model, tcfg, ckpt["model_version"], scan=not indexes)
         out["library"][name] = {"files": len(idx.clip_ids), "embedded": idx.n_embedded, "sec": time.time() - t0}
         indexes[name], models[name] = idx, (model, tcfg)
+    fusion = model_dir(cfg, SOURCE) / "fusion.json"
+    alphas = json.loads(fusion.read_text(encoding="utf-8"))["alpha"] if clap is not None and fusion.exists() else {}
     for q in queries:
         entry = {**q, "results": {}}
         for name, idx in indexes.items():
@@ -107,6 +110,12 @@ def demo_searches(cfg: PipelineConfig, workdir: Path, queries: list[dict], k: in
             hits = search(idx, vec, k=len(idx.clip_ids))
             target_rank = next(h["rank"] for h in hits if h["path"] == q["target"])
             entry["results"][name] = {"target_rank": target_rank, "top": hits[:k]}
+            if clap is not None and q.get("hint"):
+                text = text_scores(cfg, "demo", idx, q["hint"], clap)
+                fused = search(idx, vec, k=len(idx.clip_ids), text=text, alpha=alphas.get(name, 0.5))
+                entry["results"][name]["target_rank_with_text"] = next(
+                    h["rank"] for h in fused if h["path"] == q["target"]
+                )
         out["queries"].append(entry)
     return out
 
@@ -119,6 +128,7 @@ def run_demo(
     small: bool = False,
     n_queries: int = 6,
     sweep: bool = False,
+    clap=None,
 ) -> dict:
     workdir.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -129,12 +139,12 @@ def run_demo(
         generate(data_dir, **kwargs)
     log.info("running the A2 dataset flow")
     flow = run_dataset_flow(SOURCE, data_dir, cfg)
-    results = run_experiment(cfg, SOURCE, tcfg, mcfg, sweep=sweep)
+    results = run_experiment(cfg, SOURCE, tcfg, mcfg, sweep=sweep, clap=clap)
     results["pipeline_run"] = flow.as_dict()
     results["quality"] = [list(r) for r in warehouse.query(cfg, "SELECT * FROM v_clip_quality")]
 
     queries = build_messy_library(cfg, workdir, n_queries)
-    results["search_demo"] = demo_searches(cfg, workdir, queries)
+    results["search_demo"] = demo_searches(cfg, workdir, queries, clap=clap)
     results["total_sec"] = round(time.time() - t0, 1)
     (workdir / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     write_report(results, workdir / "report.md")

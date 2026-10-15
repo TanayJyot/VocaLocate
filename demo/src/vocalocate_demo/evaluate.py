@@ -28,10 +28,22 @@ def rank_metrics(
     """q: (Nq, d) queries, c: (Nc, d) candidates, target: (Nq,) index of each query's target in c."""
     if len(q) == 0:
         return {"n_queries": 0}
-    sims = q @ c.T
-    t_score = sims[np.arange(len(q)), target]
+    return score_metrics(q @ c.T, target, cand_meta, ks)
+
+
+def score_metrics(
+    sims: np.ndarray,
+    target: np.ndarray,
+    cand_meta: list[SFXMeta],
+    ks: tuple[int, ...] = (1, 5, 10),
+) -> dict[str, float]:
+    """Metrics from a (Nq, Nc) score matrix, so fused voice + text scores are ranked the same way."""
+    if len(sims) == 0:
+        return {"n_queries": 0}
+    n_q, n_c = sims.shape
+    t_score = sims[np.arange(n_q), target]
     ranks = 1 + (sims > t_score[:, None]).sum(axis=1)
-    out: dict[str, float] = {"n_queries": int(len(q)), "n_candidates": int(len(c))}
+    out: dict[str, float] = {"n_queries": int(n_q), "n_candidates": int(n_c)}
     for k in ks:
         out[f"recall@{k}"] = float(np.mean(ranks <= k))
     out["mrr"] = float(np.mean(1.0 / ranks))
@@ -48,7 +60,7 @@ def rank_metrics(
     discounts = 1.0 / np.log2(np.arange(2, 12))
     ndcg = []
     for i, t in enumerate(target):
-        rel = np.zeros(len(c))
+        rel = np.zeros(n_c)
         rel[cats == cats[t]] = 1
         if recs[t] is not None:
             rel[recs == recs[t]] = 2

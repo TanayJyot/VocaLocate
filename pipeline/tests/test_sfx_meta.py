@@ -39,3 +39,7 @@ def test_flow_writes_metadata_and_candidate_view(cfg, sfx_meta_dir):
     assert splits == [(1,)]
     feature_paths = warehouse.query(cfg, "SELECT imitation_feature_path, reference_feature_path FROM v_training_pairs")
     assert all(a and b for a, b in feature_paths)
+    # Imitations with a text hint become voice, text and target triples.
+    assert warehouse.query(cfg, "SELECT text_hint, hint_type, target_group_key FROM queries") == [
+        ("metallic", "quality", "sfx_meta:bell")
+    ]

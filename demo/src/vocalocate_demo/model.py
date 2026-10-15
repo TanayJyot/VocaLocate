@@ -1,10 +1,15 @@
 """Dual-encoder QVIM model: one encoder for vocal imitations, one for SFX, one shared embedding space.
 
 This follows the Greif et al. (2024) setup of two separate audio encoders
-trained contrastively. The demo uses a small CNN so it trains in minutes on a
-CPU; the pretrained MobileNetV3 from the QVIM baseline can replace `Encoder`
-without changing anything else, since the rest of the code only sees
-`DualEncoder.embed_imitation` and `DualEncoder.embed_sfx`.
+trained contrastively. Two encoders are available:
+
+* "mobilenetv3": EfficientAT's MobileNetV3 (mn10_as), pretrained on AudioSet,
+  as in the QVIM challenge baseline. Both towers start from the same weights
+  and the 960-value pooled features are the embedding. This is the real setup.
+* "cnn": a small CNN trained from scratch, so tests and CPU-only demos run in
+  minutes without downloading weights.
+
+The rest of the code only sees `DualEncoder.embed_imitation` and `DualEncoder.embed_sfx`.
 """
 
 from __future__ import annotations
@@ -46,14 +51,55 @@ class Encoder(nn.Module):
         return F.normalize(self.head(h), dim=-1)
 
 
-class DualEncoder(nn.Module):
-    def __init__(self, n_mels: int = 128, dim: int = 128, width: int = 16, tau: float = 0.07):
+class MobileNetEncoder(nn.Module):
+    """EfficientAT MobileNetV3: log-mel (B, n_mels, T) -> L2-normalised 960-value embedding."""
+
+    def __init__(self, n_mels: int = 128, pretrained: str | None = "mn10_as", frames: int = 256):
         super().__init__()
-        self.imitation = Encoder(n_mels, dim, width)
-        self.sfx = Encoder(n_mels, dim, width)
+        from .efficientat import get_model
+        from .efficientat.utils import NAME_TO_WIDTH
+
+        self.net = get_model(
+            width_mult=NAME_TO_WIDTH(pretrained or "mn10"), pretrained_name=pretrained, input_dim_f=n_mels,
+            input_dim_t=frames,
+        )
+        # The AudioSet classifier is not used for retrieval; freeze it so it takes no optimiser state.
+        for p in self.net.classifier.parameters():
+            p.requires_grad_(False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, features = self.net(x.unsqueeze(1))
+        return F.normalize(features, dim=-1)
+
+
+class DualEncoder(nn.Module):
+    def __init__(
+        self,
+        n_mels: int = 128,
+        dim: int = 128,
+        width: int = 16,
+        tau: float = 0.07,
+        encoder: str = "cnn",
+        pretrained: str | None = "mn10_as",
+        frames: int = 256,
+    ):
+        super().__init__()
+        if encoder == "cnn":
+            self.imitation = Encoder(n_mels, dim, width)
+            self.sfx = Encoder(n_mels, dim, width)
+        elif encoder == "mobilenetv3":
+            self.imitation = MobileNetEncoder(n_mels, pretrained, frames)
+            # Both towers start from the same pretrained weights, as in the QVIM baseline (deepcopy).
+            self.sfx = MobileNetEncoder(n_mels, None, frames)
+            self.sfx.load_state_dict(self.imitation.state_dict())
+            dim = 960
+        else:
+            raise ValueError(f"unknown encoder {encoder!r}; expected 'cnn' or 'mobilenetv3'")
         # Learnable temperature for the contrastive loss, as in the QVIM baseline.
         self.log_tau = nn.Parameter(torch.tensor(float(tau)).log())
-        self.hparams = {"n_mels": n_mels, "dim": dim, "width": width, "tau": tau}
+        # Weights come from the checkpoint when reloading, so never re-download them then.
+        self.hparams = {"n_mels": n_mels, "dim": dim, "width": width, "tau": tau, "encoder": encoder,
+                        "pretrained": None, "frames": frames}
 
     def embed_imitation(self, x: torch.Tensor) -> torch.Tensor:
         return self.imitation(x)

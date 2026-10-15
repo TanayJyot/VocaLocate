@@ -6,12 +6,14 @@ same-class recordings or our synthetic demo set. Layout:
 
     metadata.csv with columns
         file, role, sound_id, imitates, category, tags, recording_id, description, imitator_id
-    and the audio files it lists (paths relative to the CSV).
+    and optionally text_hint, hint_type; plus the audio files it lists (paths relative to the CSV).
 
 * role is reference (a sound with imitations), library (an extra candidate SFX
   with no imitations, e.g. another take or a same-class recording) or imitation.
 * imitates is the sound_id of the reference an imitation imitates.
 * tags are separated by ";".
+* An imitation with a text_hint becomes a voice, text and target triple in the
+  queries table, like the team recordings.
 * recording_id groups clips cut from the same original recording. All clips of
   a recording, and the imitations of its reference, share a group key and so
   always land in the same split. A recording may have at most one reference.
@@ -20,6 +22,7 @@ same-class recordings or our synthetic demo set. Layout:
 from __future__ import annotations
 
 import csv
+import hashlib
 from pathlib import Path
 
 from . import IngestResult, RawFile
@@ -57,7 +60,7 @@ def ingest(root: Path) -> IngestResult:
             if other != sound_id:
                 raise ValueError(f"recording {recording!r} has two references: {other!r} and {sound_id!r}")
 
-    files, metadata, missing = [], [], []
+    files, metadata, queries, missing = [], [], [], []
     for row in rows:
         path = root / row["file"]
         if not path.exists():
@@ -80,6 +83,17 @@ def ingest(root: Path) -> IngestResult:
                     imitator_id=_clean(row.get("imitator_id")),
                 )
             )
+            hint = _clean(row.get("text_hint"))
+            if hint and group:
+                queries.append(
+                    {
+                        "query_id": hashlib.sha256(f"{row['file']}|{hint}".encode()).hexdigest()[:32],
+                        "source_key": row["file"],
+                        "text_hint": hint,
+                        "hint_type": _clean(row.get("hint_type")),
+                        "target_group_key": group,
+                    }
+                )
             continue
         sound_id = row["sound_id"].strip()
         tags = [t.strip() for t in (row.get("tags") or "").split(";") if t.strip()]
@@ -104,4 +118,4 @@ def ingest(root: Path) -> IngestResult:
                 "recording_id": recording_of[sound_id],
             }
         )
-    return IngestResult(files=files, metadata=metadata, missing=missing)
+    return IngestResult(files=files, queries=queries, metadata=metadata, missing=missing)

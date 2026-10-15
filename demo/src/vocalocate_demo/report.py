@@ -79,6 +79,25 @@ def write_report(results: dict, path: Path) -> None:
         for row in results["sweep"]:
             lines.append(f"| {row['strategy']} | {row['band']} | {row['dup_quantile']} | {row['val_mrr']:.3f} |")
 
+    text = results.get("text")
+    if text and text.get("models"):
+        lines += [
+            "",
+            "## Text branch: voice only vs text only vs voice + text",
+            "",
+            f"`{text['clap']}`, frozen. Test imitations that came with a text hint: {text['n_queries']['test']}. "
+            "α (voice weight) was tuned on validation for each voice model; scores are z-normalised per query.",
+            "",
+            "| voice model | α | MRR voice only | MRR text only | MRR voice + text | R@1 voice + text | fine MRR voice + text |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for name, m in text["models"].items():
+            t = m["test"]
+            lines.append(
+                f"| {MODEL_NAMES.get(name, name)} | {m['alpha']} | {_fmt(t['voice']['mrr'])} | {_fmt(t['text']['mrr'])} | "
+                f"{_fmt(t['fused']['mrr'])} | {_fmt(t['fused']['recall@1'])} | {_fmt(t['fused']['fine_mrr'])} |"
+            )
+
     demo = results.get("search_demo")
     if demo:
         lines += [
@@ -92,6 +111,13 @@ def write_report(results: dict, path: Path) -> None:
             "| --- | --- | " + " | ".join("---:" for _ in demo["queries"][0]["results"]) + " |",
         ]
         for q in demo["queries"]:
-            ranks = " | ".join(str(v["target_rank"]) for v in q["results"].values())
-            lines.append(f"| `{Path(q['query']).name}` | {q['category']} | {ranks} |")
+            ranks = " | ".join(
+                str(v["target_rank"]) + (f" → {v['target_rank_with_text']}" if "target_rank_with_text" in v else "")
+                for v in q["results"].values()
+            )
+            hint = f' + "{q["hint"]}"' if q.get("hint") and "target_rank_with_text" in next(iter(q["results"].values())) else ""
+            lines.append(f"| `{Path(q['query']).name}`{hint} | {q['category']} | {ranks} |")
+        if any("target_rank_with_text" in v for q in demo["queries"] for v in q["results"].values()):
+            lines.append("")
+            lines.append("`a → b`: rank with the imitation alone → rank with the imitation plus its text hint.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

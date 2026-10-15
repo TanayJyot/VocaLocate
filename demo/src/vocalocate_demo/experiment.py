@@ -8,6 +8,8 @@
     4. fine-tuning        triplet + contrastive loss with each set of negatives
     5. selection          every model keeps its best epoch by validation MRR
     8. evaluation         frozen models scored once on the held-out test split
+    6-7. text branch      with a CLAP scorer: text hints vs SFX audio, fused with each voice model
+                          (α tuned on validation); voice-only, text-only and fused test scores
 
 Each model is saved under <lake>/models/<source>/<name>.pt, and each mining run
 writes a row to `pipeline_runs` (flow "mining") for lineage.
@@ -21,6 +23,8 @@ import logging
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
+
+import numpy as np
 
 from vocalocate_pipeline import warehouse
 from vocalocate_pipeline.config import PipelineConfig
@@ -78,6 +82,7 @@ def run_experiment(
     mcfg: MiningConfig | None = None,
     strategies: tuple[str, ...] = STRATEGIES,
     sweep: bool = False,
+    clap=None,
 ) -> dict:
     tcfg, mcfg = tcfg or T.TrainConfig(), mcfg or MiningConfig()
     ds = load_dataset(cfg, [source])
@@ -134,9 +139,61 @@ def run_experiment(
         T.save(model, out_dir / f"{strategy}.pt", tcfg, {"model_version": version, "history": hist, "mining": asdict(m)})
         results["models"][strategy] = _score(model, ds, tcfg, version, hist, time.time() - t0)
 
+    if clap is not None:
+        models = {name: T.load(out_dir / f"{name}.pt", tcfg.device)[0] for name in results["models"]}
+        results["text"] = run_text_branch(cfg, source, ds, models, tcfg, clap)
+        (out_dir / "fusion.json").write_text(
+            json.dumps({"clap": clap.version, "alpha": {k: v["alpha"] for k, v in results["text"]["models"].items()}},
+                       indent=2),
+            encoding="utf-8",
+        )
+
     warehouse.load(cfg)
     (out_dir / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     return results
+
+
+def run_text_branch(cfg: PipelineConfig, source: str, ds: Dataset, models: dict, tcfg: T.TrainConfig, clap) -> dict:
+    """Stages 6-7: CLAP text scores for imitations with hints, fused with each voice model's scores.
+
+    α is tuned on validation per voice model; the test split is scored once.
+    """
+    from .fusion import evaluate_fusion
+    from .text import cached_audio_embeddings
+
+    meta = ds.meta()
+    splits = {}
+    for split in ("val", "test"):
+        cands = ds.split_candidates(split)
+        index = {cid: i for i, cid in enumerate(cands.clip_id)}
+        pairs = ds.split_pairs(split)
+        pairs = pairs[pairs.reference_clip_id.isin(index) & pairs.imitation_clip_id.isin(ds.hints)]
+        audio = cached_audio_embeddings(cfg, f"{source}__clap", list(cands.clip_id), list(cands.clean_path), clap)
+        hints = [ds.hints[i] for i in pairs.imitation_clip_id]
+        splits[split] = {
+            "cands": cands,
+            "pairs": pairs,
+            "text": clap.embed_text(hints) @ audio.T,
+            "target": np.array([index[r] for r in pairs.reference_clip_id], dtype=int),
+            "meta": [meta[cid] for cid in cands.clip_id],
+        }
+    out = {"clap": clap.version, "n_queries": {k: int(len(v["pairs"])) for k, v in splits.items()}, "models": {}}
+    if not all(len(v["pairs"]) for v in splits.values()):
+        log.warning("text branch: no val or test imitations with hints; skipping")
+        return out
+    for name, model in models.items():
+        voice = {}
+        for split, d in splits.items():
+            q = T.embed(model, ds, list(d["pairs"].imitation_clip_id), "imitation", tcfg)
+            c = T.embed(model, ds, list(d["cands"].clip_id), "sfx", tcfg)
+            voice[split] = q @ c.T
+        v, t = splits["val"], splits["test"]
+        out["models"][name] = evaluate_fusion(
+            voice["val"], v["text"], v["target"], v["meta"], voice["test"], t["text"], t["target"], t["meta"]
+        )
+        log.info("text branch %s: alpha %.1f, test %s", name, out["models"][name]["alpha"],
+                 {k: round(m["mrr"], 3) for k, m in out["models"][name]["test"].items()})
+    return out
 
 
 def _score(model, ds: Dataset, tcfg: T.TrainConfig, version: str, hist: list[dict], sec: float) -> dict:

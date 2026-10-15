@@ -19,6 +19,15 @@ negatives is the control from stage 5 of the technical flow: it shows whether
 mining helps beyond simply training for longer. Metadata is only read at
 training time. Searching a user's library never needs it.
 
+## Models
+
+| Part | Default | Option | Notes |
+| --- | --- | --- | --- |
+| Voice encoders (imitation + SFX) | small CNN from scratch (`--encoder cnn`) | **`--encoder mobilenetv3`**: EfficientAT `mn10_as`, AudioSet-pretrained | The QVIM challenge baseline's encoder. Both towers start from the same weights and the 960-value pooled features are the embedding. The model code is vendored in `efficientat/` (MIT); weights download to `~/.cache/efficientat` on first use. The CNN stays as the default so tests and CPU demos need no download. |
+| Text branch | off | **`--text-branch`**: frozen CLAP, `laion/clap-htsat-unfused` via Hugging Face `transformers` | Stage 6-7: hints such as "metallic short" are scored against every SFX's CLAP audio embedding and fused with the voice score, `α·z(voice) + (1 − α)·z(text)`, with α tuned on validation. We use LAION CLAP instead of Microsoft's msclap (cited in A1) because msclap pins `numpy<2` and needs a CUDA-matched torchaudio, which break the pipeline's pyarrow. LAION-Audio-630K includes AudioCaps, Clotho, Freesound and BBC Sound Effects, so text scores on those sets will look optimistic (A2 Part Two). |
+
+`vocalocate-demo fetch-models` downloads both sets of weights and prints a quick check.
+
 ## How it follows the A2 pipeline
 
 ```
@@ -75,11 +84,12 @@ QVIM-baseline log-mels.
 ## Run it
 
 ```bash
-pip install -e pipeline -e 'demo[dev]'     # from the repo root; needs torch
+pip install -e pipeline -e 'demo[dev,text]'   # from the repo root; needs torch
 cd demo
-vocalocate-demo -v run                       # full demo, writes demo_out/ (≈10 min on a laptop CPU)
+vocalocate-demo -v run                       # CNN, voice only, writes demo_out/ (≈10 min on a laptop CPU)
 vocalocate-demo -v run --small               # tiny version, about a minute
-vocalocate-demo -v run --device cuda --seed 491 --workdir demo_out_491
+vocalocate-demo fetch-models                 # once: MobileNetV3 + CLAP weights
+vocalocate-demo -v run --encoder mobilenetv3 --text-branch --sweep --device cuda --seed 491 --workdir demo_mn_491
 ```
 
 `demo_out/report.md` has the results, `demo_out/results.json` has everything
@@ -89,9 +99,10 @@ including training curves. Try the search yourself on the simulated library:
 vocalocate-demo --lake demo_out/lake search --root demo_out/library --name demo \
     --query demo_out/queries/<one of the files>.wav          # compares baseline, A and B
 vocalocate-demo --lake demo_out/lake search --root ~/SFX --name mine --query my_whoosh.wav --model metadata
+vocalocate-demo --lake demo_mn_491/lake search --root ~/SFX --name mine --query my_clang.wav --text "metallic"
 ```
 
-`demo_out/queries/queries.csv` says which library file each example query imitates.
+`demo_out/queries/queries.csv` says which library file each example query imitates, and its text hint.
 A second search on the same folder skips unchanged files and reuses the cached
 embeddings.
 
@@ -145,9 +156,8 @@ ordering for B but not for A. See the commit history for that table.
 
 ## Limits and next steps
 
-* The encoders are a small CNN trained from scratch so the demo runs on a CPU.
-  `model.Encoder` is the only thing to swap for the AudioSet-pretrained
-  MobileNetV3 from the QVIM baseline.
+* The Results section below is from the small CNN. The MobileNetV3 + CLAP
+  results replace it once the GPU runs finish.
 * The data is synthetic. With real data, approach B needs real metadata.
   VimSketch labels are one per reference, so they make no related pools. The
   Vocal Imitation Set's same-class recordings and AudioSet classes, or FSD50K

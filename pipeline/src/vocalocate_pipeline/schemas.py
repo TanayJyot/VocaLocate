@@ -16,7 +16,7 @@ ROLES = {"reference", "imitation", "library"}
 STATUSES = {"ok", "rejected", "duplicate"}
 SPLITS = {"train", "val", "test"}
 LIBRARY_STATUSES = {"active", "deleted"}
-TOWERS = {"sfx", "imitation"}
+TOWERS = {"sfx", "imitation", "clap_audio"}
 MINING_STRATEGIES = {"retrieval", "metadata", "random"}
 MINING_SELECTIONS = {"band", "fallback", "random"}
 
@@ -125,7 +125,7 @@ EMBEDDINGS = _schema(
     ("clip_id", pa.string(), False),
     ("source", pa.string(), False),
     ("model_version", pa.string(), False),
-    ("tower", pa.string(), False),  # "sfx" or "imitation"
+    ("tower", pa.string(), False),  # "sfx" or "imitation" (QVIM towers), or "clap_audio"
     ("vector", pa.list_(pa.float32()), False),
 )
 

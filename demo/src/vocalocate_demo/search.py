@@ -9,7 +9,10 @@ This is the product flow from the "High-Level Product Flow" table, steps 1-6:
    library and model, so a second search embeds only new or changed files.
 3. The query imitation goes through the same cleaning and log-mel steps as the
    SFX, then through the imitation encoder. It is not stored.
-5-6. Cosine similarity ranks the library and the top K are returned with their
+4. An optional text hint is scored against every clip with CLAP (audio
+   embeddings cached the same way) and fused with the voice score using the α
+   tuned on validation.
+5-6. The fused score ranks the library and the top K are returned with their
    path and project folder.
 
 The library files need no categories or tags: metadata was only used to choose
@@ -126,8 +129,30 @@ def embed_query(path: Path, model: DualEncoder, tcfg: TrainConfig, cfg: Pipeline
     return model.embed_imitation(torch.from_numpy(mel[None]).to(device)).cpu().numpy()[0]
 
 
-def search(index: LibraryIndex, query_vec: np.ndarray, k: int = 5) -> list[dict]:
+def text_scores(cfg: PipelineConfig, library: str, index: LibraryIndex, text: str, clap) -> np.ndarray:
+    """CLAP text-hint scores for every library clip (step 4 of the product flow). Audio embeddings are cached."""
+    from .text import cached_audio_embeddings
+
+    rows = warehouse.query(
+        cfg,
+        f"SELECT clip_id, clean_path FROM clips WHERE source = {_sql_str('library_' + library)} AND status = 'ok'",
+    )
+    clean = dict(rows)
+    audio = cached_audio_embeddings(
+        cfg, f"library_{library}__clap", index.clip_ids, [clean[c] for c in index.clip_ids], clap
+    )
+    return audio @ clap.embed_text([text])[0]
+
+
+def search(
+    index: LibraryIndex, query_vec: np.ndarray, k: int = 5, text: np.ndarray | None = None, alpha: float = 0.5
+) -> list[dict]:
+    """Rank the library by voice score, or by α·z(voice) + (1−α)·z(text) when text scores are given."""
     scores = index.vectors @ query_vec
+    if text is not None:
+        from .fusion import fuse
+
+        scores = fuse(scores[None], text[None], alpha)[0]
     top = np.argsort(-scores)[:k]
     return [
         {"rank": r + 1, "score": float(scores[i]), "path": index.paths[i], "project": index.projects[i]}

@@ -31,6 +31,7 @@ class SFXMeta:
 class Dataset:
     pairs: pd.DataFrame
     candidates: pd.DataFrame
+    hints: dict[str, str] = field(default_factory=dict)  # imitation clip_id -> text hint (queries table)
     _cache: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
     _paths: dict[str, str] = field(default_factory=dict, repr=False)
     _meta: dict[str, SFXMeta] | None = field(default=None, repr=False)
@@ -76,11 +77,12 @@ def load_dataset(cfg: PipelineConfig, sources: list[str]) -> Dataset:
                 ORDER BY imitation_clip_id"""
         ).df()
         candidates = con.execute(f"SELECT * FROM v_sfx_candidates WHERE source IN ({src}) ORDER BY clip_id").df()
+        hints = dict(con.execute(f"SELECT imitation_clip_id, text_hint FROM queries WHERE source IN ({src})").fetchall())
     finally:
         con.close()
     if pairs.empty:
         raise ValueError(f"No training pairs for {sources} in {cfg.warehouse_path}; run the dataset flow first")
-    return Dataset(pairs=pairs, candidates=candidates)
+    return Dataset(pairs=pairs, candidates=candidates, hints=hints)
 
 
 def fit_frames(mel: np.ndarray, frames: int, rng: np.random.Generator | None = None) -> np.ndarray:

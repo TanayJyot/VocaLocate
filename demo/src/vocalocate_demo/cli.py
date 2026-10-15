@@ -5,6 +5,7 @@
     train     baseline + mining + fine-tuning + evaluation on a source already in the lake
     search    index a folder and search it with a recorded imitation
     summarize average results over several seeds
+    fetch-models  download the pretrained MobileNetV3 and CLAP weights
 """
 
 from __future__ import annotations
@@ -31,18 +32,44 @@ def _train_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--frames", type=int, default=d.frames, help="log-mel frames per clip (10 ms each)")
     p.add_argument("--device", default="auto", help="auto, cpu, cuda or mps")
     p.add_argument("--seed", type=int, default=d.seed, help="training and mining seed")
+    p.add_argument("--encoder", choices=("cnn", "mobilenetv3"), default=d.encoder,
+                   help="cnn: small CNN from scratch; mobilenetv3: AudioSet-pretrained EfficientAT mn10_as")
+    p.add_argument("--pretrained", default=d.pretrained,
+                   help="EfficientAT weights for --encoder mobilenetv3 ('none' = random init)")
+    p.add_argument("--lr", type=float, help="baseline learning rate (default: 1e-3 cnn, 3e-4 mobilenetv3)")
+    p.add_argument("--ft-lr", type=float, help="fine-tuning learning rate (default: 1e-4 cnn, 5e-5 mobilenetv3)")
     m = MiningConfig()
     p.add_argument("--top-k", type=int, default=m.top_k, help="retrieval-driven: candidates per query")
     p.add_argument("--band", type=float, default=m.band, help="semi-hard band below the positive score")
     p.add_argument("--n-neg", type=int, default=m.n_neg, help="negatives kept per imitation")
     p.add_argument("--sweep", action="store_true", help="tune band / near-duplicate cutoff per strategy on validation")
+    _clap_args(p)
+    p.add_argument("--text-branch", action="store_true",
+                   help="also score text hints with CLAP and fuse them with each voice model (α tuned on validation)")
+
+
+def _clap_args(p: argparse.ArgumentParser) -> None:
+    from .text import DEFAULT_CLAP
+
+    p.add_argument("--clap-model", default=DEFAULT_CLAP, help="Hugging Face CLAP model for the text branch")
+    p.add_argument("--clap-backend", choices=("hf", "fake"), default="hf", help="fake: offline stand-in for tests")
+
+
+def _clap(args):
+    from .text import ClapScorer
+
+    return ClapScorer(args.clap_model, device=getattr(args, "device", "auto"), backend=args.clap_backend)
 
 
 def _configs(args) -> tuple[TrainConfig, MiningConfig]:
     tcfg = TrainConfig(
         epochs=args.epochs, ft_epochs=args.ft_epochs, batch_size=args.batch_size, frames=args.frames,
-        device=args.device, seed=args.seed,
+        device=args.device, seed=args.seed, encoder=args.encoder,
+        pretrained=None if str(args.pretrained).lower() == "none" else args.pretrained,
     )
+    mobilenet = args.encoder == "mobilenetv3"
+    tcfg.lr = args.lr if args.lr is not None else (3e-4 if mobilenet else tcfg.lr)
+    tcfg.ft_lr = args.ft_lr if args.ft_lr is not None else (5e-5 if mobilenet else tcfg.ft_lr)
     return tcfg, MiningConfig(top_k=args.top_k, band=args.band, n_neg=args.n_neg, seed=args.seed)
 
 
@@ -67,6 +94,10 @@ def _parser() -> argparse.ArgumentParser:
     t.add_argument("--source", default="sfx_meta", help="pipeline source with imitation/reference pairs")
     _train_args(t)
 
+    fm = sub.add_parser("fetch-models", help="download the pretrained MobileNetV3 (EfficientAT) and CLAP weights")
+    fm.add_argument("--pretrained", default=TrainConfig().pretrained, help="EfficientAT model name")
+    _clap_args(fm)
+
     sm = sub.add_parser("summarize", help="average several runs' results.json (mean ± std over seeds)")
     sm.add_argument("runs", type=Path, nargs="+", help="workdirs or results.json files")
     sm.add_argument("--out", type=Path, help="also write the table to this file")
@@ -79,6 +110,9 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--source", default="sfx_meta", help="which trained models to use (lake/models/<source>)")
     s.add_argument("-k", type=int, default=5)
     s.add_argument("--json", action="store_true", help="print JSON instead of a table")
+    s.add_argument("--text", help='optional text hint, e.g. "metallic short" (uses CLAP; α from training)')
+    s.add_argument("--alpha", type=float, help="voice weight for --text (default: the α tuned on validation)")
+    _clap_args(s)
     return p
 
 
@@ -112,17 +146,31 @@ def main(argv: list[str] | None = None) -> int:
         tcfg, mcfg = _configs(args)
         if args.small and args.epochs == TrainConfig().epochs:
             tcfg.epochs, tcfg.ft_epochs = 6, 3
-        run_demo(args.workdir, cfg, tcfg, mcfg, small=args.small, sweep=args.sweep)
+        clap = _clap(args) if args.text_branch else None
+        run_demo(args.workdir, cfg, tcfg, mcfg, small=args.small, sweep=args.sweep, clap=clap)
         print((args.workdir / "report.md").read_text(encoding="utf-8"))
     elif args.command == "train":
         from .experiment import run_experiment
         from .report import write_report
 
         tcfg, mcfg = _configs(args)
-        results = run_experiment(cfg, args.source, tcfg, mcfg, sweep=args.sweep)
+        clap = _clap(args) if args.text_branch else None
+        results = run_experiment(cfg, args.source, tcfg, mcfg, sweep=args.sweep, clap=clap)
         out = cfg.lake_root / "models" / args.source / "report.md"
         write_report(results, out)
         print(out.read_text(encoding="utf-8"))
+    elif args.command == "fetch-models":
+        import torch
+
+        from .model import MobileNetEncoder
+        from .text import ClapScorer
+
+        enc = MobileNetEncoder(pretrained=args.pretrained)
+        print(f"MobileNetV3 {args.pretrained}: {sum(p.numel() for p in enc.parameters()) / 1e6:.1f}M parameters, "
+              f"embedding {tuple(enc(torch.zeros(1, 128, 256)).shape)}")
+        clap = ClapScorer(args.clap_model, backend="hf", device="cpu")
+        t = clap.embed_text(["metallic", "a dog barking"])
+        print(f"CLAP {args.clap_model}: text embedding {t.shape}, cos(metallic, dog) = {float(t[0] @ t[1]):.3f}")
     elif args.command == "summarize":
         from .summarize import summarize
 
@@ -133,9 +181,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "search":
         from . import train as T
         from .experiment import model_dir
-        from .search import embed_query, index_library, search
+        from .search import embed_query, index_library, search, text_scores
 
         names = [n for n in MODELS if n != "random"] if args.model == "all" else [args.model]
+        clap = _clap(args) if args.text else None
+        fusion_path = model_dir(cfg, args.source) / "fusion.json"
+        alphas = json.loads(fusion_path.read_text(encoding="utf-8"))["alpha"] if fusion_path.exists() else {}
         report, scanned = {}, False
         for name in names:
             ckpt_path = model_dir(cfg, args.source) / f"{name}.pt"
@@ -144,14 +195,17 @@ def main(argv: list[str] | None = None) -> int:
             model, tcfg, ckpt = T.load(ckpt_path)
             idx = index_library(cfg, args.root, args.name, model, tcfg, ckpt["model_version"], scan=not scanned)
             scanned = True
+            text = text_scores(cfg, args.name, idx, args.text, clap) if clap else None
+            alpha = args.alpha if args.alpha is not None else alphas.get(name, 0.5)
             report[name] = {
-                str(q): search(idx, embed_query(q, model, tcfg, cfg), args.k) for q in args.query
+                str(q): search(idx, embed_query(q, model, tcfg, cfg), args.k, text=text, alpha=alpha)
+                for q in args.query
             }
         if args.json:
             print(json.dumps(report, indent=2))
         else:
             for q in args.query:
-                print(f"\nQuery: {q}")
+                print(f"\nQuery: {q}" + (f'  + text "{args.text}"' if args.text else ""))
                 for name in names:
                     print(f"  [{name}]")
                     for hit in report[name][str(q)]:

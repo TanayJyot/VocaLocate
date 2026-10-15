@@ -19,7 +19,9 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(flow, "generate", lambda out, **_: generate(out, **tiny))
     cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1, splits=SplitConfig(train=0.5, val=0.25))
     tcfg = TrainConfig(epochs=2, ft_epochs=1, frames=128, batch_size=8, device="cpu")
-    results = run_demo(tmp_path, cfg, tcfg, MiningConfig(), n_queries=2)
+    from vocalocate_demo.text import ClapScorer
+
+    results = run_demo(tmp_path, cfg, tcfg, MiningConfig(), n_queries=2, clap=ClapScorer(backend="fake"))
 
     assert set(results["models"]) == {"baseline", "retrieval", "metadata", "random"}
     for m in results["models"].values():
@@ -34,13 +36,20 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
     demo = results["search_demo"]
     assert len(demo["queries"]) == 2
     assert all(r["target_rank"] >= 1 for q in demo["queries"] for r in q["results"].values())
-    assert (tmp_path / "report.md").read_text(encoding="utf-8").startswith("# VocaLocate")
+    report = (tmp_path / "report.md").read_text(encoding="utf-8")
+    assert report.startswith("# VocaLocate") and "## Text branch" in report
+    # Text branch: hints came through the pipeline's queries table and were fused with every voice model.
+    text = results["text"]
+    assert text["n_queries"]["test"] > 0 and set(text["models"]) == set(results["models"])
+    for m in text["models"].values():
+        assert 0 <= m["alpha"] <= 1 and {"voice", "text", "fused"} == set(m["test"])
+    assert warehouse.query(cfg, "SELECT count(*) FROM embeddings WHERE tower = 'clap_audio'")[0][0] > 0
 
     # Second search via the CLI reuses the cached embeddings and the library index.
     out = tmp_path / "search.json"
     query = demo["queries"][0]["query"]
     argv = ["--lake", str(cfg.lake_root), "search", "--root", str(tmp_path / "library"), "--name", "demo",
-            "--query", query, "--model", "metadata", "-k", "3", "--json"]
+            "--query", query, "--model", "metadata", "-k", "3", "--json", "--text", "metallic", "--clap-backend", "fake"]
     import contextlib, io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
