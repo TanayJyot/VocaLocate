@@ -31,6 +31,7 @@ TABLE_LAYER = {
     "pairs": "silver/tables",
     "queries": "silver/tables",
     "sfx_metadata": "silver/tables",
+    "captions": "silver/tables",
     "features": "gold/tables",
     "splits": "gold/tables",
     "embeddings": "gold/tables",

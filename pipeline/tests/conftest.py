@@ -156,3 +156,23 @@ def vis_dir(tmp_path) -> Path:
             write(root / "vocal_imitations" / folder / name, tone(250 + 60 * i, 1.2, 16_000), 16_000)
             w.writerow([i, name, i, ref, inc, "False", "False", pid, desc])
     return root
+
+
+@pytest.fixture
+def captdure_dir(tmp_path) -> Path:
+    """CAPTDURE layout: tab-separated "CSV" with a BOM and a quoted header, wavfile relative to the audio folder."""
+    root = tmp_path / "captdure"
+    clips = [("clock/clock_01_000.wav", 500), ("clock/clock_01_001.wav", 520), ("fan/fan_02_003.wav", 900)]
+    for i, (name, freq) in enumerate(clips):
+        write(root / "single_source_source" / name, tone(freq, 5, 48_000), 48_000)
+    rows = [
+        ("90", "clock/clock_01_000.wav", "時計", "A clock ticking steadily."),
+        ("12", "clock/clock_01_000.wav", "時計", "Tick tock of a wall clock."),
+        ("90", "clock/clock_01_001.wav", "時計", "Faster clock ticks."),
+        ("33", "fan/fan_02_003.wav", "扇風機", "A fan blowing air."),
+        ("33", "fan/fan_09_009.wav", "扇風機", "Listed but missing."),
+    ]
+    header = '"worker ID\twavfile\tcaption (ja)\tcaption (en)"'
+    body = "\n".join("\t".join(r) for r in rows)
+    (root / "single_source_caption.csv").write_text("﻿" + header + "\n" + body + "\n", encoding="utf-8")
+    return root
