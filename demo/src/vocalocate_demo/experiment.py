@@ -196,6 +196,94 @@ def run_text_branch(cfg: PipelineConfig, source: str, ds: Dataset, models: dict,
     return out
 
 
+# Published QVIM DEV-set MRRs (A2 Part Two), for the benchmark table.
+QVIM_DEV_PUBLISHED = {
+    "random ranking": 0.044,
+    "QVIM challenge MobileNetV3 baseline (trained on VimSketch)": 0.273,
+    "challenge winner": 0.293,
+}
+
+
+def run_benchmark(cfg: PipelineConfig, model_source: str, bench_source: str = "qvim_dev",
+                  names: tuple[str, ...] = ("baseline", "random", "retrieval", "metadata"), device: str = "auto") -> dict:
+    """Score models trained on `model_source` on the held-out test split of another source (external benchmark).
+
+    Every imitation in the benchmark ranks all of its reference sounds, as in the QVIM challenge.
+    Nothing is trained or tuned on the benchmark.
+    """
+    ds = load_dataset(cfg, [bench_source])
+    out = {"model_source": model_source, "benchmark": bench_source, "models": {}}
+    for name in names:
+        path = model_dir(cfg, model_source) / f"{name}.pt"
+        if not path.exists():
+            continue
+        model, tcfg, ckpt = T.load(path, device)
+        out["models"][name] = {"model_version": ckpt["model_version"], **evaluate_split(model, ds, "test", tcfg)}
+    if bench_source == "qvim_dev":
+        out["published_mrr"] = QVIM_DEV_PUBLISHED
+    (model_dir(cfg, model_source) / f"benchmark_{bench_source}.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return out
+
+
+def run_text_benchmark(cfg: PipelineConfig, clap, source: str = "captdure") -> dict:
+    """Score the frozen CLAP text branch on a captioned source's test split (text-to-audio retrieval).
+
+    Each caption ranks every clip of the source; its target is the clip it was written for.
+    Nothing is trained or tuned on it. Metrics are those of the voice benchmark: R@K, MRR,
+    MRR within the target's class (fine), graded nDCG@10, plus R@1 at class level.
+    """
+    import duckdb
+
+    from .data import SFXMeta
+    from .evaluate import score_metrics
+    from .text import cached_audio_embeddings
+
+    con = duckdb.connect(str(cfg.warehouse_path), read_only=True)
+    try:
+        cands = con.execute(
+            "SELECT clip_id, clean_path, category, tags, recording_id FROM v_sfx_candidates "
+            "WHERE source = ? AND split = 'test' ORDER BY clip_id", [source]).df()
+        caps = con.execute(
+            "SELECT caption, target_clip_id, category FROM v_captions "
+            "WHERE source = ? AND split = 'test' AND language = 'en' ORDER BY caption_id", [source]).df()
+    finally:
+        con.close()
+    if cands.empty or caps.empty:
+        raise ValueError(f"No captions for {source!r} in {cfg.warehouse_path}; run the dataset flow first")
+
+    index = {cid: i for i, cid in enumerate(cands.clip_id)}
+    caps = caps[caps.target_clip_id.isin(index)]
+    audio = cached_audio_embeddings(cfg, f"{source}__clap", list(cands.clip_id), list(cands.clean_path), clap)
+    text = clap.embed_text(list(caps.caption))
+    sims = text @ audio.T
+    target = np.array([index[c] for c in caps.target_clip_id])
+    meta = [SFXMeta(r.category, frozenset(r.tags if r.tags is not None else ()), r.recording_id)
+            for r in cands.itertuples()]
+    metrics = score_metrics(sims, target, meta)
+    cats = cands.category.to_numpy()
+    metrics["class_recall@1"] = float(np.mean(cats[sims.argmax(axis=1)] == cats[target]))
+    n = len(cands)
+    per_class = {}
+    for cat in sorted(set(caps.category)):
+        rows = (caps.category == cat).to_numpy()
+        per_class[cat] = {"n_captions": int(rows.sum()), **{k: v for k, v in score_metrics(
+            sims[rows], target[rows], meta).items() if k in ("mrr", "recall@1", "recall@10")}}
+    out = {
+        "benchmark": source,
+        "model_version": clap.version,
+        "n_clips": n,
+        "n_classes": int(cands.category.nunique()),
+        "metrics": metrics,
+        # Expected scores of a random ranking, for scale.
+        "random": {"mrr": float(np.sum(1.0 / np.arange(1, n + 1)) / n), "recall@1": 1.0 / n, "recall@10": min(10, n) / n},
+        "per_class": per_class,
+    }
+    out_dir = cfg.lake_root / "benchmarks"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"text_{source}.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return out
+
+
 def _score(model, ds: Dataset, tcfg: T.TrainConfig, version: str, hist: list[dict], sec: float) -> dict:
     best = max(hist, key=lambda h: h["val_mrr"]) if hist else {"epoch": 0, "val_mrr": None}
     return {

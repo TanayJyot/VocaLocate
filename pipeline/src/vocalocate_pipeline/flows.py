@@ -303,6 +303,13 @@ def run_dataset_flow(source: str, root: Path, cfg: PipelineConfig, load: bool = 
             if m["source_key"] in clip_by_key
         ]
         lake.write("sfx_metadata", source, to_table("sfx_metadata", metadata))
+        captions = [
+            {"source": source, "clip_id": clip_by_key[c["source_key"]]["clip_id"],
+             **{k: v for k, v in c.items() if k != "source_key"}}
+            for c in result.captions
+            if c["source_key"] in clip_by_key
+        ]
+        lake.write("captions", source, to_table("captions", captions))
     except Exception as exc:
         _record_run(lake, summary, cfg, started, "failed", f"{type(exc).__name__}: {exc}")
         raise

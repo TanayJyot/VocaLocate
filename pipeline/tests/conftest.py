@@ -115,3 +115,64 @@ def sfx_meta_dir(tmp_path) -> Path:
             hint = ("metallic", "quality") if name == "imitations/a/bell_0.wav" else ("", "")
             w.writerow([name, role, sid, imit, cat, tags, rec, "", imitator, *hint])
     return root
+
+
+@pytest.fixture
+def vis_dir(tmp_path) -> Path:
+    """Vocal Imitation Set layout: 2 classes, a reference + a same-class non-reference each, 3 imitations."""
+    root = tmp_path / "VocalImitationSet"
+    classes = [
+        # filename, classname, d1, d2, d3, is_reference
+        ("ref_dog.wav", "Bark", "Animal", "Domestic animals, pets", "Dog", "True"),
+        ("other_dog.wav", "Bark", "Animal", "Domestic animals, pets", "Dog", "False"),
+        ("ref_cat.wav", "Meow", "Animal", "Domestic animals, pets", "Cat", "True"),
+        ("other_cat.wav", "Meow", "Animal", "Domestic animals, pets", "Cat", "False"),
+    ]
+    with open(_mk(root / "original_recordings_classes.txt"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["filename", "classname", "category_d1", "category_d2", "category_d3", "category_d4",
+                    "category_d5", "category_d6", "is_reference", "multi_labeled"])
+        for i, (name, cls, d1, d2, d3, ref) in enumerate(classes):
+            folder = "reference" if ref == "True" else "non_reference"
+            write(root / "original_recordings" / folder / name, tone(300 + 80 * i, 1.5, 44_100), 44_100)
+            w.writerow([name, cls, d1, d2, d3, "", "", "", ref, "False"])
+    with open(_mk(root / "original_recordings_license.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["filename", "username", "user_url", "file_url", "freesound_id"])
+        for i, (name, *_rest) in enumerate(classes):
+            w.writerow([name, "u", "", "", str(1000 + i)])
+    imits = [
+        ("im1.wav", "ref_dog.wav", "True", "p1", "a dog barking"),
+        ("im2.wav", "ref_dog.wav", "True", "p2", ""),
+        ("im3.wav", "ref_cat.wav", "True", "p1", "cat meowing"),
+        ("im4.wav", "ref_cat.wav", "False", "p3", "rejected"),  # not included: skipped
+    ]
+    with open(_mk(root / "vocal_imitations.txt"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["imitation_id", "imitation_filename", "category_id", "reference_filename", "included",
+                    "draft", "training", "participant_id", "participants_sound_recording_description"])
+        for i, (name, ref, inc, pid, desc) in enumerate(imits):
+            folder = "included" if inc == "True" else "excluded"
+            write(root / "vocal_imitations" / folder / name, tone(250 + 60 * i, 1.2, 16_000), 16_000)
+            w.writerow([i, name, i, ref, inc, "False", "False", pid, desc])
+    return root
+
+
+@pytest.fixture
+def captdure_dir(tmp_path) -> Path:
+    """CAPTDURE layout: tab-separated "CSV" with a BOM and a quoted header, wavfile relative to the audio folder."""
+    root = tmp_path / "captdure"
+    clips = [("clock/clock_01_000.wav", 500), ("clock/clock_01_001.wav", 520), ("fan/fan_02_003.wav", 900)]
+    for i, (name, freq) in enumerate(clips):
+        write(root / "single_source_source" / name, tone(freq, 5, 48_000), 48_000)
+    rows = [
+        ("90", "clock/clock_01_000.wav", "時計", "A clock ticking steadily."),
+        ("12", "clock/clock_01_000.wav", "時計", "Tick tock of a wall clock."),
+        ("90", "clock/clock_01_001.wav", "時計", "Faster clock ticks."),
+        ("33", "fan/fan_02_003.wav", "扇風機", "A fan blowing air."),
+        ("33", "fan/fan_09_009.wav", "扇風機", "Listed but missing."),
+    ]
+    header = '"worker ID\twavfile\tcaption (ja)\tcaption (en)"'
+    body = "\n".join("\t".join(r) for r in rows)
+    (root / "single_source_caption.csv").write_text("﻿" + header + "\n" + body + "\n", encoding="utf-8")
+    return root

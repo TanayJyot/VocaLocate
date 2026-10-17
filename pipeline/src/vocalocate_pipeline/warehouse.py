@@ -60,6 +60,15 @@ VIEWS = {
         LEFT JOIN sfx_metadata m ON m.source = c.source AND m.clip_id = c.clip_id
         WHERE c.status = 'ok' AND c.role IN ('reference', 'library') AND c.source NOT LIKE 'library_%'
     """,
+    # Text-only queries (captions) with their target clip, for testing the CLAP text branch.
+    "v_captions": """
+        SELECT k.caption_id, k.source, k.caption, k.language, k.annotator_id, s.split,
+               c.clip_id AS target_clip_id, c.clean_path AS target_path, m.category, m.recording_id
+        FROM captions k
+        JOIN clips c ON c.source = k.source AND c.clip_id = k.clip_id AND c.status = 'ok'
+        JOIN splits s ON s.source = c.source AND s.clip_id = c.clip_id
+        LEFT JOIN sfx_metadata m ON m.source = c.source AND m.clip_id = c.clip_id
+    """,
     # Mined negatives with the metadata of the target and the negative, for analysis.
     "v_hard_negatives": """
         SELECT h.*, pm.category AS positive_category, nm.category AS negative_category,

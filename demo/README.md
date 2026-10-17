@@ -91,6 +91,100 @@ synthetic library, Chromium's fake microphone).
 The server is standard-library Python (`app.py`) and binds to localhost only. It serves only
 files that are in a library index.
 
+## Real data: Vocal Imitation Set, QVIM DEV and CAPTDURE
+
+The synthetic set is too small and too unlike real audio to settle the mining question (see Results).
+The same pipeline and commands run on real data:
+
+* **Training and evaluation: the [Vocal Imitation Set](https://github.com/interactiveaudiolab/VocalImitationSet)**
+  (`ingest-dataset --source vis`). It has 302 AudioSet classes, one imitated Freesound reference per
+  class, and about 2,700 other recordings of the same classes (`non_reference`, the fine-grained
+  distractors the dataset was built for). There are 5,601 accepted imitations. Mining metadata
+  comes straight from the dataset:
+  * category = AudioSet class, tags = its ontology path (depth 1-6),
+  * recording = Freesound ID;
+  * each imitator's own written description of the sound is the text hint for CLAP.
+* **External benchmark: the QVIM challenge DEV set** (`ingest-dataset --source qvim_dev`,
+  `vocalocate-demo benchmark --source vis --on qvim_dev`). The models never train or tune on it.
+  The table prints next to the published MRRs: random 0.044, the challenge's MobileNetV3
+  baseline 0.273, the winner 0.293. Those models trained on all of VimSketch, which is larger than
+  the Vocal Imitation Set and contains it, so they are a reference point, not an equal comparison.
+* **Text-branch benchmark: [CAPTDURE](https://zenodo.org/records/7965763)** (`ingest-dataset --source
+  captdure`, `vocalocate-demo benchmark-text --on captdure`). 1,044 single-source household sounds
+  the authors recorded themselves (14 classes), with 4,902 crowd-written captions. Each English
+  caption ranks every clip with frozen CLAP. The audio is not from Freesound or AudioSet and the set
+  postdates the CLAP models, so CLAP has not seen it (A2 Part Two reserves it for this test).
+
+```bash
+vocalocate-pipeline --config demo/configs/demo.toml --lake runs_real/lake --workers 6 \
+    ingest-dataset --source vis --path ~/data/VocalImitationSet
+vocalocate-pipeline --config demo/configs/demo.toml --lake runs_real/lake ingest-dataset --source qvim_dev --path ~/data/qvim-dev
+vocalocate-demo --lake runs_real/lake -v train --source vis --encoder mobilenetv3 --text-branch \
+    --device cuda --frames 1000 --batch-size 16 --epochs 20 --ft-epochs 5 --seed 490
+vocalocate-demo --lake runs_real/lake benchmark --source vis --on qvim_dev
+vocalocate-pipeline --config demo/configs/demo.toml --lake runs_real/lake ingest-dataset --source captdure --path ~/data/captdure
+vocalocate-demo --lake runs_real/lake benchmark-text --on captdure --device cuda
+vocalocate-demo app --lake runs_real/lake --source vis --root ~/SFX --text   # search your own library with these models
+```
+
+### Real-data results (MobileNetV3 + CLAP, 3 seeds: 490, 491, 492)
+
+Trained on the Vocal Imitation Set train split (3,317 pairs), 20 baseline epochs and 5 fine-tuning
+epochs per strategy, 1,000 frames, batch 16, on an 8 GB GPU (about 35 minutes per seed including
+the QVIM DEV benchmark). Mining settings were picked on validation; every seed kept band 0.25 and
+near-duplicate quantile 0.99.
+
+**Vocal Imitation Set test split** (1,158 imitations), mean ± std over 3 seeds:
+
+| model | R@1 | R@5 | MRR | fine MRR | nDCG@10 | Δ MRR vs baseline |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| QVIM baseline (no mining) | 0.170 ± 0.009 | 0.438 ± 0.005 | 0.295 ± 0.006 | 0.853 ± 0.010 | 0.323 ± 0.004 | – |
+| Control: random negatives | 0.168 ± 0.011 | 0.432 ± 0.007 | 0.293 ± 0.009 | 0.851 ± 0.008 | 0.320 ± 0.007 | −0.003 (0/3 seeds better) |
+| A: retrieval-driven mining | 0.168 ± 0.010 | 0.436 ± 0.006 | 0.295 ± 0.006 | 0.855 ± 0.008 | 0.324 ± 0.003 | −0.001 (0/3 seeds better) |
+| B: metadata-guided mining | 0.165 ± 0.012 | 0.428 ± 0.012 | 0.291 ± 0.010 | 0.852 ± 0.010 | 0.320 ± 0.007 | −0.005 (0/3 seeds better) |
+
+**QVIM DEV** (969 imitations, never trained or tuned on), MRR per seed:
+
+| model | seed 490 | seed 491 | seed 492 |
+| --- | ---: | ---: | ---: |
+| QVIM baseline (no mining) | 0.266 | 0.263 | 0.269 |
+| Control: random negatives | 0.266 | 0.263 | 0.267 |
+| A: retrieval-driven mining | 0.267 | 0.263 | 0.270 |
+| B: metadata-guided mining | 0.270 | 0.263 | 0.268 |
+| published: random ranking | 0.044 | | |
+| published: QVIM challenge MobileNetV3 baseline (trained on VimSketch) | 0.273 | | |
+| published: challenge winner | 0.293 | | |
+
+**Text branch on the Vocal Imitation Set** (test imitations with the imitator's description, α tuned
+on validation, mean of 3 seeds): voice only 0.295, text only 0.286, voice + text **0.483** for the
+baseline (+0.187, better on 3/3 seeds; the other models gain +0.185 to +0.189), α = 0.6 every time.
+
+**CAPTDURE text-to-audio** (frozen `laion/clap-htsat-unfused`, 4,902 captions × 1,044 clips):
+
+| | MRR | R@1 | R@5 | R@10 | fine MRR | nDCG@10 | class R@1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| CLAP (frozen) | 0.052 | 0.013 | 0.061 | 0.112 | 0.097 | 0.195 | 0.454 |
+| random ranking | 0.007 | 0.001 | | 0.010 | | | ≈ 0.07 |
+
+How to read the real-data results:
+
+* **Mining does not help here.** No strategy beat the baseline on the test split in any seed; the
+  differences are within one standard deviation. Fine-tuning rarely improved validation MRR (most
+  strategies kept epoch 0, the baseline weights), so model selection mostly returned the baseline.
+* **The baseline is competitive.** 0.263–0.270 on QVIM DEV against the published 0.273, trained on
+  the Vocal Imitation Set alone, a subset of VimSketch.
+* **Text hints add a lot on this set (+0.19 MRR), but treat that number with care.** The Vocal
+  Imitation Set's reference sounds come from Freesound, which is part of CLAP's training data.
+  On CAPTDURE, which CLAP has not seen, CLAP picks the right *kind* of sound first 45% of the time
+  (vs ~7% by chance) but rarely the exact take (MRR 0.052): each class has many near-identical
+  recordings and captions that fit all of them. So a text hint narrows the class; the voice has to
+  pick the take. The two benchmarks measure different things, so CAPTDURE does not show that the
+  Vocal Imitation Set number is inflated, only that it should not be read as clip-level text search.
+* **Leakage checks.** `mn10_as` is pretrained on AudioSet only (YouTube audio, no imitations), so
+  the Vocal Imitation Set test split is clean for the voice model. The published QVIM models trained
+  on VimSketch, which contains the Vocal Imitation Set, so we compare with them only on QVIM DEV. If
+  the team later trains the encoders on VimSketch, the Vocal Imitation Set can no longer be a test set.
+
 ## The synthetic data
 
 `synth.py` writes a dataset in the `sfx_meta` layout so the demo runs offline
@@ -190,16 +284,13 @@ Text branch (frozen `laion/clap-htsat-unfused`, 145 test imitations with a hint 
   and clinks don't sound like the real-world audio CLAP was trained on, so hints like "metallic"
   barely separate them. The text branch needs real SFX (BBC Sound Effects, or our team recordings
   with hints) to be judged; on this data the honest result is "no effect".
-* **Next:** the same commands on real data (VimSketch + the Vocal Imitation Set's same-class
-  recordings as an `sfx_meta` CSV), with a lower fine-tuning learning rate and a sweep over the band.
+* **Real data:** done; see "Real-data results" above. Mining does not help there either.
 
 ## Limits and next steps
 
-* The data is synthetic. With real data, approach B needs real metadata.
-  VimSketch labels are one per reference, so they make no related pools. The
-  Vocal Imitation Set's same-class recordings and AudioSet classes, or FSD50K
-  tags, should go through an `sfx_meta` CSV first. That is the "more
-  ingesters" item in the A2 next steps.
+* Real data so far is the Vocal Imitation Set only. Adding VocalSketch (as extra imitations or, as
+  the challenge winner did, extra negatives) and FSD50K as a larger candidate pool are the next
+  data steps. VimSketch labels are one per reference, so they give approach B no related pools.
 * Negatives are mined once from the baseline. Re-mining during fine-tuning
   and tuning `band` / `top_k` on validation are the obvious next experiments.
 * Search is a brute-force cosine over cached embeddings. FAISS slots in where

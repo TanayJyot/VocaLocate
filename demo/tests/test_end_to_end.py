@@ -56,3 +56,62 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
         assert main(argv) == 0
     hits = json.loads(buf.getvalue())["metadata"][query]
     assert len(hits) == 3 and hits[0]["score"] >= hits[-1]["score"]
+
+    # External benchmark: score the trained models on a QVIM DEV-style set they never saw.
+    import csv
+
+    import numpy as np
+    import soundfile as sf
+    from vocalocate_pipeline.flows import run_dataset_flow
+    from vocalocate_demo.experiment import run_benchmark
+
+    qvim = tmp_path / "qvim-dev"
+    rows = []
+    for i, cls in enumerate(["Dog", "Bell", "Engine"]):
+        t = np.arange(32_000) / 32_000
+        for kind, sub, freq in (("item", "Items", 300 + 200 * i), ("q", "Queries", 320 + 200 * i)):
+            path = qvim / sub / cls / f"{kind}{i}.wav"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(str(path), (0.4 * np.sin(2 * np.pi * freq * t)).astype("float32"), 32_000)
+        rows.append(["X", cls, f"item{i}.wav", f"q{i}.wav", "", ""])
+    with open(qvim / "DEV Dataset.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("DEV set,,,,,\n")
+        w = csv.writer(f)
+        w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
+        w.writerows(rows)
+    run_dataset_flow("qvim_dev", qvim, cfg)
+    bench = run_benchmark(cfg, "sfx_meta", "qvim_dev", device="cpu")
+    assert set(bench["models"]) == {"baseline", "random", "retrieval", "metadata"}
+    assert all(m["n_queries"] == 3 and m["n_candidates"] == 3 for m in bench["models"].values())
+    assert bench["published_mrr"]["challenge winner"] == 0.293
+
+
+
+def test_text_benchmark_on_a_captdure_like_set(tmp_path):
+    """The CLAP text branch is scored on captions of held-out clips (fake CLAP backend, CAPTDURE layout)."""
+    import numpy as np
+    import soundfile as sf
+
+    from vocalocate_pipeline.flows import run_dataset_flow
+
+    root = tmp_path / "captdure"
+    rows = []
+    for cls, freq in (("clock", 500), ("fan", 900), ("door", 300)):
+        for take in range(3):
+            name = f"{cls}/{cls}_01_{take:03d}.wav"
+            path = root / "single_source_source" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            t = np.arange(5 * 48_000) / 48_000
+            sf.write(str(path), (0.3 * np.sin(2 * np.pi * (freq + 40 * take) * t)).astype(np.float32), 48_000)
+            rows += [f"1\t{name}\tja\tthe sound of a {cls}", f"2\t{name}\tja\ta {cls} take {take}"]
+    header = '"worker ID\twavfile\tcaption (ja)\tcaption (en)"'
+    (root / "single_source_caption.csv").write_text("﻿" + header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+    cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1)
+    run_dataset_flow("captdure", root, cfg)
+    assert main(["--lake", str(cfg.lake_root), "benchmark-text", "--on", "captdure", "--clap-backend", "fake",
+                 "--device", "cpu"]) in (0, None)
+    out = json.loads((cfg.lake_root / "benchmarks" / "text_captdure.json").read_text(encoding="utf-8"))
+    assert out["n_clips"] == 9 and out["n_classes"] == 3 and out["metrics"]["n_queries"] == 18
+    assert 0 < out["metrics"]["mrr"] <= 1 and set(out["per_class"]) == {"clock", "door", "fan"}
+    assert abs(out["random"]["mrr"] - sum(1 / k for k in range(1, 10)) / 9) < 1e-9

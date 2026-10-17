@@ -72,3 +72,16 @@ def test_manifest_rows_match_the_raw_files_schema(esc50_dir):
 def test_unknown_source_is_an_error(tmp_path):
     with pytest.raises(ValueError, match="Unknown source"):
         ingest("audioset", tmp_path)
+
+
+def test_qvim_dev_accepts_the_zenodo_release_layout(qvim_dir, tmp_path):
+    from vocalocate_pipeline.ingest import ingest
+
+    # DEVDataset.zip: everything inside DEVUpdatedDataset/, index named DEVUpdateComplete.csv.
+    release = tmp_path / "qvim-release"
+    (qvim_dir / "DEV Dataset.csv").rename(qvim_dir / "DEVUpdateComplete.csv")
+    release.mkdir()
+    qvim_dir.rename(release / "DEVUpdatedDataset")
+    result = ingest("qvim_dev", release)
+    assert sorted(f.role for f in result.files) == ["imitation", "imitation", "reference"]
+    assert not result.missing

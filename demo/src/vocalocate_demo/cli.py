@@ -6,6 +6,8 @@
     search    index a folder and search it with a recorded imitation
     summarize average results over several seeds
     fetch-models  download the pretrained MobileNetV3 and CLAP weights
+    benchmark score trained models on the QVIM DEV set (or any other source's test split)
+    benchmark-text  score the CLAP text branch on a captioned held-out set (CAPTDURE)
     app       the VocaLocate web app: index folders, record an imitation, search, preview, drag out
 """
 
@@ -94,6 +96,16 @@ def _parser() -> argparse.ArgumentParser:
     t = sub.add_parser("train", help="train and compare all models on a source in the lake")
     t.add_argument("--source", default="sfx_meta", help="pipeline source with imitation/reference pairs")
     _train_args(t)
+
+    bm = sub.add_parser("benchmark", help="score trained models on another source's test split, e.g. the QVIM DEV set")
+    bm.add_argument("--source", default="sfx_meta", help="the source the models were trained on")
+    bm.add_argument("--on", default="qvim_dev", help="benchmark source already in the lake")
+    bm.add_argument("--device", default="auto")
+
+    bt = sub.add_parser("benchmark-text", help="score the CLAP text branch on captions, e.g. CAPTDURE (text-to-audio)")
+    bt.add_argument("--on", default="captdure", help="captioned source already in the lake")
+    bt.add_argument("--device", default="auto")
+    _clap_args(bt)
 
     fm = sub.add_parser("fetch-models", help="download the pretrained MobileNetV3 (EfficientAT) and CLAP weights")
     fm.add_argument("--pretrained", default=TrainConfig().pretrained, help="EfficientAT model name")
@@ -185,6 +197,28 @@ def main(argv: list[str] | None = None) -> int:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+    elif args.command == "benchmark":
+        from .experiment import MODEL_NAMES, run_benchmark
+
+        out = run_benchmark(cfg, args.source, args.on, device=args.device)
+        print(f"Models trained on {args.source}, scored on the {args.on} test split (each imitation ranks every reference)")
+        print(f"{'model':<55} {'MRR':>6} {'R@1':>6} {'R@5':>6} {'n':>5}")
+        for name, m in out["models"].items():
+            print(f"{MODEL_NAMES[name]:<55} {m['mrr']:>6.3f} {m['recall@1']:>6.3f} {m['recall@5']:>6.3f} {m['n_queries']:>5}")
+        for label, mrr in out.get("published_mrr", {}).items():
+            print(f"{'published: ' + label:<55} {mrr:>6.3f}")
+    elif args.command == "benchmark-text":
+        from .experiment import run_text_benchmark
+
+        out = run_text_benchmark(cfg, _clap(args), args.on)
+        m, r = out["metrics"], out["random"]
+        print(f"CLAP text branch ({out['model_version']}) on {args.on}: {m['n_queries']} captions rank "
+              f"{out['n_clips']} clips of {out['n_classes']} classes")
+        print(f"{'':<16} {'MRR':>6} {'R@1':>6} {'R@5':>6} {'R@10':>6} {'fine MRR':>9} {'nDCG@10':>8} {'class R@1':>10}")
+        print(f"{'CLAP (frozen)':<16} {m['mrr']:>6.3f} {m['recall@1']:>6.3f} {m['recall@5']:>6.3f} {m['recall@10']:>6.3f} "
+              f"{m['fine_mrr']:>9.3f} {m['ndcg@10']:>8.3f} {m['class_recall@1']:>10.3f}")
+        print(f"{'random ranking':<16} {r['mrr']:>6.3f} {r['recall@1']:>6.3f} {'':>6} {r['recall@10']:>6.3f}")
+        print("per class (MRR):", ", ".join(f"{c} {v['mrr']:.3f}" for c, v in out["per_class"].items()))
     elif args.command == "fetch-models":
         import torch
 

@@ -88,6 +88,17 @@ QUERIES = _schema(
     ("target_group_key", pa.string(), False),
 )
 
+# Silver: free-text captions written for an SFX clip (e.g. CAPTDURE). Each caption is a
+# text-only query whose target is its own clip, for testing the CLAP text branch.
+CAPTIONS = _schema(
+    ("caption_id", pa.string(), False),
+    ("source", pa.string(), False),
+    ("clip_id", pa.string(), False),
+    ("caption", pa.string(), False),
+    ("language", pa.string(), False),
+    ("annotator_id", pa.string(), True),
+)
+
 # Silver: optional semantic metadata per SFX (the SFX_Metadata wish-list schema).
 # Only training-time mining and analysis read it; the deployed search never does.
 SFX_METADATA = _schema(
@@ -182,6 +193,7 @@ TABLES: dict[str, pa.Schema] = {
     "pairs": PAIRS,
     "queries": QUERIES,
     "sfx_metadata": SFX_METADATA,
+    "captions": CAPTIONS,
     "features": FEATURES,
     "splits": SPLITS_TABLE,
     "embeddings": EMBEDDINGS,

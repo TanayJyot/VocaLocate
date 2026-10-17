@@ -3,6 +3,8 @@
 Layout, as read by the QVIM challenge baseline:
     "DEV Dataset.csv" (first row skipped; columns Label, Class, Items, Query 1-3)
     Items/<Class>/<Items>, Queries/<Class>/<Query>
+The Zenodo release (DEVDataset.zip) names the index "DEVUpdateComplete.csv" and nests
+everything in a "DEVUpdatedDataset/" folder; both are found automatically.
 This is our held-out benchmark: every clip is put in the test split.
 """
 
@@ -19,10 +21,20 @@ LICENCE = "CC BY-SA 4.0"
 QUERY_COLUMNS = ("Query 1", "Query 2", "Query 3")
 
 
+def _find_index(root: Path) -> tuple[Path, Path]:
+    """Return (dataset root, index CSV), accepting the baseline's and the Zenodo release's names."""
+    for base in (root, root / "DEVUpdatedDataset"):
+        for name in ("DEV Dataset.csv", "DEVUpdateComplete.csv"):
+            if (base / name).exists():
+                return base, base / name
+        found = sorted(p for p in base.glob("DEV*.csv") if not p.name.startswith("._"))
+        if found and (base / "Items").is_dir():
+            return base, found[0]
+    raise FileNotFoundError(f"QVIM DEV metadata (DEV Dataset.csv or DEVUpdateComplete.csv) not found under {root}")
+
+
 def ingest(root: Path) -> IngestResult:
-    meta = root / "DEV Dataset.csv"
-    if not meta.exists():
-        raise FileNotFoundError(f"QVIM DEV metadata not found at {meta}")
+    root, meta = _find_index(Path(root))
     files: list[RawFile] = []
     missing: list[str] = []
     seen: set[str] = set()
