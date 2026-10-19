@@ -22,7 +22,10 @@ This is the real-data source for the mining demos. It maps onto the SFX_Metadata
 * the imitator's own description of the sound becomes the text hint, a real
   voice + text + target triple for the CLAP branch.
 
-Only `included` imitations are used. Drafts, practice takes and rejected imitations are skipped.
+Only `included` imitations form training pairs. Drafts, practice takes and imitations raters
+rejected (`vocal_imitations/excluded/`) are kept as `unpaired_imitation` clips: they share their
+target's group and split but never pair with it, so training can use them as negatives for
+*other* sounds, the way the QVIM 2025 winner used VocalSketch's excluded imitations.
 """
 
 from __future__ import annotations
@@ -95,15 +98,19 @@ def build_rows(root: Path) -> list[dict]:
 
     class_of = {c["filename"]: c.get("classname", "") for c in classes if _true(c.get("is_reference", ""))}
     for im in _read_table(root / "vocal_imitations.txt", "\t"):
-        if not _true(im.get("included", "")) or im.get("reference_filename") not in class_of:
+        if im.get("reference_filename") not in class_of:
             continue
+        included = _true(im.get("included", ""))
         name = im["imitation_filename"]
-        path = _find(root, ["vocal_imitations/included"], name, index) or root / "vocal_imitations/included" / name
-        hint = im.get("participants_sound_recording_description", "")
+        folders = ["vocal_imitations/included", "vocal_imitations/excluded"]
+        path = _find(root, folders if included else folders[::-1], name, index)
+        if path is None:
+            path = root / folders[0 if included else 1] / name
+        hint = im.get("participants_sound_recording_description", "") if included else ""
         rows.append(
             {
                 "file": str(path),
-                "role": "imitation",
+                "role": "imitation" if included else "unpaired_imitation",
                 "sound_id": "",
                 "imitates": im["reference_filename"],
                 "category": class_of[im["reference_filename"]],

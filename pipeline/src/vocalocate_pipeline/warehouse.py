@@ -60,6 +60,20 @@ VIEWS = {
         LEFT JOIN sfx_metadata m ON m.source = c.source AND m.clip_id = c.clip_id
         WHERE c.status = 'ok' AND c.role IN ('reference', 'library') AND c.source NOT LIKE 'library_%'
     """,
+    # Imitations kept only as training negatives (rejected or practice takes), with the reference
+    # they imitate and its metadata. They share that reference's split, so a negative for a train
+    # sound never comes from a test sound's imitations.
+    "v_unpaired_imitations": """
+        SELECT u.source, u.clip_id, u.group_key, s.split, f.feature_path, u.imitator_id,
+               r.clip_id AS target_clip_id, coalesce(m.category, r.label) AS category, m.tags
+        FROM clips u
+        JOIN splits s ON s.source = u.source AND s.clip_id = u.clip_id
+        JOIN features f ON f.source = u.source AND f.clip_id = u.clip_id
+        JOIN clips r ON r.source = u.source AND r.group_key = u.group_key AND r.role = 'reference'
+                    AND r.status = 'ok'
+        LEFT JOIN sfx_metadata m ON m.source = r.source AND m.clip_id = r.clip_id
+        WHERE u.status = 'ok' AND u.role = 'unpaired_imitation'
+    """,
     # Text-only queries (captions) with their target clip, for testing the CLAP text branch.
     "v_captions": """
         SELECT k.caption_id, k.source, k.caption, k.language, k.annotator_id, s.split,

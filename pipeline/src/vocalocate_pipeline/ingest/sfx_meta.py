@@ -9,7 +9,9 @@ same-class recordings or our synthetic demo set. Layout:
     and optionally text_hint, hint_type; plus the audio files it lists (paths relative to the CSV).
 
 * role is reference (a sound with imitations), library (an extra candidate SFX
-  with no imitations, e.g. another take or a same-class recording) or imitation.
+  with no imitations, e.g. another take or a same-class recording), imitation, or
+  unpaired_imitation (an imitation kept only as a training negative, such as a rejected
+  or practice take: it gets its target's group key and split but never forms a pair).
 * imitates is the sound_id of the reference an imitation imitates.
 * tags are separated by ";".
 * An imitation with a text_hint becomes a voice, text and target triple in the
@@ -29,7 +31,8 @@ from . import IngestResult, RawFile
 
 SOURCE = "sfx_meta"
 VERSION = "1.0"
-ROLES = {"reference", "library", "imitation"}
+ROLES = {"reference", "library", "imitation", "unpaired_imitation"}
+IMITATION_ROLES = {"imitation", "unpaired_imitation"}
 
 
 def _clean(value: str | None) -> str | None:
@@ -60,7 +63,7 @@ def ingest_rows(
         role = row["role"].strip()
         if role not in ROLES:
             raise ValueError(f"{row['file']}: unknown role {role!r}")
-        if role == "imitation":
+        if role in IMITATION_ROLES:
             continue
         sound_id = row["sound_id"].strip()
         recording = _clean(row.get("recording_id")) or sound_id
@@ -77,7 +80,7 @@ def ingest_rows(
             missing.append(row["file"])
             continue
         role = row["role"].strip()
-        if role == "imitation":
+        if role in IMITATION_ROLES:
             target = row["imitates"].strip()
             recording = recording_of.get(target)
             group = f"{source}:{recording}" if target in reference_of_recording.values() else None
@@ -87,7 +90,7 @@ def ingest_rows(
                     source_version=version,
                     source_key=row["file"],
                     path=path,
-                    role="imitation",
+                    role=role,
                     label=_clean(row.get("category")),
                     group_key=group,
                     imitator_id=_clean(row.get("imitator_id")),
@@ -95,7 +98,7 @@ def ingest_rows(
                 )
             )
             hint = _clean(row.get("text_hint"))
-            if hint and group:
+            if hint and group and role == "imitation":
                 queries.append(
                     {
                         "query_id": hashlib.sha256(f"{row['file']}|{hint}".encode()).hexdigest()[:32],

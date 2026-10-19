@@ -12,7 +12,9 @@ from collections.abc import Iterable
 
 import pyarrow as pa
 
-ROLES = {"reference", "imitation", "library"}
+# unpaired_imitation: an imitation kept only as a training negative (e.g. a rejected or practice take).
+# It shares its target's group key, so it lands in the target's split, but it never forms a training pair.
+ROLES = {"reference", "imitation", "library", "unpaired_imitation"}
 STATUSES = {"ok", "rejected", "duplicate"}
 SPLITS = {"train", "val", "test"}
 LIBRARY_STATUSES = {"active", "deleted"}

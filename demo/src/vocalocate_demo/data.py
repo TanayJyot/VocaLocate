@@ -32,6 +32,9 @@ class Dataset:
     pairs: pd.DataFrame
     candidates: pd.DataFrame
     hints: dict[str, str] = field(default_factory=dict)  # imitation clip_id -> text hint (queries table)
+    # Imitations kept only as negatives (v_unpaired_imitations): clip_id, split, feature_path,
+    # target_clip_id, category, tags. Empty for sources that have none.
+    unpaired: pd.DataFrame = field(default_factory=pd.DataFrame)
     _cache: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
     _paths: dict[str, str] = field(default_factory=dict, repr=False)
     _meta: dict[str, SFXMeta] | None = field(default=None, repr=False)
@@ -41,6 +44,8 @@ class Dataset:
             self._paths[row.imitation_clip_id] = row.imitation_feature_path
             self._paths[row.reference_clip_id] = row.reference_feature_path
         for row in self.candidates.itertuples():
+            self._paths[row.clip_id] = row.feature_path
+        for row in self.unpaired.itertuples():
             self._paths[row.clip_id] = row.feature_path
 
     def mel(self, clip_id: str) -> np.ndarray:
@@ -53,6 +58,11 @@ class Dataset:
 
     def split_candidates(self, split: str) -> pd.DataFrame:
         return self.candidates[self.candidates.split == split].reset_index(drop=True)
+
+    def split_unpaired(self, split: str) -> pd.DataFrame:
+        if self.unpaired.empty:
+            return self.unpaired
+        return self.unpaired[self.unpaired.split == split].reset_index(drop=True)
 
     def meta(self) -> dict[str, SFXMeta]:
         if self._meta is not None:
@@ -78,11 +88,18 @@ def load_dataset(cfg: PipelineConfig, sources: list[str]) -> Dataset:
         ).df()
         candidates = con.execute(f"SELECT * FROM v_sfx_candidates WHERE source IN ({src}) ORDER BY clip_id").df()
         hints = dict(con.execute(f"SELECT imitation_clip_id, text_hint FROM queries WHERE source IN ({src})").fetchall())
+        try:
+            unpaired = con.execute(
+                f"""SELECT * FROM v_unpaired_imitations WHERE source IN ({src}) AND feature_path IS NOT NULL
+                    ORDER BY clip_id"""
+            ).df()
+        except duckdb.CatalogException:  # warehouse built before unpaired imitations existed
+            unpaired = pd.DataFrame()
     finally:
         con.close()
     if pairs.empty:
         raise ValueError(f"No training pairs for {sources} in {cfg.warehouse_path}; run the dataset flow first")
-    return Dataset(pairs=pairs, candidates=candidates, hints=hints)
+    return Dataset(pairs=pairs, candidates=candidates, hints=hints, unpaired=unpaired)
 
 
 def fit_frames(mel: np.ndarray, frames: int, rng: np.random.Generator | None = None) -> np.ndarray:

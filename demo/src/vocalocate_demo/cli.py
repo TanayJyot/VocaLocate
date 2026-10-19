@@ -8,6 +8,8 @@
     fetch-models  download the pretrained MobileNetV3 and CLAP weights
     benchmark score trained models on the QVIM DEV set (or any other source's test split)
     benchmark-text  score the CLAP text branch on a captioned held-out set (CAPTDURE)
+    benchmark-onnx  score an exported ONNX embedding model (e.g. the QVIM 2025 winner's) on a benchmark
+    recipe    the QVIM 2025 winning recipe on a source, one run per negative source (A, B, C, controls)
     app       the VocaLocate web app: index folders, record an imitation, search, preview, drag out
 """
 
@@ -25,6 +27,7 @@ from .mining import MiningConfig
 from .train import TrainConfig
 
 MODELS = ("baseline", "random", "retrieval", "metadata")
+RECIPE_ORDER = ("greif", "shared", "excluded", "excluded_noaug", "retrieval", "metadata", "random")
 
 
 def _train_args(p: argparse.ArgumentParser) -> None:
@@ -101,6 +104,22 @@ def _parser() -> argparse.ArgumentParser:
     bm.add_argument("--source", default="sfx_meta", help="the source the models were trained on")
     bm.add_argument("--on", default="qvim_dev", help="benchmark source already in the lake")
     bm.add_argument("--device", default="auto")
+
+    bo = sub.add_parser("benchmark-onnx", help="score a waveform-in ONNX embedding model on a benchmark's test split")
+    bo.add_argument("--model", type=Path, required=True, help="ONNX file, e.g. thatsoundslikeme's model_v1.onnx")
+    bo.add_argument("--on", default="qvim_dev", help="benchmark source already in the lake")
+    bo.add_argument("--sample-rate", type=int, default=16_000, help="input rate the model expects")
+    bo.add_argument("--label", default="onnx")
+
+    rp = sub.add_parser("recipe", help="train the QVIM 2025 winning recipe with each negative source, one seed")
+    rp.add_argument("--source", default="vis")
+    rp.add_argument("--models", default=",".join(RECIPE_ORDER),
+                    help="comma-separated recipe names: " + ", ".join(RECIPE_ORDER))
+    rp.add_argument("--recipe-epochs", type=int, help="override the 30 training epochs (e.g. for a smoke test)")
+    rp.add_argument("--n-cands", type=int, help="override candidates scored per anchor per step (default 2)")
+    rp.add_argument("--no-amp", action="store_true", help="disable mixed precision on CUDA")
+    rp.add_argument("--bench", default="qvim_dev", help="also score each model on this source's test split ('' = none)")
+    _train_args(rp)
 
     bt = sub.add_parser("benchmark-text", help="score the CLAP text branch on captions, e.g. CAPTDURE (text-to-audio)")
     bt.add_argument("--on", default="captdure", help="captioned source already in the lake")
@@ -204,9 +223,38 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Models trained on {args.source}, scored on the {args.on} test split (each imitation ranks every reference)")
         print(f"{'model':<55} {'MRR':>6} {'R@1':>6} {'R@5':>6} {'n':>5}")
         for name, m in out["models"].items():
-            print(f"{MODEL_NAMES[name]:<55} {m['mrr']:>6.3f} {m['recall@1']:>6.3f} {m['recall@5']:>6.3f} {m['n_queries']:>5}")
+            print(f"{MODEL_NAMES.get(name, name):<55} {m['mrr']:>6.3f} {m['recall@1']:>6.3f} {m['recall@5']:>6.3f} {m['n_queries']:>5}")
         for label, mrr in out.get("published_mrr", {}).items():
             print(f"{'published: ' + label:<55} {mrr:>6.3f}")
+    elif args.command == "benchmark-onnx":
+        from .experiment import run_onnx_benchmark
+
+        out = run_onnx_benchmark(cfg, args.model, args.on, sr=args.sample_rate, label=args.label)
+        m = out["metrics"]
+        print(f"{args.model} ({args.sample_rate} Hz) on the {args.on} test split, {m['n_queries']} queries, "
+              f"providers {out['providers']}")
+        print(f"MRR {m['mrr']:.3f}  R@1 {m['recall@1']:.3f}  R@5 {m['recall@5']:.3f}  "
+              f"fine MRR {m['fine_mrr']:.3f}  nDCG@10 {m['ndcg@10']:.3f}")
+        for label, mrr in (out.get("published_mrr") or {}).items():
+            print(f"published: {label}: {mrr:.3f}")
+    elif args.command == "recipe":
+        from .recipe import RECIPE_NAMES, run_recipe_suite
+
+        tcfg, _ = _configs(args)
+        overrides = {}
+        if args.recipe_epochs:
+            overrides["epochs"] = args.recipe_epochs
+        if args.n_cands:
+            overrides["n_cands"] = args.n_cands
+        if args.no_amp:
+            overrides["amp"] = False
+        names = [n.strip() for n in args.models.split(",") if n.strip()]
+        res = run_recipe_suite(cfg, args.source, tcfg, names, bench=args.bench or None, overrides=overrides)
+        print(f"Recipe runs on {args.source}, seed {tcfg.seed} (test split{', ' + args.bench if args.bench else ''})")
+        for name, m in res["models"].items():
+            b = m.get("benchmark", {}).get(args.bench, {}).get("mrr") if args.bench else None
+            print(f"{RECIPE_NAMES[name]:<72} MRR {m['test']['mrr']:.3f}  fine {m['test']['fine_mrr']:.3f}"
+                  + (f"  {args.bench} {b:.3f}" if b is not None else "") + f"  kept epoch {m['kept_epoch']}")
     elif args.command == "benchmark-text":
         from .experiment import run_text_benchmark
 

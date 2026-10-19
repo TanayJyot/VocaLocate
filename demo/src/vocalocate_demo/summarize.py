@@ -8,7 +8,10 @@ from pathlib import Path
 import numpy as np
 
 from .experiment import MODEL_NAMES
+from .recipe import RECIPE_NAMES
 from .report import METRICS
+
+LABELS = {**MODEL_NAMES, **RECIPE_NAMES}
 
 
 def summarize(paths: list[Path]) -> str:
@@ -22,26 +25,34 @@ def summarize(paths: list[Path]) -> str:
     if not runs:
         raise ValueError(f"no results.json found in {[str(p) for p in paths]}")
     seeds = [r["train_config"]["seed"] for r in runs]
+    ref = runs[0].get("reference_model", "baseline")
+    names = [n for n in LABELS if all(n in r["models"] for r in runs)]
+    benches = sorted({b for r in runs for m in r["models"].values() for b in m.get("benchmark", {})})
+    title = "recipe comparison" if runs[0].get("kind") == "recipe" else "mining demo"
     lines = [
-        f"# VocaLocate mining demo: {len(runs)} seeds ({', '.join(map(str, seeds))})",
+        f"# VocaLocate {title}: {len(runs)} seeds ({', '.join(map(str, seeds))})",
         "",
-        "Held-out test metrics, mean ± std over seeds. Δ MRR is each model minus the baseline of the same seed.",
+        f"Held-out test metrics, mean ± std over seeds. Δ MRR is each model minus {LABELS.get(ref, ref)!r} "
+        "of the same seed." + (f" Benchmark columns: MRR on the {', '.join(benches)} test split." if benches else ""),
         "",
-        "| model | " + " | ".join(METRICS) + " | Δ MRR vs baseline | val MRR |",
-        "| --- | " + " | ".join("---:" for _ in METRICS) + " | ---: | ---: |",
+        "| model | " + " | ".join(METRICS) + " | Δ MRR vs reference | val MRR | "
+        + "".join(f"{b} MRR | " for b in benches),
+        "| --- | " + " | ".join("---:" for _ in METRICS) + " | ---: | ---: | " + "".join("---: | " for _ in benches),
     ]
-    for name in MODEL_NAMES:
-        if not all(name in r["models"] for r in runs):
-            continue
+    for name in names:
         cells = []
         for m in METRICS:
             v = np.array([r["models"][name]["test"][m] for r in runs])
             cells.append(f"{v.mean():.3f} ± {v.std():.3f}")
-        d = np.array([r["models"][name]["test"]["mrr"] - r["models"]["baseline"]["test"]["mrr"] for r in runs])
+        d = np.array([r["models"][name]["test"]["mrr"] - r["models"][ref]["test"]["mrr"] for r in runs])
         wins = int((d > 0).sum())
         val = np.array([r["models"][name]["val"]["mrr"] for r in runs])
-        delta = "–" if name == "baseline" else f"{d.mean():+.3f} ({wins}/{len(runs)} seeds better)"
-        lines.append(f"| {MODEL_NAMES[name]} | " + " | ".join(cells) + f" | {delta} | {val.mean():.3f} |")
+        delta = "–" if name == ref else f"{d.mean():+.3f} ({wins}/{len(runs)} seeds better)"
+        bench_cells = ""
+        for b in benches:
+            v = np.array([r["models"][name].get("benchmark", {}).get(b, {}).get("mrr", np.nan) for r in runs])
+            bench_cells += f"{np.nanmean(v):.3f} ± {np.nanstd(v):.3f} | "
+        lines.append(f"| {LABELS[name]} | " + " | ".join(cells) + f" | {delta} | {val.mean():.3f} | " + bench_cells)
     with_text = [r for r in runs if r.get("text", {}).get("models")]
     if with_text:
         lines += [

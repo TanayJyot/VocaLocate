@@ -115,3 +115,52 @@ def test_text_benchmark_on_a_captdure_like_set(tmp_path):
     assert out["n_clips"] == 9 and out["n_classes"] == 3 and out["metrics"]["n_queries"] == 18
     assert 0 < out["metrics"]["mrr"] <= 1 and set(out["per_class"]) == {"clock", "door", "fan"}
     assert abs(out["random"]["mrr"] - sum(1 / k for k in range(1, 10)) / 9) < 1e-9
+
+
+def test_onnx_benchmark_on_a_qvim_like_set(tmp_path):
+    """A waveform-in ONNX model (like the QVIM 2025 winner's model_v1.onnx) scored on QVIM DEV's layout."""
+    import csv
+
+    import numpy as np
+    import pytest
+    import soundfile as sf
+
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    import torch
+
+    from vocalocate_pipeline.flows import run_dataset_flow
+    from vocalocate_demo.experiment import run_onnx_benchmark
+
+    qvim = tmp_path / "qvim-dev"
+    rows = []
+    for i, cls in enumerate(["Dog", "Bell", "Engine"]):
+        t = np.arange(32_000) / 32_000
+        for kind, sub, freq in (("item", "Items", 300 + 200 * i), ("q", "Queries", 320 + 200 * i)):
+            path = qvim / sub / cls / f"{kind}{i}.wav"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            sf.write(str(path), (0.4 * np.sin(2 * np.pi * freq * t)).astype("float32"), 32_000)
+        rows.append(["X", cls, f"item{i}.wav", f"q{i}.wav", "", ""])
+    with open(qvim / "DEV Dataset.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("DEV set,,,,,\n")
+        w = csv.writer(f)
+        w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
+        w.writerows(rows)
+    cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1)
+    run_dataset_flow("qvim_dev", qvim, cfg)
+
+    class Toy(torch.nn.Module):  # waveform (B, samples) -> 8 fixed random-filter energies
+        def __init__(self):
+            super().__init__()
+            torch.manual_seed(0)
+            self.conv = torch.nn.Conv1d(1, 8, 64, stride=32, bias=False)
+
+        def forward(self, x):
+            return self.conv(x[:, None, :16_000]).abs().mean(-1)
+
+    path = tmp_path / "toy.onnx"
+    torch.onnx.export(Toy(), torch.zeros(2, 160_000), str(path), input_names=["audio"], output_names=["emb"],
+                      dynamic_axes={"audio": {0: "batch"}, "emb": {0: "batch"}}, dynamo=False)
+    out = run_onnx_benchmark(cfg, path, "qvim_dev", sr=16_000, label="toy")
+    assert out["metrics"]["n_queries"] == 3 and 0 < out["metrics"]["mrr"] <= 1
+    assert (cfg.lake_root / "benchmarks" / "toy_qvim_dev_16k.json").exists()

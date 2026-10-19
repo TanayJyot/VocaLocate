@@ -185,6 +185,37 @@ How to read the real-data results:
   on VimSketch, which contains the Vocal Imitation Set, so we compare with them only on QVIM DEV. If
   the team later trains the encoders on VimSketch, the Vocal Imitation Set can no longer be a test set.
 
+## The QVIM 2025 winning recipe on our data
+
+The winning challenge entry ([Bhattacharjee et al., arXiv 2608.19174](https://arxiv.org/abs/2608.19174),
+Submission #2) trains one shared MobileNetV3 with a contrastive loss plus a semi-hard triplet loss
+from the first epoch, with augmentation on both branches. Its negatives are extra imitations that
+never form pairs. `vocalocate-demo recipe` replicates that recipe on our data and changes only the
+negative source between runs, so A, B and their method are compared on equal terms
+(`recipe.py` documents every choice the paper leaves open):
+
+| run | encoder | augmentation | triplet negatives |
+| --- | --- | --- | --- |
+| `greif` | two towers | yes | none (the Greif et al. / QVIM baseline recipe) |
+| `shared` | shared | yes | none (the reference for Δ) |
+| `excluded` | shared | yes | **C**: rejected/practice imitations of related sounds (their method) |
+| `excluded_noaug` | shared | no | C, to separate augmentation from mining |
+| `retrieval` | shared | yes | **A**: the current model's top wrong SFX, re-mined every 5 epochs |
+| `metadata` | shared | yes | **B**: metadata-related SFX |
+| `random` | shared | yes | random SFX (control) |
+
+The Vocal Imitation Set's ~5,600 excluded imitations (drafts, practice takes, rejected takes) are
+ingested as `unpaired_imitation` clips: they share their target's split but never form a pair.
+Each class there has one reference, so "related" means a *different* sound that shares the
+category or ontology tags, never the anchor's own sound.
+
+```bash
+vocalocate-demo --lake runs_real/lake -v recipe --source vis --encoder mobilenetv3 --device cuda \
+    --frames 1000 --batch-size 32 --seed 490          # one seed, all seven runs; re-run to resume
+vocalocate-demo --lake runs_real/lake benchmark-onnx --model model_v1.onnx --on qvim_dev  # the winner's released model
+vocalocate-demo summarize runs_real/lake/models/vis/recipe-490 runs_real/lake/models/vis/recipe-491 ...
+```
+
 ## The synthetic data
 
 `synth.py` writes a dataset in the `sfx_meta` layout so the demo runs offline

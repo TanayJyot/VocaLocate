@@ -9,6 +9,9 @@ trained contrastively. Two encoders are available:
 * "cnn": a small CNN trained from scratch, so tests and CPU-only demos run in
   minutes without downloading weights.
 
+With `shared=True` one encoder embeds both imitations and SFX, as in the QVIM 2025
+winning entry (Bhattacharjee et al.); otherwise the two towers are separate.
+
 The rest of the code only sees `DualEncoder.embed_imitation` and `DualEncoder.embed_sfx`.
 """
 
@@ -82,16 +85,20 @@ class DualEncoder(nn.Module):
         encoder: str = "cnn",
         pretrained: str | None = "mn10_as",
         frames: int = 256,
+        shared: bool = False,
     ):
         super().__init__()
         if encoder == "cnn":
             self.imitation = Encoder(n_mels, dim, width)
-            self.sfx = Encoder(n_mels, dim, width)
+            self.sfx = self.imitation if shared else Encoder(n_mels, dim, width)
         elif encoder == "mobilenetv3":
             self.imitation = MobileNetEncoder(n_mels, pretrained, frames)
-            # Both towers start from the same pretrained weights, as in the QVIM baseline (deepcopy).
-            self.sfx = MobileNetEncoder(n_mels, None, frames)
-            self.sfx.load_state_dict(self.imitation.state_dict())
+            if shared:
+                self.sfx = self.imitation
+            else:
+                # Both towers start from the same pretrained weights, as in the QVIM baseline (deepcopy).
+                self.sfx = MobileNetEncoder(n_mels, None, frames)
+                self.sfx.load_state_dict(self.imitation.state_dict())
             dim = 960
         else:
             raise ValueError(f"unknown encoder {encoder!r}; expected 'cnn' or 'mobilenetv3'")
@@ -99,7 +106,7 @@ class DualEncoder(nn.Module):
         self.log_tau = nn.Parameter(torch.tensor(float(tau)).log())
         # Weights come from the checkpoint when reloading, so never re-download them then.
         self.hparams = {"n_mels": n_mels, "dim": dim, "width": width, "tau": tau, "encoder": encoder,
-                        "pretrained": None, "frames": frames}
+                        "pretrained": None, "frames": frames, "shared": shared}
 
     def embed_imitation(self, x: torch.Tensor) -> torch.Tensor:
         return self.imitation(x)

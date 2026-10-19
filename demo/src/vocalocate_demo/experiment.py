@@ -294,3 +294,61 @@ def _score(model, ds: Dataset, tcfg: T.TrainConfig, version: str, hist: list[dic
         "train_sec": round(sec, 1),
         "history": hist,
     }
+
+
+def run_onnx_benchmark(cfg: PipelineConfig, onnx_path: Path, bench_source: str = "qvim_dev", sr: int = 16_000,
+                       seconds: float = 10.0, label: str = "onnx") -> dict:
+    """Score an exported waveform-in, embedding-out ONNX model (e.g. thatsoundslikeme's model_v1.onnx).
+
+    Queries and candidates are the same as `run_benchmark` (each test imitation ranks every
+    test reference of the benchmark). Audio is the pipeline's clean 32 kHz WAV, resampled to
+    `sr`, mono, first `seconds` (zero-padded), the preprocessing of the thatsoundslikeme scripts.
+    """
+    from math import gcd
+
+    import onnxruntime as ort
+    import soundfile as sf
+    from scipy.signal import resample_poly
+
+    from .evaluate import score_metrics
+
+    ds = load_dataset(cfg, [bench_source])
+    pairs, cands = ds.split_pairs("test"), ds.split_candidates("test")
+    index = {cid: i for i, cid in enumerate(cands.clip_id)}
+    pairs = pairs[pairs.reference_clip_id.isin(index)]
+    providers = [p for p in ("CUDAExecutionProvider", "CPUExecutionProvider") if p in ort.get_available_providers()]
+    sess = ort.InferenceSession(str(onnx_path), providers=providers)
+    inp, outp = sess.get_inputs()[0], sess.get_outputs()[0]
+    n = int(sr * seconds)
+
+    def load(path: str) -> np.ndarray:
+        x, s = sf.read(path, dtype="float32", always_2d=True)
+        x = x.mean(axis=1)
+        if s != sr:
+            g = gcd(s, sr)
+            x = resample_poly(x, sr // g, s // g).astype(np.float32)
+        return np.pad(x[:n], (0, max(n - len(x), 0))).astype(np.float32)
+
+    def embed(paths: list[str], bs: int = 16) -> np.ndarray:
+        out = []
+        for i in range(0, len(paths), bs):
+            batch = np.stack([load(p) for p in paths[i : i + bs]])
+            if len(inp.shape) == 3:
+                batch = batch[None]
+            e = np.asarray(sess.run([outp.name], {inp.name: batch})[0], dtype=np.float32)
+            out.append(e.reshape(-1, e.shape[-1]))
+        e = np.concatenate(out)
+        return e / (np.linalg.norm(e, axis=1, keepdims=True) + 1e-9)
+
+    q = embed(list(pairs.imitation_path))
+    c = embed(list(cands.clean_path))
+    target = np.array([index[r] for r in pairs.reference_clip_id])
+    meta = ds.meta()
+    metrics = score_metrics(q @ c.T, target, [meta[cid] for cid in cands.clip_id])
+    out = {"model": str(onnx_path), "label": label, "benchmark": bench_source, "sample_rate": sr, "seconds": seconds,
+           "providers": sess.get_providers(), "metrics": metrics,
+           "published_mrr": QVIM_DEV_PUBLISHED if bench_source == "qvim_dev" else None}
+    out_dir = cfg.lake_root / "benchmarks"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{label}_{bench_source}_{sr // 1000}k.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return out

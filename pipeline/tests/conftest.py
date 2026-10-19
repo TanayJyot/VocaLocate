@@ -145,7 +145,7 @@ def vis_dir(tmp_path) -> Path:
         ("im1.wav", "ref_dog.wav", "True", "p1", "a dog barking"),
         ("im2.wav", "ref_dog.wav", "True", "p2", ""),
         ("im3.wav", "ref_cat.wav", "True", "p1", "cat meowing"),
-        ("im4.wav", "ref_cat.wav", "False", "p3", "rejected"),  # not included: skipped
+        ("im4.wav", "ref_cat.wav", "False", "p3", "rejected"),  # not included: kept as an unpaired negative
     ]
     with open(_mk(root / "vocal_imitations.txt"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
