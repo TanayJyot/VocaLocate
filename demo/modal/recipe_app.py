@@ -44,8 +44,11 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libsndfile1")
     .pip_install("torch==2.5.1", "numpy<2.3", "scipy", "soundfile", "pandas", "pyarrow", "duckdb")
-    .add_local_dir(REPO / "pipeline", "/repo/pipeline", copy=True, ignore=_ignore)
-    .add_local_dir(REPO / "demo", "/repo/demo", copy=True, ignore=_ignore + ["modal/**"])
+    # Only the packages' sources: a working checkout can hold gigabytes of untracked run output.
+    .add_local_file(REPO / "pipeline" / "pyproject.toml", "/repo/pipeline/pyproject.toml", copy=True)
+    .add_local_dir(REPO / "pipeline" / "src", "/repo/pipeline/src", copy=True, ignore=_ignore)
+    .add_local_file(REPO / "demo" / "pyproject.toml", "/repo/demo/pyproject.toml", copy=True)
+    .add_local_dir(REPO / "demo" / "src", "/repo/demo/src", copy=True, ignore=_ignore)
     .run_commands("pip install --no-deps -e /repo/pipeline -e /repo/demo")
 )
 lake = modal.Volume.from_name(VOLUME, create_if_missing=True)
