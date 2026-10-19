@@ -8,7 +8,9 @@ metadata, and the gold layer holds the log-mel features (QVIM baseline settings)
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import duckdb
 import numpy as np
@@ -77,6 +79,24 @@ class Dataset:
         return out
 
 
+_LAKE_SUBDIRS = {("gold", "features"), ("silver", "audio")}
+
+
+def rebase_lake_path(path, lake_root: Path):
+    """Re-root a lake path recorded on another machine (e.g. a Windows path) onto lake_root.
+
+    The warehouse stores the paths the ingest wrote. When the lake is copied elsewhere (a cloud
+    volume), those no longer exist; everything from gold/features or silver/audio on is kept.
+    """
+    if not isinstance(path, str) or Path(path).exists():
+        return path
+    parts = re.split(r"[\\/]", path)
+    for i in range(len(parts) - 1):
+        if (parts[i], parts[i + 1]) in _LAKE_SUBDIRS:
+            return str(Path(lake_root).joinpath(*parts[i:]))
+    return path
+
+
 def load_dataset(cfg: PipelineConfig, sources: list[str]) -> Dataset:
     con = duckdb.connect(str(cfg.warehouse_path), read_only=True)
     try:
@@ -97,6 +117,11 @@ def load_dataset(cfg: PipelineConfig, sources: list[str]) -> Dataset:
             unpaired = pd.DataFrame()
     finally:
         con.close()
+    for df, cols in ((pairs, ("imitation_feature_path", "reference_feature_path")), (candidates, ("feature_path",)),
+                     (unpaired, ("feature_path",))):
+        for c in cols:
+            if c in df:
+                df[c] = [rebase_lake_path(v, cfg.lake_root) for v in df[c]]
     if pairs.empty:
         raise ValueError(f"No training pairs for {sources} in {cfg.warehouse_path}; run the dataset flow first")
     return Dataset(pairs=pairs, candidates=candidates, hints=hints, unpaired=unpaired)

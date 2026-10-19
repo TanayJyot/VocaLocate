@@ -204,7 +204,7 @@ negative source between runs, so A, B and their method are compared on equal ter
 | `metadata` | shared | yes | **B**: metadata-related SFX |
 | `random` | shared | yes | random SFX (control) |
 
-The Vocal Imitation Set's ~5,600 excluded imitations (drafts, practice takes, rejected takes) are
+The Vocal Imitation Set's 5,260 excluded imitations (drafts, practice takes, rejected takes) are
 ingested as `unpaired_imitation` clips: they share their target's split but never form a pair.
 Each class there has one reference, so "related" means a *different* sound that shares the
 category or ontology tags, never the anchor's own sound.
@@ -214,6 +214,18 @@ vocalocate-demo --lake runs_real/lake -v recipe --source vis --encoder mobilenet
     --frames 1000 --batch-size 32 --seed 490          # one seed, all seven runs; re-run to resume
 vocalocate-demo --lake runs_real/lake benchmark-onnx --model model_v1.onnx --on qvim_dev  # the winner's released model
 vocalocate-demo summarize runs_real/lake/models/vis/recipe-490 runs_real/lake/models/vis/recipe-491 ...
+```
+
+On an 8 GB GPU the recipe fits only batch 16 (the paper uses 64) at about 3 minutes an epoch, so
+one seed of seven runs takes about 11 hours. `modal/recipe_app.py` instead runs every
+(seed, recipe) training in its own Modal GPU container, in parallel, at batch 64; see its
+docstring for the one-time upload of the warehouse and features to a Modal volume:
+
+```bash
+pip install modal && modal setup
+modal run demo/modal/recipe_app.py --seeds 9999 --models excluded --epochs 1   # probe one epoch
+modal run --detach demo/modal/recipe_app.py                                   # 3 seeds x 7 recipes
+modal volume get vocalocate-lake /models/vis ./runs_modal/
 ```
 
 ## The synthetic data

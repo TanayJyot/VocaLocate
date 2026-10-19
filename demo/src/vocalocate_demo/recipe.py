@@ -39,6 +39,8 @@ import copy
 import json
 import logging
 import math
+import queue
+import threading
 import time
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -51,7 +53,7 @@ from vocalocate_pipeline.config import PipelineConfig
 
 from . import train as T
 from .augment import augment_batch
-from .data import Dataset, SFXMeta, load_dataset
+from .data import Dataset, SFXMeta, fit_frames, load_dataset
 from .evaluate import evaluate_split
 from .mining import METADATA_TIERS, relation
 from .model import DualEncoder
@@ -229,6 +231,29 @@ def _semi_hard(s_pos: torch.Tensor, s_neg: torch.Tensor, valid: torch.Tensor, ma
     return loss * active, active
 
 
+def _prefetch(fn, items, depth: int = 4):
+    """Yield fn(item) for each item, computed in a background thread up to `depth` items ahead."""
+    q: queue.Queue = queue.Queue(maxsize=depth)
+    done = object()
+
+    def work():
+        try:
+            for it in items:
+                q.put(fn(it))
+        except BaseException as e:  # surfaced in the consumer
+            q.put(e)
+        q.put(done)
+
+    th = threading.Thread(target=work, daemon=True)
+    th.start()
+    while (out := q.get()) is not done:
+        if isinstance(out, BaseException):
+            th.join()
+            raise out
+        yield out
+    th.join()
+
+
 def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[DualEncoder, list[dict]]:
     if rc.negatives not in NEGATIVES:
         raise ValueError(f"unknown negatives {rc.negatives!r}; expected one of {NEGATIVES}")
@@ -262,8 +287,38 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
         any_pool = random_pool(ds)
     meta = ds.meta()
 
-    def batch(ids):
-        x = T._batch(ds, ids, tcfg, rng, device)
+    pin = device.type == "cuda"
+    if pin:
+        torch.backends.cudnn.benchmark = True  # fixed input shapes
+
+    def stack(ids):  # CPU: crop/pad and stack features
+        x = torch.from_numpy(np.stack([fit_frames(ds.mel(i), tcfg.frames, rng) for i in ids]))
+        return x.pin_memory() if pin else x
+
+    def prepare(idx):
+        """Everything a step needs that is not GPU work: candidate sampling and feature assembly."""
+        rows = pairs.iloc[idx]
+        neg_ids, valid = [], []
+        if rc.negatives != "none":
+            for r in rows.itertuples():
+                if rc.negatives == "random":
+                    rec = meta[r.reference_clip_id].recording_id
+                    cands = []
+                    while len(cands) < rc.n_cands:
+                        c = any_pool[int(rng.integers(len(any_pool)))]
+                        if c != r.reference_clip_id and (rec is None or meta[c].recording_id != rec):
+                            cands.append(c)
+                else:
+                    key = r.imitation_clip_id if rc.negatives == "retrieval" else r.reference_clip_id
+                    pool = pools.get(key) or []
+                    cands = [pool[int(rng.integers(len(pool)))] for _ in range(rc.n_cands)] if pool else []
+                valid.append([True] * len(cands) + [False] * (rc.n_cands - len(cands)))
+                neg_ids += cands + [r.reference_clip_id] * (rc.n_cands - len(cands))  # padding, masked out
+        return (len(idx), stack(list(rows.imitation_clip_id)), stack(list(rows.reference_clip_id)),
+                stack(neg_ids) if neg_ids else None, torch.tensor(valid, dtype=torch.bool))
+
+    def batch(x):
+        x = x.to(device, non_blocking=True)
         return augment_batch(x, g) if rc.augment else x
 
     best = (-1.0, None, 0)
@@ -276,43 +331,28 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
         model.train()
         t0 = time.time()
         sums = {"loss": 0.0, "nce": 0.0, "triplet": 0.0, "active": 0.0}
-        for idx in batches:
-            rows = pairs.iloc[idx]
-            neg_ids, valid = [], []
-            if rc.negatives != "none":
-                for r in rows.itertuples():
-                    if rc.negatives == "random":
-                        rec = meta[r.reference_clip_id].recording_id
-                        cands = []
-                        while len(cands) < rc.n_cands:
-                            c = any_pool[int(rng.integers(len(any_pool)))]
-                            if c != r.reference_clip_id and (rec is None or meta[c].recording_id != rec):
-                                cands.append(c)
-                    else:
-                        key = r.imitation_clip_id if rc.negatives == "retrieval" else r.reference_clip_id
-                        pool = pools.get(key) or []
-                        cands = [pool[int(rng.integers(len(pool)))] for _ in range(rc.n_cands)] if pool else []
-                    valid.append([True] * len(cands) + [False] * (rc.n_cands - len(cands)))
-                    neg_ids += cands + [r.reference_clip_id] * (rc.n_cands - len(cands))  # padding, masked out
+        # One producer thread builds batches ahead of the GPU. It is the only user of rng during
+        # the epoch, so the batches (and results) are the same as building them inline.
+        for b, xq, xp, xn, valid in _prefetch(prepare, batches):
             with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-                q = model.embed_imitation(batch(list(rows.imitation_clip_id)))
-                p = model.embed_sfx(batch(list(rows.reference_clip_id)))
+                q = model.embed_imitation(batch(xq))
+                p = model.embed_sfx(batch(xp))
                 logits = q @ p.T / model.tau
-                target = torch.arange(len(idx), device=device)
+                target = torch.arange(b, device=device)
                 nce = 0.5 * (F.cross_entropy(logits.float(), target) + F.cross_entropy(logits.T.float(), target))
-                loss, trip, active = nce, torch.zeros((), device=device), torch.zeros(len(idx), device=device)
-                if rc.negatives != "none":
-                    xb = batch(neg_ids)
+                loss, trip, active = nce, torch.zeros((), device=device), torch.zeros(b, device=device)
+                if xn is not None:
+                    xb = batch(xn)
                     if rc.negatives == "excluded":
-                        n = model.embed_imitation(xb).view(len(idx), rc.n_cands, -1)
+                        n = model.embed_imitation(xb).view(b, rc.n_cands, -1)
                         anchor, pos = p, q  # reference closer to its imitation than to a related sound's
                     else:
-                        n = model.embed_sfx(xb).view(len(idx), rc.n_cands, -1)
+                        n = model.embed_sfx(xb).view(b, rc.n_cands, -1)
                         anchor, pos = q, p  # imitation closer to its target than to the negative SFX
                     s_pos = (anchor * pos).sum(-1).float()
                     s_neg = torch.einsum("bd,bkd->bk", anchor, n).float()
-                    per, act = _semi_hard(s_pos, s_neg, torch.tensor(valid, device=device), rc.margin)
-                    trip = per.sum() / len(idx)  # dynamic weight: active fraction of the batch
+                    per, act = _semi_hard(s_pos, s_neg, valid.to(device), rc.margin)
+                    trip = per.sum() / b  # dynamic weight: active fraction of the batch
                     active = act.float()
                     loss = nce + rc.triplet_weight * trip
             opt.zero_grad(set_to_none=True)
@@ -342,11 +382,14 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
 
 
 def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, names: list[str],
-                     bench: str | None = "qvim_dev", overrides: dict | None = None) -> dict:
+                     bench: str | None = "qvim_dev", overrides: dict | None = None,
+                     write_results: bool = True) -> dict:
     """Train each named recipe for one seed, score val/test (and the benchmark), write results.json.
 
     Finished conditions are skipped on a re-run (their <name>.json exists), so an interrupted
-    suite resumes at the first unfinished condition.
+    suite resumes at the first unfinished condition. With write_results=False only the per-run
+    <name>.json files are written, so parallel jobs for one seed never race on results.json; a
+    later call with every name (all skipped) collects them.
     """
     out = recipe_dir(cfg, source, tcfg.seed)
     out.mkdir(parents=True, exist_ok=True)
@@ -385,6 +428,9 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
                 "val": evaluate_split(model, ds, "val", tcfg),
                 "test": evaluate_split(model, ds, "test", tcfg),
                 "train_sec": round(time.time() - t0, 1),
+                "device": str(tcfg.resolved_device()),
+                "gpu": torch.cuda.get_device_name() if torch.cuda.is_available() else None,
+                "batch_size": tcfg.batch_size,
                 "history": hist,
             }
             if bench:
@@ -397,5 +443,6 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
         results["models"][name] = entry
         log.info("%s: test MRR %.3f%s", name, entry["test"]["mrr"],
                  f", {bench} MRR {entry['benchmark'][bench]['mrr']:.3f}" if bench and "benchmark" in entry else "")
-    (out / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
+    if write_results:
+        (out / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
     return results

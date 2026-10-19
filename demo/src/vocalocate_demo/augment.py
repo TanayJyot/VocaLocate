@@ -19,6 +19,9 @@ the log-mel counterpart of theirs:
   Approximate: waveform noise raises a power floor, which this does not model exactly.
 * frame corruption: ~10% of frames duplicated from their neighbour, silenced or dropped.
 * masking: one frequency band (up to 16 bins) and one time span (up to 10%) set to silence.
+
+Every transform works on a whole sub-batch at once with per-row parameters, so a batch costs a
+few kernel launches per transform rather than one Python loop per row (and per frame).
 """
 
 from __future__ import annotations
@@ -35,76 +38,92 @@ TRANSFORMS = ("none", "shift", "gain", "pitch", "stretch", "noise", "frames", "m
 MEL_BINS_PER_SEMITONE = 1.28
 
 
+def _uniform(n: int, lo: float, hi: float, g: torch.Generator, like: torch.Tensor) -> torch.Tensor:
+    return (torch.rand(n, generator=g) * (hi - lo) + lo).to(like)
+
+
+def _gather_lerp(x: torch.Tensor, src: torch.Tensor, dim: int) -> torch.Tensor:
+    """Linear interpolation of x at fractional positions src along dim (1 = mel, 2 = time); PAD outside."""
+    n = x.shape[dim]
+    lo = src.floor()
+    w = src - lo
+    lo = lo.long()
+    out = 0
+    for idx, wt in ((lo, 1 - w), (lo + 1, w)):
+        ok = (idx >= 0) & (idx < n)
+        if dim == 1:  # src: (B, M) -> gather rows of x
+            v = torch.gather(x, 1, idx.clamp(0, n - 1).unsqueeze(-1).expand(-1, -1, x.shape[2]))
+            v = torch.where(ok.unsqueeze(-1), v, torch.full_like(v, PAD_VALUE))
+            out = out + v * wt.unsqueeze(-1)
+        else:  # src: (B, T) -> gather columns of x
+            v = torch.gather(x, 2, idx.clamp(0, n - 1).unsqueeze(1).expand(-1, x.shape[1], -1))
+            v = torch.where(ok.unsqueeze(1), v, torch.full_like(v, PAD_VALUE))
+            out = out + v * wt.unsqueeze(1)
+    return out
+
+
 def _shift(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    t = x.shape[-1]
-    k = int(torch.randint(-int(0.3 * t), int(0.3 * t) + 1, (1,), generator=g))
-    return torch.roll(x, k, dims=-1)
+    b, _, t = x.shape
+    k = torch.randint(-int(0.3 * t), int(0.3 * t) + 1, (b, 1), generator=g).to(x.device)
+    idx = (torch.arange(t, device=x.device) - k) % t  # circular roll by k
+    return torch.gather(x, 2, idx.unsqueeze(1).expand(-1, x.shape[1], -1))
 
 
 def _gain(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    db = float(torch.empty(1).uniform_(-10, 10, generator=g))
-    return x + db * math.log(10) / 50
+    db = _uniform(x.shape[0], -10, 10, g, x)
+    return x + (db * math.log(10) / 50).view(-1, 1, 1)
 
 
 def _pitch(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    semis = float(torch.empty(1).uniform_(-3, 3, generator=g))
-    shift = semis * MEL_BINS_PER_SEMITONE
-    m = x.shape[0]
-    src = torch.arange(m, device=x.device, dtype=x.dtype) - shift
-    lo = src.floor().long()
-    w = (src - lo).unsqueeze(-1)
-    valid_lo = (lo >= 0) & (lo < m)
-    valid_hi = (lo + 1 >= 0) & (lo + 1 < m)
-    pad = torch.full_like(x[0], PAD_VALUE)
-    a = torch.where(valid_lo.unsqueeze(-1), x[lo.clamp(0, m - 1)], pad)
-    b = torch.where(valid_hi.unsqueeze(-1), x[(lo + 1).clamp(0, m - 1)], pad)
-    return a * (1 - w) + b * w
+    shift = _uniform(x.shape[0], -3, 3, g, x) * MEL_BINS_PER_SEMITONE
+    src = torch.arange(x.shape[1], device=x.device, dtype=x.dtype) - shift.unsqueeze(-1)
+    return _gather_lerp(x, src, dim=1)
 
 
 def _stretch(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    rate = float(torch.empty(1).uniform_(0.8, 1.2, generator=g))
-    t = x.shape[-1]
-    new_t = max(int(round(t * rate)), 1)
-    y = F.interpolate(x.unsqueeze(0), size=new_t, mode="linear", align_corners=False).squeeze(0)
-    if new_t >= t:
-        return y[:, :t]
-    return torch.cat([y, torch.full((x.shape[0], t - new_t), PAD_VALUE, device=x.device, dtype=x.dtype)], dim=-1)
+    # Output frame j of a clip stretched to new_t = t * rate frames reads input position
+    # (j + 0.5) * t / new_t - 0.5, as F.interpolate(mode="linear", align_corners=False) does;
+    # frames past new_t are padding, frames past t are cropped.
+    t = x.shape[2]
+    new_t = (_uniform(x.shape[0], 0.8, 1.2, g, x) * t).round().clamp(min=1)
+    j = torch.arange(t, device=x.device, dtype=x.dtype)
+    src = ((j + 0.5) * (t / new_t).unsqueeze(-1) - 0.5).clamp(min=0)
+    src = torch.where(j < new_t.unsqueeze(-1), src.clamp(max=t - 1), torch.full_like(src, -2.0))
+    return _gather_lerp(x, src, dim=2)
 
 
 def _noise(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    amp = float(torch.empty(1).uniform_(0.001, 0.015, generator=g))
-    return x + torch.randn(x.shape, generator=g, device="cpu").to(x) * amp * 10
+    amp = _uniform(x.shape[0], 0.001, 0.015, g, x)
+    return x + torch.randn(x.shape, generator=g).to(x) * (amp * 10).view(-1, 1, 1)
 
 
 def _frames(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    t = x.shape[-1]
-    y = x.clone()
-    picked = torch.rand(t, generator=g) < 0.1
-    mode = torch.randint(0, 3, (t,), generator=g)
-    keep = torch.ones(t, dtype=torch.bool)
-    for i in torch.nonzero(picked).flatten().tolist():
-        if mode[i] == 0 and i > 0:
-            y[:, i] = y[:, i - 1]  # duplicate the previous frame
-        elif mode[i] == 1:
-            y[:, i] = PAD_VALUE  # silence
-        else:
-            keep[i] = False  # drop
-    y = y[:, keep.to(y.device)]
-    if y.shape[-1] < t:
-        y = torch.cat([y, torch.full((x.shape[0], t - y.shape[-1]), PAD_VALUE, device=x.device, dtype=x.dtype)], -1)
-    return y
+    b, m, t = x.shape
+    picked = torch.rand(b, t, generator=g) < 0.1
+    mode = torch.randint(0, 3, (b, t), generator=g)
+    pos = torch.arange(t)
+    dup = picked & (mode == 0) & (pos > 0)  # copy the previous frame
+    silence = picked & (mode == 1)
+    keep = ~(picked & (mode == 2))  # dropped frames close up; the tail is padded
+    src = torch.where(dup, pos - 1, pos).expand(b, t)
+    order = torch.sort((~keep).int() * t + pos, dim=1, stable=True).indices  # kept frames first, in order
+    src = torch.gather(src, 1, order)
+    pad = torch.gather(silence, 1, order) | (torch.arange(t) >= keep.sum(1, keepdim=True))
+    dev = x.device
+    y = torch.gather(x, 2, src.to(dev).unsqueeze(1).expand(-1, m, -1))
+    return torch.where(pad.to(dev).unsqueeze(1), torch.full_like(y, PAD_VALUE), y)
 
 
 def _mask(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    y = x.clone()
-    m, t = x.shape
-    fw = int(torch.randint(0, 17, (1,), generator=g))
-    f0 = int(torch.randint(0, max(m - fw, 0) + 1, (1,), generator=g))
-    y[f0 : f0 + fw] = PAD_VALUE
-    tw = int(torch.randint(0, max(int(0.1 * t), 1) + 1, (1,), generator=g))
-    t0 = int(torch.randint(0, max(t - tw, 0) + 1, (1,), generator=g))
-    y[:, t0 : t0 + tw] = PAD_VALUE
-    return y
+    b, m, t = x.shape
+    fw = torch.randint(0, 17, (b, 1), generator=g)
+    f0 = (torch.rand(b, 1, generator=g) * (m - fw + 1).clamp(min=1)).long()
+    tmax = max(int(0.1 * t), 1)
+    tw = torch.randint(0, tmax + 1, (b, 1), generator=g)
+    t0 = (torch.rand(b, 1, generator=g) * (t - tw + 1).clamp(min=1)).long()
+    fi, ti = torch.arange(m), torch.arange(t)
+    band = ((fi >= f0) & (fi < f0 + fw)).unsqueeze(-1) | ((ti >= t0) & (ti < t0 + tw)).unsqueeze(1)
+    return torch.where(band.to(x.device), torch.full_like(x, PAD_VALUE), x)
 
 
 _FNS = {"shift": _shift, "gain": _gain, "pitch": _pitch, "stretch": _stretch, "noise": _noise,
@@ -112,7 +131,16 @@ _FNS = {"shift": _shift, "gain": _gain, "pitch": _pitch, "stretch": _stretch, "n
 
 
 def augment_batch(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
-    """x: (B, n_mels, T) log-mel. Each row gets one transform drawn uniformly from TRANSFORMS (incl. none)."""
-    picks = torch.randint(0, len(TRANSFORMS), (x.shape[0],), generator=g).tolist()
-    rows = [x[i] if TRANSFORMS[k] == "none" else _FNS[TRANSFORMS[k]](x[i], g) for i, k in enumerate(picks)]
-    return torch.stack(rows)
+    """x: (B, n_mels, T) log-mel. Each row gets one transform drawn uniformly from TRANSFORMS (incl. none).
+
+    g is a CPU generator: every random draw happens on it, so results do not depend on the device.
+    """
+    picks = torch.randint(0, len(TRANSFORMS), (x.shape[0],), generator=g)
+    out = x.clone()
+    for k, name in enumerate(TRANSFORMS):
+        rows = torch.nonzero(picks == k).flatten()
+        if name == "none" or len(rows) == 0:
+            continue
+        rows = rows.to(x.device)
+        out[rows] = _FNS[name](x[rows], g)
+    return out

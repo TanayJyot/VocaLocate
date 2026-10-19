@@ -58,11 +58,33 @@ def test_augmentations_keep_shape_and_change_input():
     g = torch.Generator().manual_seed(0)
     x = torch.randn(4, 32, 50)
     for name, fn in _FNS.items():
-        y = fn(x[0], g)
-        assert y.shape == x[0].shape, name
+        y = fn(x, g)
+        assert y.shape == x.shape, name
         assert torch.isfinite(y).all(), name
+        assert not torch.equal(y, x), name
     assert augment_batch(x, g).shape == x.shape
     assert set(_FNS) | {"none"} == set(TRANSFORMS)
+
+
+def test_batched_augmentations_match_their_reference_ops():
+    from vocalocate_demo.augment import _gain, _shift, _stretch
+
+    x = torch.randn(3, 8, 40)
+    # shift is a per-row circular roll, gain a per-row constant offset
+    g1, g2 = torch.Generator().manual_seed(1), torch.Generator().manual_seed(1)
+    k = torch.randint(-12, 13, (3, 1), generator=g2).flatten().tolist()
+    assert torch.equal(_shift(x, g1), torch.stack([torch.roll(r, s, dims=-1) for r, s in zip(x, k)]))
+    d = _gain(x, torch.Generator().manual_seed(2)) - x
+    assert torch.allclose(d, d[:, :1, :1].expand_as(d))
+    # stretch matches F.interpolate (linear, align_corners=False) then crop/pad
+    g1, g2 = torch.Generator().manual_seed(3), torch.Generator().manual_seed(3)
+    rates = (torch.rand(3, generator=g2) * 0.4 + 0.8).tolist()
+    y = _stretch(x, g1)
+    for r, rate, row in zip(y, rates, x):
+        n = max(int(round(40 * rate)), 1)
+        ref = torch.nn.functional.interpolate(row.unsqueeze(0), size=n, mode="linear", align_corners=False)[0]
+        m = min(n, 40)
+        assert torch.allclose(r[:, :m], ref[:, :m], atol=1e-4)
 
 
 def test_semi_hard_picks_hardest_negative_inside_the_band():
@@ -102,5 +124,23 @@ def test_recipe_suite_runs_every_negative_source(tmp_path):
     assert main(args) in (0, None)
     assert (out / "excluded.pt").stat().st_mtime == stamp
 
+    # Parallel mode: one recipe per job writes only its own <name>.json; a later full call collects.
+    par = args[:-1] + ["491", "--models", "greif", "--no-results-file"]
+    assert main(par) in (0, None)
+    out491 = cfg.lake_root / "models" / "vis" / "recipe-491"
+    assert (out491 / "greif.json").exists() and not (out491 / "results.json").exists()
+    assert json.loads((out491 / "greif.json").read_text(encoding="utf-8"))["batch_size"] == 4
+
     table = summarize([out])
     assert "recipe comparison" in table and "C: winner's method" in table
+
+
+def test_lake_paths_from_another_machine_are_rebased(tmp_path):
+    from vocalocate_demo.data import rebase_lake_path
+
+    win = r"C:\Users\me\runs_real\lake\gold\features\vis\ab\abc.npy"
+    assert rebase_lake_path(win, tmp_path) == str(tmp_path / "gold" / "features" / "vis" / "ab" / "abc.npy")
+    here = tmp_path / "x.npy"
+    here.write_bytes(b"")
+    assert rebase_lake_path(str(here), tmp_path / "elsewhere") == str(here)  # existing paths are kept
+    assert rebase_lake_path(None, tmp_path) is None
