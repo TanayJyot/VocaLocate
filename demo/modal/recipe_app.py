@@ -78,7 +78,7 @@ def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, b
     t0 = time.time()
     args = ["recipe", "--source", source, "--models", name, "--seed", str(seed), "--encoder", "mobilenetv3",
             "--device", "cuda", "--frames", "1000", "--batch-size", str(batch_size), "--bench", bench,
-            "--no-results-file"]
+            "--no-results-file", "--preload"]
     if epochs:
         args += ["--recipe-epochs", str(epochs)]
     _cli(args)

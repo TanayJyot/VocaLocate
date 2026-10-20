@@ -125,7 +125,7 @@ def test_recipe_suite_runs_every_negative_source(tmp_path):
     assert (out / "excluded.pt").stat().st_mtime == stamp
 
     # Parallel mode: one recipe per job writes only its own <name>.json; a later full call collects.
-    par = args[:-1] + ["491", "--models", "greif", "--no-results-file"]
+    par = args[:-1] + ["491", "--models", "greif", "--no-results-file", "--preload"]
     assert main(par) in (0, None)
     out491 = cfg.lake_root / "models" / "vis" / "recipe-491"
     assert (out491 / "greif.json").exists() and not (out491 / "results.json").exists()

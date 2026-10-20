@@ -117,6 +117,8 @@ def _parser() -> argparse.ArgumentParser:
                     help="comma-separated recipe names: " + ", ".join(RECIPE_ORDER))
     rp.add_argument("--no-results-file", action="store_true",
                     help="write only the per-run <name>.json files (for parallel jobs; collect with a later run)")
+    rp.add_argument("--preload", action="store_true",
+                    help="read every feature file up front, in parallel (for a network volume)")
     rp.add_argument("--recipe-epochs", type=int, help="override the 30 training epochs (e.g. for a smoke test)")
     rp.add_argument("--n-cands", type=int, help="override candidates scored per anchor per step (default 2)")
     rp.add_argument("--no-amp", action="store_true", help="disable mixed precision on CUDA")
@@ -252,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
             overrides["amp"] = False
         names = [n.strip() for n in args.models.split(",") if n.strip()]
         res = run_recipe_suite(cfg, args.source, tcfg, names, bench=args.bench or None, overrides=overrides,
-                               write_results=not args.no_results_file)
+                               write_results=not args.no_results_file, preload=args.preload)
         print(f"Recipe runs on {args.source}, seed {tcfg.seed} (test split{', ' + args.bench if args.bench else ''})")
         for name, m in res["models"].items():
             b = m.get("benchmark", {}).get(args.bench, {}).get("mrr") if args.bench else None

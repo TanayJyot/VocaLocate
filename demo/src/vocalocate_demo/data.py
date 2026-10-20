@@ -55,6 +55,17 @@ class Dataset:
             self._cache[clip_id] = np.load(self._paths[clip_id]).astype(np.float32)
         return self._cache[clip_id]
 
+    def preload(self, workers: int = 32) -> int:
+        """Load every feature file now, in parallel. Worth it where each file read has latency
+        (a network volume); otherwise features load lazily on first use. Returns the count loaded."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        todo = [c for c in self._paths if c not in self._cache]
+        with ThreadPoolExecutor(workers) as pool:
+            for c, x in zip(todo, pool.map(lambda c: np.load(self._paths[c]).astype(np.float32), todo)):
+                self._cache[c] = x
+        return len(todo)
+
     def split_pairs(self, split: str) -> pd.DataFrame:
         return self.pairs[self.pairs.split == split].reset_index(drop=True)
 

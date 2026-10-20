@@ -333,7 +333,9 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
         sums = {"loss": 0.0, "nce": 0.0, "triplet": 0.0, "active": 0.0}
         # One producer thread builds batches ahead of the GPU. It is the only user of rng during
         # the epoch, so the batches (and results) are the same as building them inline.
-        for b, xq, xp, xn, valid in _prefetch(prepare, batches):
+        for step, (b, xq, xp, xn, valid) in enumerate(_prefetch(prepare, batches), start=1):
+            if step == 1 or step % 50 == 0:
+                log.info("%s epoch %d step %d/%d (%.0fs)", rc.name, epoch, step, len(batches), time.time() - t0)
             with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
                 q = model.embed_imitation(batch(xq))
                 p = model.embed_sfx(batch(xp))
@@ -383,19 +385,24 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
 
 def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, names: list[str],
                      bench: str | None = "qvim_dev", overrides: dict | None = None,
-                     write_results: bool = True) -> dict:
+                     write_results: bool = True, preload: bool = False) -> dict:
     """Train each named recipe for one seed, score val/test (and the benchmark), write results.json.
 
     Finished conditions are skipped on a re-run (their <name>.json exists), so an interrupted
     suite resumes at the first unfinished condition. With write_results=False only the per-run
     <name>.json files are written, so parallel jobs for one seed never race on results.json; a
-    later call with every name (all skipped) collects them.
+    later call with every name (all skipped) collects them. preload=True reads every feature
+    file up front, in parallel (for a network volume).
     """
     out = recipe_dir(cfg, source, tcfg.seed)
     out.mkdir(parents=True, exist_ok=True)
     ds = load_dataset(cfg, [source])
     if bench:
         bench_ds = load_dataset(cfg, [bench])
+    if preload:
+        t0 = time.time()
+        n = ds.preload() + (bench_ds.preload() if bench else 0)
+        log.info("preloaded %d feature files in %.0fs", n, time.time() - t0)
     results = {
         "source": source,
         "kind": "recipe",
