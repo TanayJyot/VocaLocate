@@ -211,7 +211,7 @@ category or ontology tags, never the anchor's own sound.
 
 ```bash
 vocalocate-demo --lake runs_real/lake -v recipe --source vis --encoder mobilenetv3 --device cuda \
-    --frames 1000 --batch-size 32 --seed 490          # one seed, all seven runs; re-run to resume
+    --frames 1000 --batch-size 16 --seed 490          # one seed, all seven runs; re-run to resume
 vocalocate-demo --lake runs_real/lake benchmark-onnx --model model_v1.onnx --on qvim_dev  # the winner's released model
 vocalocate-demo summarize runs_real/lake/models/vis/recipe-490 runs_real/lake/models/vis/recipe-491 ...
 ```
@@ -227,6 +227,48 @@ modal run demo/modal/recipe_app.py --seeds 9999 --models excluded --epochs 1   #
 modal run --detach demo/modal/recipe_app.py                                   # 3 seeds x 7 recipes
 modal volume get vocalocate-lake /models/vis ./runs_modal/
 ```
+
+### Recipe results (3 seeds: 490, 491, 492)
+
+Trained on the Vocal Imitation Set train split, 30 epochs, batch 64, on Modal L40S GPUs (all 21
+trainings in parallel: about 21 minutes of wall time, 4–9 minutes of training each). The kept
+epoch was chosen on validation, and it was a real epoch (8–24) in every run.
+
+**Vocal Imitation Set test split** (1,158 imitations) and **QVIM DEV** (969), mean ± std over 3 seeds:
+
+| run | R@1 | R@5 | MRR | nDCG@10 | Δ MRR vs `shared` | QVIM DEV MRR |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `greif`: two towers + augmentation | 0.176 ± 0.006 | 0.425 ± 0.006 | 0.296 ± 0.006 | 0.323 ± 0.003 | −0.008 (0/3 seeds better) | 0.266 ± 0.002 |
+| **`shared`: shared encoder + augmentation** | 0.194 ± 0.005 | 0.419 ± 0.006 | **0.304 ± 0.004** | 0.326 ± 0.004 | – | **0.275 ± 0.001** |
+| `excluded` (C): their excluded-imitation negatives | 0.188 ± 0.004 | 0.422 ± 0.011 | 0.302 ± 0.005 | 0.327 ± 0.005 | −0.003 (0/3 seeds better) | 0.267 ± 0.007 |
+| `excluded_noaug`: C without augmentation | 0.182 ± 0.006 | 0.402 ± 0.006 | 0.287 ± 0.007 | 0.301 ± 0.007 | −0.017 (0/3 seeds better) | 0.264 ± 0.002 |
+| `retrieval` (A): re-mined top wrong SFX | 0.191 ± 0.007 | 0.419 ± 0.002 | 0.302 ± 0.005 | 0.324 ± 0.004 | −0.002 (1/3 seeds better) | 0.268 ± 0.004 |
+| `metadata` (B): metadata-related SFX | 0.182 ± 0.004 | 0.408 ± 0.006 | 0.291 ± 0.003 | 0.314 ± 0.001 | −0.014 (0/3 seeds better) | 0.262 ± 0.005 |
+| `random`: control | 0.184 ± 0.006 | 0.394 ± 0.002 | 0.288 ± 0.003 | 0.310 ± 0.004 | −0.016 (0/3 seeds better) | 0.264 ± 0.001 |
+| the winner's released model (`model_v1.onnx`, our pipeline, 32 kHz) | | | | | | 0.272 |
+| published: QVIM baseline / challenge winner | | | | | | 0.273 / 0.293 |
+
+The share of anchors with an active semi-hard triplet falls during training for C (0.88 → 0.63),
+B (0.88 → 0.79) and random (0.93 → 0.57), but rises for A (0.54 → 0.97): re-mining keeps finding
+negatives that still break the margin as the model improves.
+
+How to read the recipe results:
+
+* **The recipe is better than our earlier setup, and the gain comes from the shared encoder and
+  augmentation, not the triplet term.** `shared` is the best run on both test sets: 0.304 test MRR
+  against 0.295 for the earlier baseline, and 0.275 on QVIM DEV against 0.263–0.270. That matches
+  the winners' released model on the same pipeline (0.272) and the published QVIM baseline (0.273),
+  trained on the Vocal Imitation Set alone. The gap to the published 0.293 remains.
+* **No negative source beats contrastive training alone.** Their method (C), A and B all fall
+  slightly below `shared` on test and on QVIM DEV. A and C are within one standard deviation of it;
+  B and the random control are clearly below it. This repeats what we found on our earlier setup,
+  now under the winners' own recipe.
+* **Augmentation matters more than mining.** Removing it from C costs 0.015 MRR, more than any
+  negative source changes.
+* **Why C may help them but not here.** Their negatives are VocalSketch's excluded imitations,
+  sampled by AudioSet class, added to VimSketch training. Here each Vocal Imitation Set class has one
+  reference, so "related" excluded imitations are imitations of *other* sounds. Their paper also
+  reports single runs with no ablation, so its gain from C was never isolated.
 
 ## The synthetic data
 
