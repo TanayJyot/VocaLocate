@@ -33,7 +33,10 @@ from pathlib import Path
 
 import modal
 
-REPO = Path(__file__).resolve().parents[2]
+# Locally this file is demo/modal/recipe_app.py in the checkout. Inside a container Modal mounts it
+# alone (as /root/recipe_app.py) and the image already holds the sources under /repo.
+_parents = Path(__file__).resolve().parents
+REPO = _parents[2] if modal.is_local() and len(_parents) > 2 else Path("/repo")
 GPU = os.environ.get("VOCALOCATE_MODAL_GPU", "A100-80GB")
 VOLUME = os.environ.get("VOCALOCATE_MODAL_VOLUME", "vocalocate-lake")
 RECIPES = "greif,shared,excluded,excluded_noaug,retrieval,metadata,random"  # cli.RECIPE_ORDER
