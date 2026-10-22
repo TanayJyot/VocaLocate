@@ -14,6 +14,43 @@ from .report import METRICS
 LABELS = {**MODEL_NAMES, **RECIPE_NAMES}
 
 
+def _on_benchmark(runs: list[dict], names: list[str], ref: str, bench: str, seeds: list, missing: list[str]) -> str:
+    """For sources with no test split of their own (VimSketch): the benchmark is the test.
+
+    Two numbers per model: the epoch picked on our validation split (clean), and the epoch that
+    scored best on the benchmark itself (the protocol the QVIM 2025 winners reported).
+    """
+    def col(name: str, key: str, metric: str = "mrr") -> np.ndarray:
+        return np.array([r["models"][name].get(key, {}).get(bench, {}).get(metric, np.nan) for r in runs])
+
+    def delta(name: str, key: str) -> str:
+        if name == ref:
+            return "–"
+        d = col(name, key) - col(ref, key)
+        return f"{np.nanmean(d):+.3f} ({int((d > 0).sum())}/{len(runs)} seeds better)"
+
+    lines = [
+        f"# VocaLocate recipe comparison on {bench}: {len(runs)} seeds ({', '.join(map(str, seeds))})",
+        "",
+        f"{bench} test metrics, mean ± std over seeds. \"Selected on validation\" keeps the epoch with the best "
+        f"validation MRR (the benchmark stays unseen); \"selected on {bench}\" keeps the epoch that scored best on "
+        f"{bench} itself, as the QVIM 2025 winners did. Δ is each model minus {LABELS.get(ref, ref)!r} of the same seed.",
+        "",
+        f"| model | MRR, selected on validation | Δ | MRR, selected on {bench} | Δ | R@1 | R@5 | nDCG@10 | val MRR |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for name in names:
+        v, b = col(name, "benchmark"), col(name, "benchmark_selected_on_benchmark")
+        extra = " | ".join(f"{np.nanmean(col(name, 'benchmark', k)):.3f}" for k in ("recall@1", "recall@5", "ndcg@10"))
+        val = np.array([r["models"][name]["val"]["mrr"] for r in runs])
+        lines.append(f"| {LABELS[name]} | {np.nanmean(v):.3f} ± {np.nanstd(v):.3f} | {delta(name, 'benchmark')} | "
+                     f"{np.nanmean(b):.3f} ± {np.nanstd(b):.3f} | {delta(name, 'benchmark_selected_on_benchmark')} | "
+                     f"{extra} | {val.mean():.3f} |")
+    if missing:
+        lines += ["", f"Skipped {len(missing)} run(s) without results.json: " + ", ".join(missing)]
+    return "\n".join(lines) + "\n"
+
+
 def summarize(paths: list[Path]) -> str:
     runs, missing = [], []
     for p in paths:
@@ -29,6 +66,8 @@ def summarize(paths: list[Path]) -> str:
     names = [n for n in LABELS if all(n in r["models"] for r in runs)]
     benches = sorted({b for r in runs for m in r["models"].values() for b in m.get("benchmark", {})})
     title = "recipe comparison" if runs[0].get("kind") == "recipe" else "mining demo"
+    if benches and all(m["test"].get("n_queries", 1) == 0 for r in runs for m in r["models"].values()):
+        return _on_benchmark(runs, names, ref, benches[0], seeds, missing)
     lines = [
         f"# VocaLocate {title}: {len(runs)} seeds ({', '.join(map(str, seeds))})",
         "",

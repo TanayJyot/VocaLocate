@@ -1,4 +1,5 @@
 import csv
+from pathlib import Path
 from datetime import datetime, timezone
 
 import pytest
@@ -37,6 +38,35 @@ def test_vimsketch_falls_back_to_listing_folders(vimsketch_dir):
     (vimsketch_dir / "reference_file_names.csv").unlink()
     (vimsketch_dir / "vocal_imitation_file_names.csv").unlink()
     assert len(ingest("vimsketch", vimsketch_dir).files) == 8
+
+
+def test_vimsketch_labels_both_halves_and_adds_vocalsketch_excluded_imitations(vimsketch_release):
+    result = ingest("vimsketch", vimsketch_release)
+    files = {f.source_key: f for f in result.files}
+    meta = {m["source_key"]: m for m in result.metadata}
+    vim = "Vim_Sketch_Dataset/references/"
+    # Vocal Imitation Set half: tags are the AudioSet ontology path, so the two cat sounds share four.
+    growl = meta[vim + "001_000Animal_Domestic animals_pets_Cat_Growling.wav"]
+    hiss = meta[vim + "002_001Animal_Domestic animals_pets_Cat_Hiss.wav"]
+    assert len(set(growl["tags"]) & set(hiss["tags"])) == 4
+    # VocalSketch half: category is the subset, tags the subset plus the label's words.
+    zipper = meta[vim + "304_002-zipper_opening-everyday.wav"]
+    assert zipper["category"] == "everyday" and set(zipper["tags"]) == {"everyday", "zipper", "opening"}
+    # Excluded VocalSketch takes, by recording or by label alone, become unpaired imitations of their
+    # sound; included ones are already in VimSketch and are not read twice.
+    unpaired = [f for f in result.files if f.role == "unpaired_imitation"]
+    assert sorted(Path(f.source_key).name for f in unpaired) == ["abyss - 1.wav", "zipper - 2.wav", "zipper - 4.wav"]
+    zipper_group = files[vim + "304_002-zipper_opening-everyday.wav"].group_key
+    assert {f.group_key for f in unpaired if "zipper" in f.source_key} == {zipper_group}
+    assert not any("zipper - 3" in k for k in files)
+
+
+def test_vimsketch_without_vocalsketch_has_no_unpaired_imitations(vimsketch_release):
+    import shutil
+
+    shutil.rmtree(vimsketch_release / "interactiveaudiolab-VocalSketchDataSet-6c9f381")
+    result = ingest("vimsketch", vimsketch_release / "Vim_Sketch_Dataset")
+    assert len(result.files) == 8 and not any(f.role == "unpaired_imitation" for f in result.files)
 
 
 def test_qvim_dev_reads_up_to_three_queries_per_reference(qvim_dir):

@@ -29,6 +29,11 @@ from .train import TrainConfig
 
 MODELS = ("baseline", "random", "retrieval", "metadata")
 RECIPE_ORDER = ("greif", "shared", "excluded", "excluded_noaug", "retrieval", "metadata", "random")
+# The VimSketch replication: C exactly as the paper samples it, plus our related-sound variant.
+VIMSKETCH_ORDER = ("greif", "shared", "excluded_same", "excluded_same_noaug", "excluded", "retrieval", "metadata",
+                   "random")
+ALL_RECIPES = ("greif", "shared", "excluded_same", "excluded_same_noaug", "excluded", "excluded_noaug", "retrieval",
+               "metadata", "random")
 
 
 def _train_args(p: argparse.ArgumentParser) -> None:
@@ -115,7 +120,8 @@ def _parser() -> argparse.ArgumentParser:
     rp = sub.add_parser("recipe", help="train the QVIM 2025 winning recipe with each negative source, one seed")
     rp.add_argument("--source", default="vis")
     rp.add_argument("--models", default=",".join(RECIPE_ORDER),
-                    help="comma-separated recipe names: " + ", ".join(RECIPE_ORDER))
+                    help="comma-separated recipe names: " + ", ".join(ALL_RECIPES)
+                    + f" (VimSketch replication: {','.join(VIMSKETCH_ORDER)})")
     rp.add_argument("--no-results-file", action="store_true",
                     help="write only the per-run <name>.json files (for parallel jobs; collect with a later run)")
     rp.add_argument("--preload", action="store_true",
@@ -129,7 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     rt = sub.add_parser("recipe-text", help="run the text-hint test on saved recipe models (one recipe-<seed> folder each)")
     rt.add_argument("runs", type=Path, nargs="+", help="recipe-<seed> folders holding <name>.pt checkpoints")
     rt.add_argument("--source", default="vis", help="source the models were trained on (its hints and candidates)")
-    rt.add_argument("--models", default=",".join(RECIPE_ORDER), help="comma-separated recipe names to score")
+    rt.add_argument("--models", default=",".join(ALL_RECIPES), help="comma-separated recipe names to score")
     rt.add_argument("--device", default="auto")
     _clap_args(rt)
 
@@ -266,8 +272,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Recipe runs on {args.source}, seed {tcfg.seed} (test split{', ' + args.bench if args.bench else ''})")
         for name, m in res["models"].items():
             b = m.get("benchmark", {}).get(args.bench, {}).get("mrr") if args.bench else None
-            print(f"{RECIPE_NAMES[name]:<72} MRR {m['test']['mrr']:.3f}  fine {m['test']['fine_mrr']:.3f}"
-                  + (f"  {args.bench} {b:.3f}" if b is not None else "") + f"  kept epoch {m['kept_epoch']}")
+            bs = m.get("benchmark_selected_on_benchmark", {})
+            test = (f"MRR {m['test']['mrr']:.3f}  fine {m['test']['fine_mrr']:.3f}" if m["test"]["n_queries"]
+                    else "no test split")
+            print(f"{RECIPE_NAMES[name]:<72} {test}" + (f"  {args.bench} {b:.3f}" if b is not None else "")
+                  + f"  kept epoch {m['kept_epoch']}"
+                  + (f"  ({args.bench}-selected: epoch {bs['kept_epoch']}, {bs[args.bench]['mrr']:.3f})" if bs else ""))
     elif args.command == "recipe-text":
         import numpy as np
 

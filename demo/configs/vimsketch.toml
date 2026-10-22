@@ -1,0 +1,13 @@
+# The VimSketch replication of the QVIM 2025 winners' set-up. VimSketch (plus VocalSketch's excluded
+# imitations, unpacked next to it) is split by sound into 90% train and 10% validation, with no test
+# split of its own: the test set is QVIM DEV, ingested into the same lake (always all test).
+# Audio and features are the pipeline defaults (QVIM baseline settings).
+
+[pipeline]
+lake_root = "runs_vim/lake"
+workers = 4
+
+[splits]
+seed = 490
+train = 0.9
+val = 0.1

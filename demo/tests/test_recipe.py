@@ -133,7 +133,7 @@ def test_recipe_suite_runs_every_negative_source(tmp_path):
     assert json.loads((out491 / "greif.json").read_text(encoding="utf-8"))["batch_size"] == 4
 
     table = summarize([out])
-    assert "recipe comparison" in table and "C: winner's method" in table
+    assert "recipe comparison" in table and "C, related variant" in table
 
 
 def test_text_hint_test_runs_on_saved_recipe_models(tmp_path):
@@ -150,6 +150,58 @@ def test_text_hint_test_runs_on_saved_recipe_models(tmp_path):
     text = json.loads((out / "text.json").read_text(encoding="utf-8"))
     assert set(text["models"]) == {"greif", "shared"} and text["n_queries"]["test"] > 0
     assert {"voice", "text", "fused"} <= set(text["models"]["shared"]["test"])
+
+
+def _qvim_dev_dir(root):
+    """A QVIM DEV-shaped benchmark: 4 references with 2 queries each."""
+    rows = []
+    for k in range(4):
+        sf.write(str(_mk(root / "Items" / f"C{k}" / f"ref{k}.wav")), *_tone(330 + 70 * k, sr=32_000))
+        for j in range(2):
+            sf.write(str(_mk(root / "Queries" / f"C{k}" / f"q{k}_{j}.wav")), *_tone(335 + 70 * k + 9 * j, sr=32_000))
+        rows.append(["Fam", f"C{k}", f"ref{k}.wav", f"q{k}_0.wav", f"q{k}_1.wav", ""])
+    with open(root / "DEV Dataset.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("DEV set,,,,,\n")
+        w = csv.writer(f)
+        w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
+        w.writerows(rows)
+    return root
+
+
+def _mk(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def test_replication_on_a_source_without_test_split_selects_on_both(tmp_path):
+    """The VimSketch set-up: train/val only, QVIM DEV as the test, paper-exact C, both selections."""
+    # Seed 516 puts 9 of the fixture's 12 classes in train and 3 in val, none in test.
+    cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1, splits=SplitConfig(seed=516, train=0.9, val=0.1))
+    run_dataset_flow("vis", _vis_dir(tmp_path / "VocalImitationSet"), cfg)
+    run_dataset_flow("qvim_dev", _qvim_dev_dir(tmp_path / "qvim-dev"), cfg)
+    ds = load_dataset(cfg, ["vis"])
+    assert ds.split_pairs("test").empty
+
+    # Paper-exact C draws a reference's own rejected takes, never other sounds', when it has some.
+    pools = excluded_pools(ds, RECIPES["excluded_same"], np.random.default_rng(0))
+    target_of = dict(zip(ds.unpaired.clip_id, ds.unpaired.target_clip_id))
+    assert pools and all(target_of[c] == ref for ref, cands in pools.items() for c in cands)
+
+    lake = ["--lake", str(cfg.lake_root)]
+    assert main(lake + ["recipe", "--source", "vis", "--models", "shared,excluded_same", "--encoder", "cnn",
+                        "--frames", "32", "--batch-size", "4", "--recipe-epochs", "2", "--bench", "qvim_dev",
+                        "--device", "cpu"]) in (0, None)
+    out = cfg.lake_root / "models" / "vis" / "recipe-490"
+    entry = json.loads((out / "excluded_same.json").read_text(encoding="utf-8"))
+    assert entry["test"]["n_queries"] == 0 and entry["benchmark"]["qvim_dev"]["n_queries"] == 8
+    assert all("bench_mrr" in h for h in entry["history"])
+    picked = entry["benchmark_selected_on_benchmark"]
+    best = max(entry["history"], key=lambda h: h["bench_mrr"])
+    assert picked["kept_epoch"] == best["epoch"] and abs(picked["qvim_dev"]["mrr"] - best["bench_mrr"]) < 1e-6
+    assert (out / "excluded_same.benchsel.pt").exists()
+
+    table = summarize([out])
+    assert "selected on qvim_dev" in table and "C: winner's method" in table
 
 
 def test_lake_paths_from_another_machine_are_rebased(tmp_path):

@@ -9,7 +9,12 @@ Here every run uses that recipe and changes one thing, so the comparison is fair
 
 * ``greif``    two towers, augmentation, contrastive only (the Greif et al. / QVIM baseline recipe)
 * ``shared``   one shared encoder, augmentation, contrastive only (the reference for Δ)
-* ``excluded`` + triplet, negatives = unpaired imitations of *related* sounds (their method, "C")
+* ``excluded_same``  + triplet, negatives = unpaired imitations of the *same* sound, random ones
+  when it has none: the paper's own rule ("sampling same-class negatives when available and falling
+  back to random sampling otherwise"); on VimSketch these are VocalSketch's rejected takes ("C")
+* ``excluded_same_noaug``  the same without augmentation
+* ``excluded`` + triplet, negatives = unpaired imitations of *related, different* sounds (our
+  variant of C, which avoids treating a take of the anchor's own sound as a negative)
 * ``excluded_noaug``  the same without augmentation
 * ``retrieval``   + triplet, negatives = the current model's top wrong SFX, re-mined every few epochs (A)
 * ``metadata``    + triplet, negatives = metadata-related SFX (B)
@@ -18,7 +23,8 @@ Here every run uses that recipe and changes one thing, so the comparison is fair
 Choices the paper leaves open, and ours:
 
 * Anchor. For imitation negatives the anchor is the reference: it should be closer to its own
-  imitation than to an imitation of a related sound. For SFX negatives (A, B, random) the anchor
+  imitation than to a rejected take of the same sound (``excluded_same``) or to an imitation of a
+  related sound (``excluded``). For SFX negatives (A, B, random) the anchor
   is the imitation: it should be closer to its target than to the negative SFX.
 * "Same class" in the Vocal Imitation Set means the same sound (one reference per class), so an
   excluded imitation of the same class would be a false negative. Related means a different
@@ -30,7 +36,9 @@ Choices the paper leaves open, and ours:
   divided by the batch size, so it shrinks when few triplets are active.
 * Temperature fixed at 0.07, AdamW with linear warm-up for one epoch and cosine decay from
   2e-4 to 5e-5, margin 0.6, as in the paper. Weight decay is not given there; we use 1e-4.
-* Model selection on our validation split. QVIM DEV is only ever a test set.
+* Model selection on our validation split. When a benchmark is given it is also scored after every
+  epoch, and each run additionally reports the epoch that scored best on it: the winners' protocol
+  (they selected on QVIM DEV), kept apart from the clean, validation-selected number.
 """
 
 from __future__ import annotations
@@ -74,6 +82,7 @@ class RecipeConfig:
     n_cands: int = 2  # candidates scored per anchor per step
     pool_size: int = 20  # candidate list per anchor
     min_shared_tags: int = 2
+    excluded_match: str = "related"  # excluded negatives: "related" (different sounds) or "same" (paper)
     remine_every: int = 5  # retrieval: epochs between re-mining with the current model
     epochs: int = 30
     lr_max: float = 2e-4
@@ -88,6 +97,9 @@ class RecipeConfig:
 RECIPES = {
     "greif": RecipeConfig("greif", shared=False),
     "shared": RecipeConfig("shared"),
+    "excluded_same": RecipeConfig("excluded_same", negatives="excluded", excluded_match="same"),
+    "excluded_same_noaug": RecipeConfig("excluded_same_noaug", negatives="excluded", excluded_match="same",
+                                        augment=False),
     "excluded": RecipeConfig("excluded", negatives="excluded"),
     "excluded_noaug": RecipeConfig("excluded_noaug", negatives="excluded", augment=False),
     "retrieval": RecipeConfig("retrieval", negatives="retrieval"),
@@ -98,8 +110,10 @@ REFERENCE_MODEL = "shared"
 RECIPE_NAMES = {
     "greif": "Greif et al. recipe (two towers + augmentation, contrastive only)",
     "shared": "Winner's recipe without triplet (shared encoder + augmentation)",
-    "excluded": "C: winner's method (excluded imitations as semi-hard negatives)",
-    "excluded_noaug": "C without augmentation",
+    "excluded_same": "C: winner's method (rejected takes of the same sound as semi-hard negatives)",
+    "excluded_same_noaug": "C without augmentation",
+    "excluded": "C, related variant (excluded imitations of related, different sounds)",
+    "excluded_noaug": "C, related variant, without augmentation",
     "retrieval": "A: retrieval-driven semi-hard negatives (re-mined)",
     "metadata": "B: metadata-guided semi-hard negatives",
     "random": "Control: random SFX negatives",
@@ -126,7 +140,11 @@ def _pick(rng: np.random.Generator, tiers: list[list[str]], fill: list[str], k: 
 
 
 def excluded_pools(ds: Dataset, rc: RecipeConfig, rng: np.random.Generator) -> dict[str, list[str]]:
-    """Reference clip_id -> unpaired imitations of related, *different* train references."""
+    """Reference clip_id -> train unpaired imitations to draw negatives from.
+
+    excluded_match="same": the reference's own unpaired imitations (rejected takes of the same
+    sound), or random ones when it has none. "related": imitations of related, *different* sounds.
+    """
     un = ds.split_unpaired("train")
     if un.empty:
         return {}
@@ -136,6 +154,13 @@ def excluded_pools(ds: Dataset, rc: RecipeConfig, rng: np.random.Generator) -> d
         by_target.setdefault(r.target_clip_id, []).append(r.clip_id)
     targets = list(by_target)
     pools = {}
+    if rc.excluded_match == "same":
+        everything = list(un.clip_id)
+        for ref in ds.split_pairs("train").reference_clip_id.unique():
+            own = by_target.get(ref, [])
+            pick = own or everything  # random unpaired imitations when this sound has none of its own
+            pools[ref] = [pick[i] for i in rng.permutation(len(pick))[: rc.pool_size]]
+        return pools
     for ref in ds.split_pairs("train").reference_clip_id.unique():
         m = meta.get(ref, SFXMeta(None, frozenset(), None))
         tiers: dict[str, list[str]] = {t: [] for t in METADATA_TIERS}
@@ -254,7 +279,13 @@ def _prefetch(fn, items, depth: int = 4):
     th.join()
 
 
-def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[DualEncoder, list[dict]]:
+def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig,
+                 bench: Dataset | None = None) -> tuple[DualEncoder, list[dict], dict | None]:
+    """Train one recipe; keep the epoch with the best validation MRR.
+
+    With a benchmark dataset, its test split is also scored after every epoch, and the epoch that
+    scored best on it is returned too, as {"epoch", "mrr", "state"} (None without a benchmark).
+    """
     if rc.negatives not in NEGATIVES:
         raise ValueError(f"unknown negatives {rc.negatives!r}; expected one of {NEGATIVES}")
     device = tcfg.resolved_device()
@@ -322,6 +353,7 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
         return augment_batch(x, g) if rc.augment else x
 
     best = (-1.0, None, 0)
+    bench_best = None
     history = []
     for epoch, batches in enumerate(epoch_batches, start=1):
         if rc.negatives == "retrieval" and (epoch - 1) % rc.remine_every == 0:
@@ -370,14 +402,19 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig) -> tuple[Du
         val = evaluate_split(model, ds, "val", tcfg)["mrr"]
         rec = {"epoch": epoch, **{k: v / n_b for k, v in sums.items()}, "val_mrr": val, "sec": time.time() - t0,
                "lr": sched.get_last_lr()[0]}
+        if bench is not None:
+            rec["bench_mrr"] = evaluate_split(model, bench, "test", tcfg)["mrr"]
+            if bench_best is None or rec["bench_mrr"] > bench_best["mrr"]:
+                bench_best = {"epoch": epoch, "mrr": rec["bench_mrr"], "state": copy.deepcopy(model.state_dict())}
         history.append(rec)
-        log.info("%s epoch %d loss %.3f (nce %.3f, triplet %.3f, active %.2f) val MRR %.3f (%.1fs)", rc.name, epoch,
-                 rec["loss"], rec["nce"], rec["triplet"], rec["active"], val, rec["sec"])
+        log.info("%s epoch %d loss %.3f (nce %.3f, triplet %.3f, active %.2f) val MRR %.3f%s (%.1fs)", rc.name,
+                 epoch, rec["loss"], rec["nce"], rec["triplet"], rec["active"], val,
+                 f", bench MRR {rec['bench_mrr']:.3f}" if "bench_mrr" in rec else "", rec["sec"])
         if val > best[0]:
             best = (val, copy.deepcopy(model.state_dict()), epoch)
     model.load_state_dict(best[1])
     log.info("%s: kept epoch %d (val MRR %.3f)", rc.name, best[2], best[0])
-    return model, history
+    return model, history, bench_best
 
 
 # --------------------------------------------------------------------------- suite
@@ -425,7 +462,7 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
             entry = json.loads(done.read_text(encoding="utf-8"))
         else:
             t0 = time.time()
-            model, hist = train_recipe(ds, tcfg, rc)
+            model, hist, bench_best = train_recipe(ds, tcfg, rc, bench_ds if bench else None)
             T.save(model, out / f"{name}.pt", tcfg, {"model_version": f"{source}-recipe-{name}-{tcfg.seed}",
                                                        "recipe": asdict(rc), "history": hist})
             best = max(hist, key=lambda h: h["val_mrr"])
@@ -442,13 +479,21 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
             }
             if bench:
                 entry["benchmark"] = {bench: evaluate_split(model, bench_ds, "test", tcfg)}
+            if bench_best is not None:
+                # The winners' protocol: the epoch that scored best on the benchmark itself.
+                model.load_state_dict(bench_best["state"])
+                T.save(model, out / f"{name}.benchsel.pt", tcfg,
+                       {"model_version": f"{source}-recipe-{name}-{tcfg.seed}-selected-on-{bench}",
+                        "recipe": asdict(rc), "history": hist})
+                entry["benchmark_selected_on_benchmark"] = {"kept_epoch": bench_best["epoch"],
+                                                            bench: evaluate_split(model, bench_ds, "test", tcfg)}
             done.write_text(json.dumps({**entry, "recipe": asdict(rc)}, indent=2), encoding="utf-8")
             del model
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         results["recipes"][name] = entry.pop("recipe", asdict(rc))
         results["models"][name] = entry
-        log.info("%s: test MRR %.3f%s", name, entry["test"]["mrr"],
+        log.info("%s: test MRR %.3f (%d queries)%s", name, entry["test"]["mrr"], entry["test"]["n_queries"],
                  f", {bench} MRR {entry['benchmark'][bench]['mrr']:.3f}" if bench and "benchmark" in entry else "")
     if write_results:
         (out / "results.json").write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")

@@ -31,6 +31,13 @@ Run (from the repo root):
     aws s3 sync s3://<models bucket>/vis ./runs_modal/vis                         # fetch results
     vocalocate-demo summarize runs_modal/vis/recipe-490 runs_modal/vis/recipe-491 runs_modal/vis/recipe-492
 
+The VimSketch replication (the QVIM 2025 winners' training data, with QVIM DEV as the test set; see
+demo/configs/vimsketch.toml) uses its own lake and volume:
+
+    VOCALOCATE_MODAL_VOLUME=vocalocate-vim modal run --detach demo/modal/recipe_app.py --no-sync \
+        --source vimsketch \
+        --models greif,shared,excluded_same,excluded_same_noaug,excluded,retrieval,metadata,random
+
 A run that was interrupted resumes: finished recipes (<name>.json on the volume) are skipped.
 The GPU type comes from VOCALOCATE_MODAL_GPU (default A100-80GB; batch 64 needs ~30 GB), the
 volume from VOCALOCATE_MODAL_VOLUME (default vocalocate-lake) and the AWS secret from
@@ -131,8 +138,9 @@ def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, b
     hist = res["history"]
     return {"seed": seed, "name": name, "status": "done", "wall_sec": round(time.time() - t0),
             "epoch_sec": round(sum(h["sec"] for h in hist) / len(hist), 1), "gpu": res.get("gpu"),
-            "kept_epoch": res["kept_epoch"], "test_mrr": res["test"]["mrr"],
-            "bench_mrr": res.get("benchmark", {}).get(bench, {}).get("mrr")}
+            "kept_epoch": res["kept_epoch"], "test_mrr": res["test"]["mrr"] if res["test"]["n_queries"] else None,
+            "bench_mrr": res.get("benchmark", {}).get(bench, {}).get("mrr"),
+            "bench_mrr_selected_on_bench": res.get("benchmark_selected_on_benchmark", {}).get(bench, {}).get("mrr")}
 
 
 @app.function(volumes={LAKE: lake}, timeout=3600, cpu=4.0, memory=16 * 1024)

@@ -71,6 +71,50 @@ def vimsketch_dir(tmp_path) -> Path:
 
 
 @pytest.fixture
+def vimsketch_release(tmp_path) -> Path:
+    """VimSketch and VocalSketch unpacked side by side, named as in the real releases."""
+    root = tmp_path / "datasets"
+    vim = root / "Vim_Sketch_Dataset"
+    refs = ["001_000Animal_Domestic animals_pets_Cat_Growling.wav", "002_001Animal_Domestic animals_pets_Cat_Hiss.wav",
+            "303_001-abyss_of_despair-commercial_synthesizers.wav", "304_002-zipper_opening-everyday.wav"]
+    imits = ["00001_000Animal_Domestic animals_pets_Cat_Growling.wav", "00002_001Animal_Domestic animals_pets_Cat_Hiss.wav",
+             "05602_001-abyss_of_despair-commercial_synthesizers.wav", "05603_002-zipper_opening-everyday.wav"]
+    for i, name in enumerate(refs):
+        write(vim / "references" / name, tone(300 + 100 * i, 2, 44_100), 44_100)
+    for i, name in enumerate(imits):
+        write(vim / "vocal_imitations" / name, tone(250 + 90 * i, 1, 44_100), 44_100)
+    (vim / "reference_file_names.csv").write_text("\n".join(refs), encoding="utf-8")  # no trailing newline, as released
+    (vim / "vocal_imitation_file_names.csv").write_text("\n".join(imits), encoding="utf-8")
+
+    vs = root / "interactiveaudiolab-VocalSketchDataSet-6c9f381"
+    with open(_mk(vs / "sound_recordings.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["id", "sound_label", "sound_label_id", "filename", "audio_concept_subset"])
+        w.writerow(["r1", "abyss of despair", "L1", "abyss_of_despair.wav", "commercial synthesizers"])
+        w.writerow(["r2", "zipper", "L2", "zipper_opening.wav", "everyday"])
+    cols = ["id", "filename", "stimulus_type", "included", "draft", "training", "participant_id", "sound_label",
+            "sound_label_id", "sound_recording", "sound_recording_id", "audio_concept_subset"]
+    set1 = [  # an excluded imitation made from a recording, one made from a text label only, and an included one
+        ["1", "abyss - 1.wav", "sound recording", "False", "True", "False", "p1", "abyss of despair", "L1",
+         "abyss_of_despair.wav", "r1", "commercial synthesizers"],
+        ["2", "zipper - 2.wav", "sound label", "False", "False", "True", "p2", "zipper", "L2", "", "", "everyday"],
+        ["3", "zipper - 3.wav", "sound label", "True", "False", "False", "p3", "zipper", "L2", "", "", "everyday"],
+    ]
+    set2 = [["4", "zipper - 4.wav", "sound recording", "False", "False", "False", "p4", "zipper", "L2",
+             "zipper_opening.wav", "r2", "everyday"]]
+    for table, folder, rows in (("vocal_imitations.csv", "vocal_imitations", set1),
+                                ("vocal_imitaitons_set2.csv", "vocal_imitations_set2", set2)):
+        with open(_mk(vs / table), "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(cols)
+            w.writerows(rows)
+        for i, row in enumerate(rows):
+            sub = "included" if row[3] == "True" else "excluded"
+            write(vs / folder / sub / row[1], tone(600 + 40 * i, 1, 44_100), 44_100)
+    return root
+
+
+@pytest.fixture
 def qvim_dir(tmp_path) -> Path:
     root = tmp_path / "qvim-dev"
     write(root / "Items" / "Dog" / "bark.wav", tone(500, 2, 32_000), 32_000)
