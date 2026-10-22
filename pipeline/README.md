@@ -5,6 +5,10 @@ datasets from A2 Part Two and a user's own SFX folders, cleans the audio,
 computes features and train/val/test splits, and loads everything into a
 DuckDB warehouse.
 
+The same code runs on a laptop against a local `lake/` folder, or on AWS against
+an S3 lake (ECS Fargate tasks started by Step Functions, all defined in Terraform
+in [`../infra`](../infra)).
+
 ![Pipeline architecture](docs/diagrams/architecture.png)
 
 ## Layers
@@ -62,10 +66,31 @@ The tests build small synthetic datasets laid out exactly like ESC-50,
 VimSketch, the QVIM DEV set and team recordings, so they run offline in a few
 seconds.
 
+## On AWS
+
+The lake's source of truth on AWS is an S3 bucket with the same layout. A job
+pulls what it needs into a local working copy, runs the normal flow and pushes
+back new and changed files (`remote.py`, `sync.py`):
+
+```bash
+# What the Fargate task runs; the task definition sets these three variables.
+export VOCALOCATE_CONFIG=configs/prod.toml VOCALOCATE_RAW_URI=s3://<raw bucket> VOCALOCATE_LAKE_URI=s3://<lake bucket>
+vocalocate-pipeline remote ingest --source esc50      # raw files from s3://<raw bucket>/esc50/
+vocalocate-pipeline remote load-warehouse
+vocalocate-pipeline remote report
+
+vocalocate-pipeline sync s3://<lake bucket> lake --only warehouse   # copy part of the lake by hand
+```
+
+`configs/dev.toml` and `configs/prod.toml` are the AWS environments' settings.
+They change only the lake location and the worker count, never the audio,
+feature or split settings. The container image is built from `Dockerfile`.
+Deployment, environments and triggers are described in
+[`../infra/README.md`](../infra/README.md).
+
 ## Not implemented yet
 
-See the "Next steps" section of the A2 write-up. In short: Prefect
-orchestration and schedules, S3/MinIO storage, speech filtering for library
+See the "Next steps" section of the A2 write-up. In short: speech filtering for library
 files, Freesound and freesound-laion-640k ingestion, augmentation, FAISS indexing, and
 a parity test against the torchaudio feature code.
 
