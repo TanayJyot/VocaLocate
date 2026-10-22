@@ -1,0 +1,37 @@
+name: infra
+
+# Checks every Terraform root and runs the offline module tests (mocked AWS provider), so no AWS
+# credentials are needed. Applying stays a manual step: see infra/README.md.
+
+on:
+  push:
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  pull_request:
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.12.2"
+      - name: Format
+        run: terraform fmt -check -recursive
+      - name: Validate
+        run: |
+          for root in bootstrap backup envs/dev envs/prod; do
+            echo "::group::$root"
+            terraform -chdir="$root" init -backend=false -input=false
+            terraform -chdir="$root" validate
+            echo "::endgroup::"
+          done
+      - name: Module tests
+        working-directory: infra/modules/vocalocate_stack
+        run: |
+          terraform init -input=false
+          terraform test

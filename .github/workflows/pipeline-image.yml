@@ -1,0 +1,52 @@
+name: pipeline-image
+
+# Builds the pipeline image on every pipeline change. On main (or by hand) it also pushes the image
+# to an environment's ECR repository, signing in through GitHub's OIDC token: the GitHub
+# environment (dev or prod) holds the AWS_ROLE_ARN and ECR_REPOSITORY variables from
+# `terraform output` in infra/envs/<env>, so no AWS keys are stored in GitHub.
+
+on:
+  push:
+    paths: ["pipeline/**", ".github/workflows/pipeline-image.yml"]
+  pull_request:
+    paths: ["pipeline/**", ".github/workflows/pipeline-image.yml"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to push to
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t vocalocate-pipeline:${{ github.sha }} pipeline
+      - name: Smoke test
+        run: docker run --rm vocalocate-pipeline:${{ github.sha }} remote --help
+
+  push:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ca-central-1
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          docker build -t "$REPOSITORY:${{ github.sha }}" -t "$REPOSITORY:latest" pipeline
+          docker push --all-tags "$REPOSITORY"
