@@ -1,0 +1,29 @@
+# Settings for the AWS prod environment (infra/envs/prod). The ECS task sets VOCALOCATE_CONFIG to this
+# file; the lake is a working copy inside the container, synced with s3://<prod lake bucket>.
+# Audio, feature and split settings must match default.toml so features stay comparable.
+
+[pipeline]
+lake_root = "/lake"
+workers = 4
+
+[audio]
+sample_rate = 32000
+max_duration_sec = 20.0
+min_duration_sec = 0.1
+silence_peak_dbfs = -60.0
+trim_db = -50.0
+target_rms_dbfs = -20.0
+max_peak_dbfs = -1.0
+
+[features]
+n_fft = 1024
+win_length = 800
+hop_length = 320
+n_mels = 128
+fmin = 0.0
+fmax = 15000.0
+
+[splits]
+seed = 490
+train = 0.8
+val = 0.1
