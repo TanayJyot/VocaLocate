@@ -218,14 +218,17 @@ vocalocate-demo summarize runs_real/lake/models/vis/recipe-490 runs_real/lake/mo
 
 On an 8 GB GPU the recipe fits only batch 16 (the paper uses 64) at about 3 minutes an epoch, so
 one seed of seven runs takes about 11 hours. `modal/recipe_app.py` instead runs every
-(seed, recipe) training in its own Modal GPU container, in parallel, at batch 64; see its
-docstring for the one-time upload of the warehouse and features to a Modal volume:
+(seed, recipe) training in its own Modal GPU container, in parallel, at batch 64. It first copies
+the warehouse and features from the S3 lake that the AWS pipeline fills (`infra/`), and at the end
+publishes the models to the S3 models bucket, through an AWS role it assumes with its Modal OIDC
+token. See its docstring for the one-time setup, or `--no-sync` to use a hand-uploaded volume:
 
 ```bash
 pip install modal && modal setup
+terraform -chdir=infra/envs/prod output -raw modal_secret_command | sh       # once: AWS role + buckets
 modal run demo/modal/recipe_app.py --seeds 9999 --models excluded --epochs 1   # probe one epoch
 modal run --detach demo/modal/recipe_app.py                                   # 3 seeds x 7 recipes
-modal volume get vocalocate-lake /models/vis ./runs_modal/
+aws s3 sync s3://<models bucket>/vis ./runs_modal/vis
 ```
 
 ### Recipe results (3 seeds: 490, 491, 492)

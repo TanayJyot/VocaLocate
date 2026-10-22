@@ -1,0 +1,57 @@
+digraph G {
+  rankdir=TB; newrank=true; nodesep=0.35; ranksep=0.45; pad=0.2; dpi=200; compound=true;
+  graph [fontname="Helvetica", fontsize=13, labeljust=l];
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled", fillcolor="#ffffff", color="#5b6b7b", penwidth=1.2, margin="0.12,0.07"];
+  edge  [fontname="Helvetica", fontsize=9, color="#5b6b7b", arrowsize=0.7];
+
+  dev   [label="Team laptop\naws s3 sync dataset → raw/\nupload team/recordings.csv"];
+  gha   [label="GitHub Actions\nbuild + push image\nterraform fmt/validate/test\n(OIDC role, no keys)"];
+
+  subgraph cluster_env {
+    label="AWS ca-central-1: one copy per environment (dev, prod), from infra/modules/vocalocate_stack";
+    style="rounded,filled"; fillcolor="#f7f9fb"; color="#c5d3e0";
+
+    subgraph cluster_trigger {
+      label="Triggers"; style="rounded,filled"; fillcolor="#f4f1fa"; color="#d6cde8";
+      eb    [label="EventBridge rule\nObject Created:\nteam/recordings.csv"];
+      sched [label="EventBridge Scheduler\nweekly warehouse\nrebuild (prod)"];
+    }
+    sfn   [label="Step Functions\nIngest | LoadWarehouse\n→ Report → Glue crawl\non failure → SNS", fillcolor="#fffbe6", color="#c9b458"];
+
+    subgraph cluster_vpc {
+      label="VPC (public subnets, outbound-only security group, S3 gateway endpoint)"; style="rounded,filled"; fillcolor="#eef3f8"; color="#c5d3e0";
+      task [label="ECS Fargate task\nvocalocate-pipeline remote …\npull → run flow → push"];
+    }
+    ecr [label="ECR\npipeline image"];
+
+    subgraph cluster_s3 {
+      label="S3 (versioned, encrypted, private, TLS only)"; style="rounded,filled"; fillcolor="#f3e3cf"; color="#b08a5a";
+      raw    [label="raw\n<source>/… as downloaded"];
+      lakeb  [label="lake\nbronze/silver/gold tables,\naudio, features, runs,\nwarehouse/vocalocate.duckdb"];
+      models [label="models\ncheckpoints + results"];
+    }
+    glue  [label="Glue Data Catalog\n+ Athena workgroup", fillcolor="#d9ecdf", color="#4f8a63"];
+    mon   [label="CloudWatch logs + alarms\nSNS email alerts"];
+  }
+
+  modal [label="Modal (GPU)\nrecipe_app.py\npull_lake → train → publish\n(OIDC role, no keys)", fillcolor="#e8f0fe", color="#4a6fa5"];
+  backup [label="AWS ca-west-1: backup stack\nraw, lake, models copies\n(separate Terraform state;\ndeletes not replicated)", fillcolor="#fde8e8", color="#b05a5a"];
+
+  dev -> raw;
+  gha -> ecr;
+  raw -> eb [label="event"];
+  eb -> sfn; sched -> sfn;
+  sfn -> task [label="RunTask"];
+  ecr -> task [style=dashed, label="image"];
+  raw -> task [label="read"];
+  task -> lakeb [dir=both, label="sync"];
+  task -> mon [style=dashed];
+  sfn -> glue [label="StartCrawler"];
+  lakeb -> glue [style=dashed];
+  sfn -> mon [style=dashed];
+  lakeb -> modal [label="warehouse + features"];
+  modal -> models [label="publish"];
+  raw -> backup [label="replication (prod)", style=dashed, ltail=cluster_s3];
+  {rank=same; dev; gha}
+  {rank=same; modal; backup}
+}
