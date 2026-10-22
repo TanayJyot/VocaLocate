@@ -5,9 +5,10 @@ lake.py). A pipeline job pulls the parts it needs into a local working copy, run
 it, and pushes back what changed. This keeps every flow, the atomic writes and DuckDB working on
 plain files, and the same code runs on a laptop with no AWS at all.
 
-A file is copied when it is missing at the destination, its size differs, or the source copy is
-newer. A local copy gets the source's modification time, so a file that was only pulled is not
-pushed back again.
+A file is copied when it is missing at the destination, or when the source copy is newer and
+differs in size or time. A newer copy at the destination is never replaced, so a job that pulled
+a table before another job updated it cannot write its stale copy back. A local copy gets the
+source's modification time, so a file that was only pulled is not pushed back again.
 """
 
 from __future__ import annotations
@@ -45,7 +46,12 @@ def _resolve(uri: str | Path, s3: pafs.FileSystem | None) -> tuple[pafs.FileSyst
 
 
 def _listing(fs: pafs.FileSystem, base: str, prefix: str) -> dict[str, pafs.FileInfo]:
+    """Files under base/prefix, keyed by their path relative to base. `prefix` may also name one file."""
     root = f"{base}/{prefix}".rstrip("/") if prefix else base
+    if prefix:
+        info = fs.get_file_info(root)
+        if info.type == pafs.FileType.File:
+            return {prefix: info}
     infos = fs.get_file_info(pafs.FileSelector(root, recursive=True, allow_not_found=True))
     out = {}
     for info in infos:
@@ -55,16 +61,23 @@ def _listing(fs: pafs.FileSystem, base: str, prefix: str) -> dict[str, pafs.File
     return out
 
 
+_CLOCK_SLACK_NS = 1_000_000_000  # S3 keeps whole seconds
+
+
 def _needs_copy(src: pafs.FileInfo, dst: pafs.FileInfo | None) -> bool:
-    if dst is None or src.size != dst.size:
+    if dst is None:
         return True
-    return src.mtime_ns is not None and dst.mtime_ns is not None and src.mtime_ns > dst.mtime_ns + 1_000_000_000
+    if src.mtime_ns is None or dst.mtime_ns is None:
+        return src.size != dst.size
+    if dst.mtime_ns > src.mtime_ns + _CLOCK_SLACK_NS:
+        return False  # the destination was written after our copy: keep it
+    return src.size != dst.size or src.mtime_ns > dst.mtime_ns + _CLOCK_SLACK_NS
 
 
 def sync(
     src: str | Path, dst: str | Path, only: list[str] | tuple[str, ...] = (), s3: pafs.FileSystem | None = None
 ) -> SyncResult:
-    """Copy new and changed files under `src` to `dst`. `only` limits it to these sub-folders.
+    """Copy new and changed files under `src` to `dst`. `only` limits it to these sub-folders or files.
 
     `src` and `dst` are local paths or s3:// URIs. `s3` is an S3 filesystem to use instead of the
     default credential chain (the Modal launcher passes one built from its OIDC role).
