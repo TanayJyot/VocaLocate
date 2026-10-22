@@ -35,7 +35,7 @@ The VimSketch replication (the QVIM 2025 winners' training data, with QVIM DEV a
 demo/configs/vimsketch.toml) uses its own lake and volume:
 
     VOCALOCATE_MODAL_VOLUME=vocalocate-vim modal run --detach demo/modal/recipe_app.py --no-sync \
-        --source vimsketch \
+        --source vimsketch --extra-bench qvim_eval \
         --models greif,shared,excluded_same,excluded_same_noaug,excluded,retrieval,metadata,random
 
 A run that was interrupted resumes: finished recipes (<name>.json on the volume) are skipped.
@@ -96,12 +96,13 @@ def _s3():
 
 
 @app.function(volumes={LAKE: lake}, secrets=[aws], timeout=3 * 3600, cpu=4.0, memory=8 * 1024)
-def pull_lake(source: str, bench: str) -> str:
+def pull_lake(source: str, bench: str, extra_bench: str = "") -> str:
     """Copy the warehouse and the features training needs from the S3 lake into the volume."""
     from vocalocate_pipeline.sync import sync
 
     lake.reload()
-    prefixes = ["warehouse", f"gold/features/{source}", f"gold/features/{bench}"]
+    prefixes = ["warehouse", f"gold/features/{source}", f"gold/features/{bench}",
+                *(f"gold/features/{b}" for b in extra_bench.split(",") if b)]
     res = sync(os.environ["VOCALOCATE_LAKE_URI"], LAKE, prefixes, s3=_s3())
     lake.commit()
     return f"pulled {res.copied} files ({res.bytes / 1e9:.2f} GB), {res.skipped} already up to date"
@@ -118,7 +119,8 @@ def publish(source: str) -> str:
 
 
 @app.function(gpu=GPU, volumes={LAKE: lake}, timeout=8 * 3600, cpu=8.0, memory=48 * 1024)
-def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, bench: str) -> dict:
+def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, bench: str,
+              extra_bench: str = "") -> dict:
     import json
     import time
 
@@ -129,7 +131,7 @@ def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, b
     t0 = time.time()
     args = ["recipe", "--source", source, "--models", name, "--seed", str(seed), "--encoder", "mobilenetv3",
             "--device", "cuda", "--frames", "1000", "--batch-size", str(batch_size), "--bench", bench,
-            "--no-results-file", "--preload"]
+            "--no-results-file", "--preload", "--extra-bench", extra_bench]
     if epochs:
         args += ["--recipe-epochs", str(epochs)]
     _cli(args)
@@ -140,26 +142,27 @@ def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, b
             "epoch_sec": round(sum(h["sec"] for h in hist) / len(hist), 1), "gpu": res.get("gpu"),
             "kept_epoch": res["kept_epoch"], "test_mrr": res["test"]["mrr"] if res["test"]["n_queries"] else None,
             "bench_mrr": res.get("benchmark", {}).get(bench, {}).get("mrr"),
-            "bench_mrr_selected_on_bench": res.get("benchmark_selected_on_benchmark", {}).get(bench, {}).get("mrr")}
+            "bench_mrr_selected_on_bench": res.get("benchmark_selected_on_benchmark", {}).get(bench, {}).get("mrr"),
+            "extra_bench_mrr": {b: res.get("benchmark", {}).get(b, {}).get("mrr") for b in extra_bench.split(",") if b}}
 
 
 @app.function(volumes={LAKE: lake}, timeout=3600, cpu=4.0, memory=16 * 1024)
-def collect(source: str, seed: int, names: str, bench: str) -> None:
+def collect(source: str, seed: int, names: str, bench: str, extra_bench: str = "") -> None:
     """Write results.json for one seed from the finished per-recipe files (nothing retrains)."""
     lake.reload()
     _cli(["recipe", "--source", source, "--models", names, "--seed", str(seed), "--encoder", "mobilenetv3",
-          "--device", "cpu", "--frames", "1000", "--bench", bench])
+          "--device", "cpu", "--frames", "1000", "--bench", bench, "--extra-bench", extra_bench])
     lake.commit()
 
 
 @app.local_entrypoint()
 def main(seeds: str = "490,491,492", models: str = RECIPES, batch_size: int = 64, epochs: int = 0,
-         source: str = "vis", bench: str = "qvim_dev", sync: bool = True):
+         source: str = "vis", bench: str = "qvim_dev", extra_bench: str = "", sync: bool = True):
     if sync:
-        print(pull_lake.remote(source, bench))
+        print(pull_lake.remote(source, bench, extra_bench))
     seed_list = [int(s) for s in seeds.split(",") if s.strip()]
     names = [n.strip() for n in models.split(",") if n.strip()]
-    jobs = [(source, n, s, batch_size, epochs, bench) for s in seed_list for n in names]
+    jobs = [(source, n, s, batch_size, epochs, bench, extra_bench) for s in seed_list for n in names]
     print(f"{len(jobs)} trainings on {GPU}, batch {batch_size}{f', {epochs} epochs' if epochs else ''}")
     failed = []
     for job, res in zip(jobs, train_one.starmap(jobs, return_exceptions=True, order_outputs=True)):
@@ -170,7 +173,7 @@ def main(seeds: str = "490,491,492", models: str = RECIPES, batch_size: int = 64
             print(res)
     for s in seed_list:
         if not any(j[2] == s for j in failed):
-            collect.remote(source, s, ",".join(names), bench)
+            collect.remote(source, s, ",".join(names), bench, extra_bench)
             print(f"seed {s}: results.json written")
     if sync:
         print(publish.remote(source))

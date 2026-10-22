@@ -422,28 +422,33 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig,
 
 def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, names: list[str],
                      bench: str | None = "qvim_dev", overrides: dict | None = None,
-                     write_results: bool = True, preload: bool = False) -> dict:
+                     write_results: bool = True, preload: bool = False,
+                     extra_benches: tuple[str, ...] = ()) -> dict:
     """Train each named recipe for one seed, score val/test (and the benchmark), write results.json.
 
     Finished conditions are skipped on a re-run (their <name>.json exists), so an interrupted
     suite resumes at the first unfinished condition. With write_results=False only the per-run
     <name>.json files are written, so parallel jobs for one seed never race on results.json; a
     later call with every name (all skipped) collects them. preload=True reads every feature
-    file up front, in parallel (for a network volume).
+    file up front, in parallel (for a network volume). `bench` is scored after every epoch (and
+    picks the benchmark-selected epoch); `extra_benches` are only scored at the end, on both the
+    validation-selected and the benchmark-selected checkpoints, so they stay unseen by selection.
     """
     out = recipe_dir(cfg, source, tcfg.seed)
     out.mkdir(parents=True, exist_ok=True)
     ds = load_dataset(cfg, [source])
     if bench:
         bench_ds = load_dataset(cfg, [bench])
+    extra = {b: load_dataset(cfg, [b]) for b in extra_benches if b and b != bench}
     if preload:
         t0 = time.time()
-        n = ds.preload() + (bench_ds.preload() if bench else 0)
+        n = ds.preload() + (bench_ds.preload() if bench else 0) + sum(e.preload() for e in extra.values())
         log.info("preloaded %d feature files in %.0fs", n, time.time() - t0)
     results = {
         "source": source,
         "kind": "recipe",
         "reference_model": REFERENCE_MODEL,
+        "selection_benchmark": bench or None,
         "device": str(tcfg.resolved_device()),
         "train_config": asdict(tcfg),
         "data": {
@@ -479,6 +484,8 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
             }
             if bench:
                 entry["benchmark"] = {bench: evaluate_split(model, bench_ds, "test", tcfg)}
+            for b, e in extra.items():
+                entry.setdefault("benchmark", {})[b] = evaluate_split(model, e, "test", tcfg)
             if bench_best is not None:
                 # The winners' protocol: the epoch that scored best on the benchmark itself.
                 model.load_state_dict(bench_best["state"])
@@ -487,6 +494,8 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
                         "recipe": asdict(rc), "history": hist})
                 entry["benchmark_selected_on_benchmark"] = {"kept_epoch": bench_best["epoch"],
                                                             bench: evaluate_split(model, bench_ds, "test", tcfg)}
+                for b, e in extra.items():
+                    entry["benchmark_selected_on_benchmark"][b] = evaluate_split(model, e, "test", tcfg)
             done.write_text(json.dumps({**entry, "recipe": asdict(rc)}, indent=2), encoding="utf-8")
             del model
             if torch.cuda.is_available():

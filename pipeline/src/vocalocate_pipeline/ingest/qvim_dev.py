@@ -21,20 +21,26 @@ LICENCE = "CC BY-SA 4.0"
 QUERY_COLUMNS = ("Query 1", "Query 2", "Query 3")
 
 
-def _find_index(root: Path) -> tuple[Path, Path]:
+def _find_index(root: Path, names: tuple[str, ...] = ("DEV Dataset.csv", "DEVUpdateComplete.csv"),
+                nested: str = "DEVUpdatedDataset", pattern: str = "DEV*.csv") -> tuple[Path, Path]:
     """Return (dataset root, index CSV), accepting the baseline's and the Zenodo release's names."""
-    for base in (root, root / "DEVUpdatedDataset"):
-        for name in ("DEV Dataset.csv", "DEVUpdateComplete.csv"):
+    for base in (root, root / nested):
+        for name in names:
             if (base / name).exists():
                 return base, base / name
-        found = sorted(p for p in base.glob("DEV*.csv") if not p.name.startswith("._"))
+        found = sorted(p for p in base.glob(pattern) if not p.name.startswith("._"))
         if found and (base / "Items").is_dir():
             return base, found[0]
-    raise FileNotFoundError(f"QVIM DEV metadata (DEV Dataset.csv or DEVUpdateComplete.csv) not found under {root}")
+    raise FileNotFoundError(f"QVIM index ({' or '.join(names)}) not found under {root}")
 
 
 def ingest(root: Path) -> IngestResult:
     root, meta = _find_index(Path(root))
+    return read_challenge_set(root, meta, SOURCE, VERSION)
+
+
+def read_challenge_set(root: Path, meta: Path, source: str, version: str) -> IngestResult:
+    """Read a QVIM challenge set (DEV or EVAL): one row per reference, up to three queries each."""
     files: list[RawFile] = []
     missing: list[str] = []
     seen: set[str] = set()
@@ -49,8 +55,8 @@ def ingest(root: Path) -> IngestResult:
             return
         files.append(
             RawFile(
-                source=SOURCE,
-                source_version=VERSION,
+                source=source,
+                source_version=version,
                 source_key=key,
                 path=path,
                 role=role,
@@ -66,7 +72,7 @@ def ingest(root: Path) -> IngestResult:
             cls, item = row["Class"], row["Items"]
             if not cls or not item:
                 continue
-            group = f"{SOURCE}:{cls}/{item}"
+            group = f"{source}:{cls}/{item}"
             add(f"Items/{cls}/{item}", "reference", cls, group)
             for col in QUERY_COLUMNS:
                 if row.get(col):

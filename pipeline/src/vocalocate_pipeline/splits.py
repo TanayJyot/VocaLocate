@@ -13,7 +13,7 @@ import hashlib
 from .config import SplitConfig
 
 # Sources whose every clip is held out for evaluation.
-BENCHMARK_SOURCES = {"qvim_dev", "captdure"}
+BENCHMARK_SOURCES = {"qvim_dev", "qvim_eval", "captdure"}
 
 
 def split_for_group(group_key: str, cfg: SplitConfig) -> str:

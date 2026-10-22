@@ -179,6 +179,9 @@ def test_replication_on_a_source_without_test_split_selects_on_both(tmp_path):
     cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1, splits=SplitConfig(seed=516, train=0.9, val=0.1))
     run_dataset_flow("vis", _vis_dir(tmp_path / "VocalImitationSet"), cfg)
     run_dataset_flow("qvim_dev", _qvim_dev_dir(tmp_path / "qvim-dev"), cfg)
+    eval_dir = _qvim_dev_dir(tmp_path / "qvim-eval")  # same layout; ingested as the EVAL set
+    (eval_dir / "DEV Dataset.csv").rename(eval_dir / "EVAL Dataset - EVAL Dataset.csv")
+    run_dataset_flow("qvim_eval", eval_dir, cfg)
     ds = load_dataset(cfg, ["vis"])
     assert ds.split_pairs("test").empty
 
@@ -190,7 +193,7 @@ def test_replication_on_a_source_without_test_split_selects_on_both(tmp_path):
     lake = ["--lake", str(cfg.lake_root)]
     assert main(lake + ["recipe", "--source", "vis", "--models", "shared,excluded_same", "--encoder", "cnn",
                         "--frames", "32", "--batch-size", "4", "--recipe-epochs", "2", "--bench", "qvim_dev",
-                        "--device", "cpu"]) in (0, None)
+                        "--extra-bench", "qvim_eval", "--device", "cpu"]) in (0, None)
     out = cfg.lake_root / "models" / "vis" / "recipe-490"
     entry = json.loads((out / "excluded_same.json").read_text(encoding="utf-8"))
     assert entry["test"]["n_queries"] == 0 and entry["benchmark"]["qvim_dev"]["n_queries"] == 8
@@ -199,9 +202,13 @@ def test_replication_on_a_source_without_test_split_selects_on_both(tmp_path):
     best = max(entry["history"], key=lambda h: h["bench_mrr"])
     assert picked["kept_epoch"] == best["epoch"] and abs(picked["qvim_dev"]["mrr"] - best["bench_mrr"]) < 1e-6
     assert (out / "excluded_same.benchsel.pt").exists()
+    # EVAL is scored on both kept checkpoints but never used to pick one.
+    assert entry["benchmark"]["qvim_eval"]["n_queries"] == 8 and "qvim_eval" in picked
+    assert all("qvim_eval" not in str(h) for h in entry["history"])
 
     table = summarize([out])
     assert "selected on qvim_dev" in table and "C: winner's method" in table
+    assert "qvim_eval test metrics" in table and "qvim_eval is still unseen" in table
 
 
 def test_lake_paths_from_another_machine_are_rebased(tmp_path):

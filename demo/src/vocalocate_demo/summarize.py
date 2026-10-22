@@ -14,11 +14,13 @@ from .report import METRICS
 LABELS = {**MODEL_NAMES, **RECIPE_NAMES}
 
 
-def _on_benchmark(runs: list[dict], names: list[str], ref: str, bench: str, seeds: list, missing: list[str]) -> str:
+def _on_benchmark(runs: list[dict], names: list[str], ref: str, bench: str, primary: str, seeds: list,
+                  missing: list[str]) -> str:
     """For sources with no test split of their own (VimSketch): the benchmark is the test.
 
     Two numbers per model: the epoch picked on our validation split (clean), and the epoch that
-    scored best on the benchmark itself (the protocol the QVIM 2025 winners reported).
+    scored best on the `primary` benchmark (the protocol the QVIM 2025 winners reported). On any
+    other benchmark both checkpoints are scored but neither was chosen with it.
     """
     def col(name: str, key: str, metric: str = "mrr") -> np.ndarray:
         return np.array([r["models"][name].get(key, {}).get(bench, {}).get(metric, np.nan) for r in runs])
@@ -33,10 +35,12 @@ def _on_benchmark(runs: list[dict], names: list[str], ref: str, bench: str, seed
         f"# VocaLocate recipe comparison on {bench}: {len(runs)} seeds ({', '.join(map(str, seeds))})",
         "",
         f"{bench} test metrics, mean ± std over seeds. \"Selected on validation\" keeps the epoch with the best "
-        f"validation MRR (the benchmark stays unseen); \"selected on {bench}\" keeps the epoch that scored best on "
-        f"{bench} itself, as the QVIM 2025 winners did. Δ is each model minus {LABELS.get(ref, ref)!r} of the same seed.",
+        f"validation MRR ({bench} unseen); \"selected on {primary}\" keeps the epoch that scored best on {primary}, "
+        f"as the QVIM 2025 winners did" + (" (here that selection is on the benchmark itself)." if bench == primary
+                                           else f" ({bench} is still unseen by either choice).")
+        + f" Δ is each model minus {LABELS.get(ref, ref)!r} of the same seed.",
         "",
-        f"| model | MRR, selected on validation | Δ | MRR, selected on {bench} | Δ | R@1 | R@5 | nDCG@10 | val MRR |",
+        f"| model | MRR, selected on validation | Δ | MRR, selected on {primary} | Δ | R@1 | R@5 | nDCG@10 | val MRR |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in names:
@@ -67,7 +71,10 @@ def summarize(paths: list[Path]) -> str:
     benches = sorted({b for r in runs for m in r["models"].values() for b in m.get("benchmark", {})})
     title = "recipe comparison" if runs[0].get("kind") == "recipe" else "mining demo"
     if benches and all(m["test"].get("n_queries", 1) == 0 for r in runs for m in r["models"].values()):
-        return _on_benchmark(runs, names, ref, benches[0], seeds, missing)
+        primary = runs[0].get("selection_benchmark") or benches[0]
+        order = [primary] + [b for b in benches if b != primary]
+        return "\n".join(_on_benchmark(runs, names, ref, b, primary, seeds, missing if b == order[-1] else [])
+                         for b in order)
     lines = [
         f"# VocaLocate {title}: {len(runs)} seeds ({', '.join(map(str, seeds))})",
         "",

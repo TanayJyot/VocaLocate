@@ -69,6 +69,23 @@ def test_vimsketch_without_vocalsketch_has_no_unpaired_imitations(vimsketch_rele
     assert len(result.files) == 8 and not any(f.role == "unpaired_imitation" for f in result.files)
 
 
+def test_qvim_eval_reads_the_released_layout(tmp_path):
+    root = tmp_path / "EVALDataset"
+    base = root / "EVALCheck2"
+    write(base / "Items" / "Birds" / "Bird Noise - 3.wav", tone(500, 2, 32_000), 32_000)
+    for q in ("Birds3-01.wav", "Birds3-02.wav"):
+        write(base / "Queries" / "Birds" / q, tone(520, 1, 32_000), 32_000)
+    with open(base / "EVAL Dataset - EVAL Dataset.csv", "w", newline="", encoding="utf-8") as f:
+        f.write(",,,Queries,,\n")
+        w = csv.writer(f)
+        w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
+        w.writerow(["3", "Birds", "Bird Noise - 3.wav", "Birds3-01.wav", "Birds3-02.wav", ""])
+    files = _by_key(ingest("qvim_eval", root))
+    assert set(files) == {"Items/Birds/Bird Noise - 3.wav", "Queries/Birds/Birds3-01.wav", "Queries/Birds/Birds3-02.wav"}
+    assert {f.group_key for f in files.values()} == {"qvim_eval:Birds/Bird Noise - 3.wav"}
+    assert {f.source for f in files.values()} == {"qvim_eval"}
+
+
 def test_qvim_dev_reads_up_to_three_queries_per_reference(qvim_dir):
     files = _by_key(ingest("qvim_dev", qvim_dir))
     assert set(files) == {"Items/Dog/bark.wav", "Queries/Dog/q1.wav", "Queries/Dog/q2.wav"}

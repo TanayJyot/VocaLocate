@@ -130,6 +130,8 @@ def _parser() -> argparse.ArgumentParser:
     rp.add_argument("--n-cands", type=int, help="override candidates scored per anchor per step (default 2)")
     rp.add_argument("--no-amp", action="store_true", help="disable mixed precision on CUDA")
     rp.add_argument("--bench", default="qvim_dev", help="also score each model on this source's test split ('' = none)")
+    rp.add_argument("--extra-bench", default="",
+                    help="comma-separated sources scored only at the end, on both kept checkpoints (e.g. qvim_eval)")
     _train_args(rp)
 
     rt = sub.add_parser("recipe-text", help="run the text-hint test on saved recipe models (one recipe-<seed> folder each)")
@@ -268,7 +270,8 @@ def main(argv: list[str] | None = None) -> int:
             overrides["amp"] = False
         names = [n.strip() for n in args.models.split(",") if n.strip()]
         res = run_recipe_suite(cfg, args.source, tcfg, names, bench=args.bench or None, overrides=overrides,
-                               write_results=not args.no_results_file, preload=args.preload)
+                               write_results=not args.no_results_file, preload=args.preload,
+                               extra_benches=tuple(b.strip() for b in args.extra_bench.split(",") if b.strip()))
         print(f"Recipe runs on {args.source}, seed {tcfg.seed} (test split{', ' + args.bench if args.bench else ''})")
         for name, m in res["models"].items():
             b = m.get("benchmark", {}).get(args.bench, {}).get("mrr") if args.bench else None
