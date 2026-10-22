@@ -18,6 +18,14 @@ def test_default_config_file_matches_built_in_defaults():
     assert from_file.audio.sample_rate == 32_000 and from_file.features.n_mels == 128
 
 
+@pytest.mark.parametrize("env", ["dev", "prod"])
+def test_aws_environment_configs_keep_the_same_features(env):
+    # dev and prod differ in where the lake lives and how many workers run, never in the outputs.
+    cfg = load_config(DEFAULT_TOML.with_name(f"{env}.toml"))
+    assert cfg.fingerprint() == load_config().fingerprint()
+    assert cfg.lake_root == Path("/lake")
+
+
 def test_cli_overrides_win_over_the_file(tmp_path):
     cfg = load_config(DEFAULT_TOML, lake_root=tmp_path, workers=2)
     assert cfg.lake_root == tmp_path and cfg.workers == 2
