@@ -19,9 +19,13 @@ variable "alert_emails" {
 }
 
 variable "image_tag" {
-  description = "Pipeline image tag to run; CI pushes one per commit plus `latest`."
+  description = "Commit SHA of the pipeline image to run; the pipeline-image workflow pushes one per commit."
   type        = string
-  default     = "latest"
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.image_tag))
+    error_message = "image_tag must be a full commit SHA, so every run can be traced to its code."
+  }
 }
 
 variable "force_destroy" {

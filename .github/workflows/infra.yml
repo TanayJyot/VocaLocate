@@ -1,13 +1,16 @@
 name: infra
 
 # Checks every Terraform root and runs the offline module tests (mocked AWS provider), so no AWS
-# credentials are needed. Applying stays a manual step: see infra/README.md.
+# credentials are needed. On main (or by hand) it also runs `terraform plan` against the real dev
+# environment with the read-only CI role, so a reviewer can see what the next apply would change.
+# Applying stays a manual step: see infra/README.md.
 
 on:
   push:
     paths: ["infra/**", ".github/workflows/infra.yml"]
   pull_request:
     paths: ["infra/**", ".github/workflows/infra.yml"]
+  workflow_dispatch:
 
 jobs:
   check:
@@ -35,3 +38,39 @@ jobs:
         run: |
           terraform init -input=false
           terraform test
+
+  plan-dev:
+    needs: check
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    # The dev GitHub environment holds AWS_ROLE_ARN, TF_STATE_BUCKET and MODAL_WORKSPACE_ID
+    # (from `terraform output` in infra/envs/dev and infra/bootstrap).
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: infra/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip until dev is deployed
+        if: vars.AWS_ROLE_ARN == ''
+        run: echo "No AWS_ROLE_ARN in the dev environment yet; nothing to plan."
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: vars.AWS_ROLE_ARN != ''
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ca-central-1
+      - uses: hashicorp/setup-terraform@v3
+        if: vars.AWS_ROLE_ARN != ''
+        with:
+          terraform_version: "1.12.2"
+      - name: Plan
+        if: vars.AWS_ROLE_ARN != ''
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          terraform plan -input=false -lock=false \
+            -var "state_bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -var "modal_workspace_id=${{ vars.MODAL_WORKSPACE_ID }}" \
+            -var "image_tag=${{ github.sha }}"

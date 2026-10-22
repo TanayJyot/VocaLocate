@@ -32,8 +32,8 @@ variable "backup_bucket_arns" {
 }
 
 variable "image_tag" {
-  type    = string
-  default = "latest"
+  description = "Commit SHA of the pipeline image to run."
+  type        = string
 }
 
 variable "task_cpu" {
