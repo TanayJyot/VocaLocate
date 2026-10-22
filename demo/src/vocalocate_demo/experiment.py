@@ -196,6 +196,30 @@ def run_text_branch(cfg: PipelineConfig, source: str, ds: Dataset, models: dict,
     return out
 
 
+def run_recipe_text_branch(cfg: PipelineConfig, source: str, run_dirs: list[Path], clap,
+                           names: list[str] | None = None, device: str = "auto") -> dict:
+    """The text-branch test (run_text_branch) on saved recipe models, one seed folder at a time.
+
+    Each folder is a recipe-<seed>/ directory holding <name>.pt checkpoints (from `recipe`, locally or
+    fetched from Modal). Writes text.json into each folder and returns {folder: result}.
+    """
+    from .recipe import RECIPES
+
+    ds = load_dataset(cfg, [source])
+    out = {}
+    for d in map(Path, run_dirs):
+        models, tcfg = {}, None
+        for name in names or list(RECIPES):
+            if (d / f"{name}.pt").exists():
+                models[name], tcfg, _ = T.load(d / f"{name}.pt", device)
+        if not models:
+            raise FileNotFoundError(f"no recipe checkpoints (*.pt) in {d}")
+        res = run_text_branch(cfg, source, ds, models, tcfg, clap)
+        (d / "text.json").write_text(json.dumps(res, indent=2, default=str), encoding="utf-8")
+        out[str(d)] = res
+    return out
+
+
 # Published QVIM DEV-set MRRs (A2 Part Two), for the benchmark table.
 QVIM_DEV_PUBLISHED = {
     "random ranking": 0.044,

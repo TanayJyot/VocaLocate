@@ -10,6 +10,7 @@
     benchmark-text  score the CLAP text branch on a captioned held-out set (CAPTDURE)
     benchmark-onnx  score an exported ONNX embedding model (e.g. the QVIM 2025 winner's) on a benchmark
     recipe    the QVIM 2025 winning recipe on a source, one run per negative source (A, B, C, controls)
+    recipe-text  the text-hint test on saved recipe models
     app       the VocaLocate web app: index folders, record an imitation, search, preview, drag out
 """
 
@@ -124,6 +125,13 @@ def _parser() -> argparse.ArgumentParser:
     rp.add_argument("--no-amp", action="store_true", help="disable mixed precision on CUDA")
     rp.add_argument("--bench", default="qvim_dev", help="also score each model on this source's test split ('' = none)")
     _train_args(rp)
+
+    rt = sub.add_parser("recipe-text", help="run the text-hint test on saved recipe models (one recipe-<seed> folder each)")
+    rt.add_argument("runs", type=Path, nargs="+", help="recipe-<seed> folders holding <name>.pt checkpoints")
+    rt.add_argument("--source", default="vis", help="source the models were trained on (its hints and candidates)")
+    rt.add_argument("--models", default=",".join(RECIPE_ORDER), help="comma-separated recipe names to score")
+    rt.add_argument("--device", default="auto")
+    _clap_args(rt)
 
     bt = sub.add_parser("benchmark-text", help="score the CLAP text branch on captions, e.g. CAPTDURE (text-to-audio)")
     bt.add_argument("--on", default="captdure", help="captioned source already in the lake")
@@ -260,6 +268,26 @@ def main(argv: list[str] | None = None) -> int:
             b = m.get("benchmark", {}).get(args.bench, {}).get("mrr") if args.bench else None
             print(f"{RECIPE_NAMES[name]:<72} MRR {m['test']['mrr']:.3f}  fine {m['test']['fine_mrr']:.3f}"
                   + (f"  {args.bench} {b:.3f}" if b is not None else "") + f"  kept epoch {m['kept_epoch']}")
+    elif args.command == "recipe-text":
+        import numpy as np
+
+        from .experiment import run_recipe_text_branch
+        from .recipe import RECIPE_NAMES
+
+        names = [n.strip() for n in args.models.split(",") if n.strip()]
+        res = run_recipe_text_branch(cfg, args.source, args.runs, _clap(args), names, device=args.device)
+        rows: dict[str, list[dict]] = {}
+        for r in res.values():
+            for name, m in r.get("models", {}).items():
+                rows.setdefault(name, []).append(m)
+        n = next(iter(res.values()))["n_queries"]
+        print(f"Text hint on {args.source}, {len(res)} seed(s), {n.get('test', 0)} test imitations with a hint; "
+              "test MRR, mean over seeds")
+        print(f"{'model':<72} {'voice':>6} {'text':>6} {'both':>6} {'gain':>7}  alpha")
+        for name, ms in rows.items():
+            mean = {k: float(np.mean([m["test"][k]["mrr"] for m in ms])) for k in ("voice", "text", "fused")}
+            print(f"{RECIPE_NAMES.get(name, name):<72} {mean['voice']:>6.3f} {mean['text']:>6.3f} {mean['fused']:>6.3f} "
+                  f"{mean['fused'] - mean['voice']:>+7.3f}  {','.join(str(m['alpha']) for m in ms)}")
     elif args.command == "benchmark-text":
         from .experiment import run_text_benchmark
 

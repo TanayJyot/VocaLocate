@@ -7,7 +7,7 @@ import numpy as np
 import soundfile as sf
 import torch
 
-from vocalocate_pipeline.config import PipelineConfig
+from vocalocate_pipeline.config import PipelineConfig, SplitConfig
 from vocalocate_pipeline.flows import run_dataset_flow
 from vocalocate_demo.augment import TRANSFORMS, _FNS, augment_batch
 from vocalocate_demo.cli import RECIPE_ORDER, main
@@ -40,7 +40,8 @@ def _vis_dir(root):
             p = root / "vocal_imitations" / folder / name
             p.parent.mkdir(parents=True, exist_ok=True)
             sf.write(str(p), *_tone(200 + 60 * k + 7 * j))
-            imits.append([len(imits), name, k, f"ref{k}.wav", included, "False", "False", f"p{j}", ""])
+            hint = f"{fam.lower()} sound {k}" if included == "True" else ""
+            imits.append([len(imits), name, k, f"ref{k}.wav", included, "False", "False", f"p{j}", hint])
     with open(root / "original_recordings_classes.txt", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
         w.writerow(["filename", "classname", "category_d1", "category_d2", "category_d3", "category_d4",
@@ -133,6 +134,22 @@ def test_recipe_suite_runs_every_negative_source(tmp_path):
 
     table = summarize([out])
     assert "recipe comparison" in table and "C: winner's method" in table
+
+
+def test_text_hint_test_runs_on_saved_recipe_models(tmp_path):
+    # Split seed 514 puts 7 of the fixture's 12 classes in train, 3 in val and 2 in test; the text
+    # test needs validation imitations with hints to tune α.
+    cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1, splits=SplitConfig(seed=514))
+    run_dataset_flow("vis", _vis_dir(tmp_path / "VocalImitationSet"), cfg)
+    lake = ["--lake", str(cfg.lake_root)]
+    assert main(lake + ["recipe", "--source", "vis", "--models", "greif,shared", "--encoder", "cnn", "--frames", "32",
+                        "--batch-size", "4", "--recipe-epochs", "1", "--bench", "", "--device", "cpu"]) in (0, None)
+    out = cfg.lake_root / "models" / "vis" / "recipe-490"
+    assert main(lake + ["recipe-text", str(out), "--models", "greif,shared", "--device", "cpu",
+                        "--clap-backend", "fake"]) in (0, None)
+    text = json.loads((out / "text.json").read_text(encoding="utf-8"))
+    assert set(text["models"]) == {"greif", "shared"} and text["n_queries"]["test"] > 0
+    assert {"voice", "text", "fused"} <= set(text["models"]["shared"]["test"])
 
 
 def test_lake_paths_from_another_machine_are_rebased(tmp_path):
