@@ -1,9 +1,11 @@
 name: pipeline-image
 
 # Builds the pipeline image on every pipeline change. On main (or by hand) it also pushes the image
-# to an environment's ECR repository, signing in through GitHub's OIDC token: the GitHub
-# environment (dev or prod) holds the AWS_ROLE_ARN and ECR_REPOSITORY variables from
-# `terraform output` in infra/envs/<env>, so no AWS keys are stored in GitHub.
+# to an environment's ECR repository, tagged with its commit SHA. Tags there are immutable, so a
+# deployment (`terraform apply -var image_tag=<sha>`) always runs exactly that commit's code.
+# It signs in through GitHub's OIDC token: the GitHub environment (dev or prod) holds the
+# AWS_ROLE_ARN and ECR_REPOSITORY variables from `terraform output` in infra/envs/<env>, so no AWS
+# keys are stored in GitHub.
 
 on:
   push:
@@ -48,5 +50,5 @@ jobs:
         env:
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
         run: |
-          docker build -t "$REPOSITORY:${{ github.sha }}" -t "$REPOSITORY:latest" pipeline
-          docker push --all-tags "$REPOSITORY"
+          docker build -t "$REPOSITORY:${{ github.sha }}" pipeline
+          docker push "$REPOSITORY:${{ github.sha }}"

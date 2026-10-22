@@ -1,7 +1,10 @@
 # Step Functions runs the pipeline as ECS Fargate tasks, one step per flow stage:
 #
-#   {"source": "<dataset>"}  ->  Ingest (ingest, clean, transform, rebuild warehouse)  ->  Report  -> Catalog
-#   {}                       ->  LoadWarehouse                                          ->  Report  -> Catalog
+#   {"source": "<dataset>"}  ->  Ingest (ingest, clean, transform)  ->  LoadWarehouse  ->  Report  ->  Catalog
+#   {}                       ->                                        LoadWarehouse  ->  Report  ->  Catalog
+#
+# An ingest pushes only its own source's files, so overlapping runs of different sources cannot
+# overwrite each other; LoadWarehouse then rebuilds the warehouse from everything in the lake.
 #
 # Any failed step publishes to the alerts topic and fails the execution. Runs start from:
 #   * an upload of team/recordings.csv to the raw bucket (EventBridge), after a recording session;
@@ -73,7 +76,7 @@ locals {
             "Command.$" = "States.Array('remote', 'ingest', '--source', $.source)"
           }] }
         })
-        Next = "Report"
+        Next = "LoadWarehouse"
       })
       LoadWarehouse = merge(local.run_task, {
         Parameters = merge(local.run_task.Parameters, {
