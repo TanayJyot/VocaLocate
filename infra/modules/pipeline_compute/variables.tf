@@ -28,9 +28,8 @@ variable "lake_bucket_arn" {
 }
 
 variable "image_tag" {
-  description = "Tag of the pipeline image in this environment's ECR repository."
+  description = "Commit SHA of the pipeline image to run (CI tags every image with its commit)."
   type        = string
-  default     = "latest"
 }
 
 variable "cpu" {

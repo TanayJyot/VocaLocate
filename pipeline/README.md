@@ -70,7 +70,9 @@ seconds.
 
 The lake's source of truth on AWS is an S3 bucket with the same layout. A job
 pulls what it needs into a local working copy, runs the normal flow and pushes
-back new and changed files (`remote.py`, `sync.py`):
+back only what it produced (`remote.py`, `sync.py`). An ingest uploads only its
+own source's files; `load-warehouse` then rebuilds the warehouse from the whole
+lake, so runs of different sources can overlap safely:
 
 ```bash
 # What the Fargate task runs; the task definition sets these three variables.

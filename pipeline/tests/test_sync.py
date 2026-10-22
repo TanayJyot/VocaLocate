@@ -5,8 +5,11 @@ from __future__ import annotations
 import os
 import shutil
 
+import pyarrow.parquet as pq
+
 from vocalocate_pipeline import remote
 from vocalocate_pipeline.cli import main
+from vocalocate_pipeline.schemas import to_table
 from vocalocate_pipeline.sync import is_remote, sync
 
 
@@ -59,7 +62,7 @@ def test_remote_ingest_round_trip(tmp_path, cfg, esc50_dir):
     first = remote.ingest("esc50", cfg, str(lake_bucket), str(raw_bucket))
     assert first.n_processed > 0
     pushed = _tree(lake_bucket)
-    assert "warehouse/vocalocate.duckdb" in pushed
+    assert "warehouse/vocalocate.duckdb" not in pushed  # rebuilt by load_warehouse, not by an ingest
     assert "silver/tables/clips/esc50.parquet" in pushed
     assert any(p.startswith("gold/features/esc50/") for p in pushed)
     assert any(p.startswith("runs/") for p in pushed)
@@ -72,8 +75,45 @@ def test_remote_ingest_round_trip(tmp_path, cfg, esc50_dir):
     assert len([p for p in _tree(lake_bucket) if p.startswith("runs/")]) == 2
 
     shutil.rmtree(cfg.lake_root)
+    remote.load_warehouse(cfg, str(lake_bucket))
+    assert "warehouse/vocalocate.duckdb" in _tree(lake_bucket)
+    shutil.rmtree(cfg.lake_root)
     rows = remote.report(cfg, "SELECT count(*) FROM clips WHERE source = 'esc50'", str(lake_bucket))
     assert rows[0][0] == second.n_input
+
+
+def test_sync_never_replaces_a_newer_destination(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    src.mkdir()
+    dst.mkdir()
+    (src / "t.parquet").write_bytes(b"stale copy")
+    (dst / "t.parquet").write_bytes(b"newer result from another job")
+    os.utime(src / "t.parquet", (1_000, 1_000))
+    os.utime(dst / "t.parquet", (2_000, 2_000))
+    assert sync(src, dst).copied == 0
+    assert (dst / "t.parquet").read_bytes() == b"newer result from another job"
+
+
+def test_overlapping_ingests_keep_each_others_tables(tmp_path, cfg, esc50_dir, monkeypatch):
+    """A team ingest that finishes while an ESC-50 ingest is running must not be overwritten by it."""
+    raw_bucket, lake_bucket = tmp_path / "raw-bucket", tmp_path / "lake-bucket"
+    shutil.copytree(esc50_dir, raw_bucket / "esc50")
+    team_table = lake_bucket / "silver" / "tables" / "clips" / "team.parquet"
+    team_table.parent.mkdir(parents=True)
+    empty_clips = to_table("clips", [])
+    pq.write_table(empty_clips, team_table, compression="none")  # the team tables before
+    os.utime(team_table, (1_000, 1_000))
+    real_flow = remote.run_dataset_flow
+
+    def flow_while_team_ingest_finishes(*args, **kwargs):
+        summary = real_flow(*args, **kwargs)
+        pq.write_table(empty_clips, team_table, compression="zstd")  # the team job pushes mid-run
+        return summary
+
+    monkeypatch.setattr(remote, "run_dataset_flow", flow_while_team_ingest_finishes)
+    remote.ingest("esc50", cfg, str(lake_bucket), str(raw_bucket))
+    assert pq.ParquetFile(team_table).metadata.row_group(0).column(0).compression == "ZSTD"
+    assert (lake_bucket / "silver" / "tables" / "clips" / "esc50.parquet").exists()
 
 
 def test_remote_cli_reads_uris_from_env(tmp_path, esc50_dir, monkeypatch, capsys):
