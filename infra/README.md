@@ -54,10 +54,16 @@ them for S3, each Fargate task works on a local copy of the lake
 1. pull `s3://<raw>/<source>/` into `/lake/bronze/<source>/`;
 2. pull the lake's tables and this source's clean audio and features, so the content-hash cache still
    skips clips that earlier runs finished;
-3. run the normal dataset flow, which also rebuilds the DuckDB warehouse;
-4. push the new and changed files back. If the flow fails, only its `pipeline_runs` row is pushed.
+3. run the normal dataset flow;
+4. push back only what this source produced: its file in each table, its clean audio and features,
+   and its run record. If the flow fails, only its `pipeline_runs` row is pushed.
 
-The same command works against local folders, which is how the tests run it.
+The state machine then runs `remote load-warehouse`, which pulls every table and rebuilds the DuckDB
+warehouse. Because an ingest never uploads another source's tables, and the copy step never
+replaces a file that is newer in S3, two runs of different sources can overlap without one
+overwriting the other's results.
+
+The same commands work against local folders, which is how the tests run them.
 
 ### Environments
 
@@ -91,13 +97,16 @@ cd ../backup
 terraform init -backend-config="bucket=$STATE" && terraform apply
 
 # 3. An environment. Copy terraform.tfvars.example to terraform.tfvars and fill it in first.
+#    Tasks run the image of one commit; pass the commit you are deploying.
 cd ../envs/dev
+SHA=$(git rev-parse HEAD)
 terraform init -backend-config="bucket=$STATE"
-terraform apply
+terraform apply -var image_tag=$SHA
 
-# 4. The pipeline image: run the pipeline-image workflow (Actions tab, environment dev). It needs
-#    the GitHub environment `dev` with variables AWS_ROLE_ARN (terraform output github_role_arn)
-#    and ECR_REPOSITORY (terraform output ecr_repository_url).
+# 4. The pipeline image for that commit: run the pipeline-image workflow on it (Actions tab,
+#    environment dev). It needs the GitHub environment `dev` with variables AWS_ROLE_ARN
+#    (terraform output github_role_arn) and ECR_REPOSITORY (terraform output ecr_repository_url).
+#    The repository's tags are immutable, so `$SHA` always means that commit's code.
 
 # 5. Modal: let the training app reach this environment's buckets.
 terraform output -raw modal_secret_command | sh
@@ -136,8 +145,11 @@ cd infra/modules/vocalocate_stack && terraform init && terraform test   # offlin
 ```
 
 `.github/workflows/infra.yml` runs both, plus `terraform validate` on every root, for any change
-under `infra/`. `terraform apply` is never run by CI: the CI role is read-only apart from pushing
-images, so infrastructure changes go through a teammate's reviewed `terraform plan` and `apply`.
+under `infra/`. On `main`, or when started by hand, it also runs `terraform plan` against the real
+dev environment with the CI role, which needs the dev GitHub environment variables
+`TF_STATE_BUCKET` and `MODAL_WORKSPACE_ID` as well as `AWS_ROLE_ARN`. `terraform apply` is never
+run by CI: the CI role is read-only apart from pushing images, so infrastructure changes go through
+a teammate's reviewed `terraform plan` and `apply`.
 
 ## Disaster recovery (Part Five)
 
@@ -146,8 +158,11 @@ own state and does not replicate deletes. Outline of the demo:
 
 ```bash
 cd infra/envs/prod
-terraform apply -var force_destroy=true && terraform destroy -var force_destroy=true   # disaster
-terraform apply                                                                         # rebuild
+SHA=<commit deployed to prod>
+terraform apply -var image_tag=$SHA -var force_destroy=true
+terraform destroy -var image_tag=$SHA -var force_destroy=true                          # disaster
+terraform apply -var image_tag=$SHA                                                     # rebuild
+# The ECR repository was destroyed too: run the pipeline-image workflow for prod on $SHA.
 aws s3 sync s3://vocalocate-backup-raw-<account>    s3://vocalocate-prod-raw-<account>
 aws s3 sync s3://vocalocate-backup-lake-<account>   s3://vocalocate-prod-lake-<account>
 aws s3 sync s3://vocalocate-backup-models-<account> s3://vocalocate-prod-models-<account>

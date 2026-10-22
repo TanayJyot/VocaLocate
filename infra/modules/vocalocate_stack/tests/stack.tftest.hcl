@@ -53,6 +53,7 @@ variables {
   state_bucket               = "vocalocate-tfstate-123456789012"
   modal_workspace_id         = "ac-test"
   modal_environment          = "dev"
+  image_tag                  = "0123456789abcdef0123456789abcdef01234567"
 }
 
 run "dev_stack" {
@@ -116,6 +117,11 @@ run "state_machine" {
   }
 
   assert {
+    condition     = jsondecode(aws_sfn_state_machine.pipeline.definition).States.Ingest.Next == "LoadWarehouse" && jsondecode(aws_sfn_state_machine.pipeline.definition).States.LoadWarehouse.Next == "Report"
+    error_message = "Every ingest must be followed by a warehouse rebuild from the whole lake."
+  }
+
+  assert {
     condition     = jsondecode(aws_sfn_state_machine.pipeline.definition).States.Report.Next == "Catalog"
     error_message = "The Glue crawl must follow the report."
   }
@@ -167,6 +173,7 @@ run "task_uses_environment_config" {
     raw_bucket_arn   = "arn:aws:s3:::raw"
     lake_bucket_name = "lake"
     lake_bucket_arn  = "arn:aws:s3:::lake"
+    image_tag        = "0123456789abcdef0123456789abcdef01234567"
   }
 
   assert {

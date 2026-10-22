@@ -8,7 +8,7 @@ locals {
 
 resource "aws_ecr_repository" "pipeline" {
   name                 = "${var.name_prefix}-pipeline"
-  image_tag_mutability = "MUTABLE" # CI moves the `latest` tag; every image is also tagged with its commit
+  image_tag_mutability = "IMMUTABLE" # each image is tagged with its commit, so a tag always means the same code
   force_delete         = var.force_destroy
 
   image_scanning_configuration {
