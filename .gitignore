@@ -8,3 +8,12 @@ lake/
 pipeline/lake/
 *.duckdb
 *.duckdb.tmp
+
+# Terraform: providers, local state and real variable values never go into git.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+.terraform.lock.hcl
