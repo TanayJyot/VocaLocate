@@ -28,7 +28,7 @@ def _patch_missing_config_keys(model_config_kwargs):
 
 def _patch_missing_keys(model_data, model_config):
     """Add default values for new parameters that may be missing in old checkpoints."""
-    n_layer = model_config.n_layer
+    n_layer = model_config.effective_depth # per-step scalars are sized by executed steps
     # resid_lambdas defaults to 1.0 (identity scaling)
     if "resid_lambdas" not in model_data:
         model_data["resid_lambdas"] = torch.ones(n_layer)

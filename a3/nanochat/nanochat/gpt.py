@@ -10,6 +10,7 @@ Notable features:
 - no bias in linear layers
 - Group-Query Attention (GQA) support for more efficient inference
 - Flash Attention 3 integration
+- optional looped (weight-shared recurrent depth) execution: prelude -> core x n_loops -> coda
 """
 
 from functools import partial
@@ -37,6 +38,30 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
+    # Looped / recurrent-depth execution (all defaults = ordinary GPT, fully backward compatible).
+    # The n_layer unique blocks are split into [prelude | core | coda]:
+    #   prelude = first n_prelude blocks, run once
+    #   core    = the middle n_layer - n_prelude - n_coda blocks, run n_loops times with SHARED weights
+    #   coda    = last n_coda blocks, run once
+    # Effective depth (layers actually executed) = n_prelude + n_core * n_loops + n_coda.
+    n_loops: int = 1
+    n_prelude: int = 0
+    n_coda: int = 0
+
+    @property
+    def n_core(self):
+        return self.n_layer - self.n_prelude - self.n_coda
+
+    @property
+    def effective_depth(self):
+        return self.n_prelude + self.n_core * self.n_loops + self.n_coda
+
+    def layer_plan(self):
+        """Block index used at each executed step, e.g. n_layer=4, prelude=1, coda=1, loops=3 -> [0,1,2,1,2,1,2,3]."""
+        assert self.n_loops >= 1 and self.n_prelude >= 0 and self.n_coda >= 0
+        assert self.n_core >= 1, f"need at least one core block: n_layer={self.n_layer}, prelude={self.n_prelude}, coda={self.n_coda}"
+        core = list(range(self.n_prelude, self.n_prelude + self.n_core))
+        return list(range(self.n_prelude)) + core * self.n_loops + list(range(self.n_layer - self.n_coda, self.n_layer))
 
 
 def norm(x):
@@ -81,7 +106,9 @@ class CausalSelfAttention(nn.Module):
         self.ve_gate_channels = 12
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
+        # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
+        # each execution needs its own KV cache slot (its keys/values differ per iteration).
         B, T, C = x.size()
 
         # Project the input to get queries, keys, and values
@@ -110,7 +137,7 @@ class CausalSelfAttention(nn.Module):
             y = flash_attn.flash_attn_func(q, k, v, causal=True, window_size=window_size)
         else:
             # Inference: use flash_attn_with_kvcache which handles cache management
-            k_cache, v_cache = kv_cache.get_layer_cache(self.layer_idx)
+            k_cache, v_cache = kv_cache.get_layer_cache(cache_idx)
             y = flash_attn.flash_attn_with_kvcache(
                 q, k_cache, v_cache,
                 k=k, v=v,
@@ -119,7 +146,7 @@ class CausalSelfAttention(nn.Module):
                 window_size=window_size,
             )
             # Advance position after last layer processes
-            if self.layer_idx == kv_cache.n_layers - 1:
+            if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
 
         # Re-assemble the heads and project back to residual stream
@@ -147,8 +174,8 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache):
-        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache)
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
+        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
         x = x + self.mlp(norm(x))
         return x
 
@@ -164,7 +191,9 @@ class GPT(nn.Module):
         self.config = config
         # Compute per-layer window sizes for sliding window attention
         # window_size is (left, right) tuple: (-1, 0) for full context, (N, 0) for sliding window
-        self.window_sizes = self._compute_window_sizes(config)
+        self.layer_plan = config.layer_plan() # block index executed at each step (length = effective depth)
+        self.eff_depth = len(self.layer_plan)
+        self.window_sizes = self._compute_window_sizes(config) # one per executed step
         # Pad vocab for efficiency (DDP, tensor cores). This is just an optimization - outputs are cropped in forward().
         # https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.resize_token_embeddings
         padded_vocab_size = ((config.vocab_size + pad_vocab_size_to - 1) // pad_vocab_size_to) * pad_vocab_size_to
@@ -179,8 +208,8 @@ class GPT(nn.Module):
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
         # x0_lambdas: blends initial embedding back in at each layer (init 0.0 = disabled)
         # Separate parameters so they can have different optimizer treatment
-        self.resid_lambdas = nn.Parameter(torch.ones(config.n_layer))   # fake init, real init in init_weights()
-        self.x0_lambdas = nn.Parameter(torch.zeros(config.n_layer))     # fake init, real init in init_weights()
+        self.resid_lambdas = nn.Parameter(torch.ones(self.eff_depth))   # (per executed step, not per unique block) fake init, real init in init_weights()
+        self.x0_lambdas = nn.Parameter(torch.zeros(self.eff_depth))     # (per executed step) fake init, real init in init_weights()
         # Smear: mix previous token's embedding into current token (cheap bigram-like info)
         self.smear_gate = Linear(24, 1, bias=False)
         self.smear_lambda = nn.Parameter(torch.zeros(1))
@@ -233,10 +262,11 @@ class GPT(nn.Module):
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
-        n_layer = self.config.n_layer
+        n_layer = self.eff_depth # effective depth: schedules are over executed steps
         for i in range(n_layer):
             self.resid_lambdas.data[i] = 1.15 - (0.10 * i / max(n_layer - 1, 1))
         # Decaying x0 init: earlier layers get more input embedding blending
+        # (with looping this doubles as "input injection" into every iteration, as in recurrent-depth models)
         for i in range(n_layer):
             self.x0_lambdas.data[i] = 0.20 - (0.15 * i / max(n_layer - 1, 1))
 
@@ -306,7 +336,7 @@ class GPT(nn.Module):
         }
         # Tile pattern across layers
         window_sizes = []
-        for layer_idx in range(config.n_layer):
+        for layer_idx in range(self.eff_depth):
             char = pattern[layer_idx % len(pattern)]
             window_sizes.append(char_to_window[char])
         # Final layer always gets full context
@@ -340,12 +370,21 @@ class GPT(nn.Module):
 
     def num_matmul_params(self):
         """
-        The number of parameters that participate in matmuls with the token stream,
+        The number of (execution-weighted) parameters that participate in matmuls with the token stream,
         i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally: every
         matmul in this model goes through the Linear class, while non-matmul params
         (embeddings = lookups, per-layer scalars) are nn.Embedding or raw Parameters.
         """
-        matmul_params = sum(m.weight.numel() for m in self.modules() if isinstance(m, Linear))
+        # With looping a shared block executes several times per token, so its params count once per execution.
+        uses = {}
+        for b in self.layer_plan:
+            uses[b] = uses.get(b, 0) + 1
+        matmul_params = 0
+        for b, block in enumerate(self.transformer.h):
+            matmul_params += uses[b] * sum(m.weight.numel() for m in block.modules() if isinstance(m, Linear))
+        # Linears outside the block stack (lm_head, smear_gate) run once
+        block_linears = {id(m) for block in self.transformer.h for m in block.modules()}
+        matmul_params += sum(m.weight.numel() for m in self.modules() if isinstance(m, Linear) and id(m) not in block_linears)
         return matmul_params
 
     def estimate_decode_flops(self, context_len):
@@ -375,7 +414,7 @@ class GPT(nn.Module):
         """Bytes to *store* one token of KV cache during inference, per row (all layers)."""
         head_dim = self.config.n_embd // self.config.n_head
         kv_dtype_bytes = COMPUTE_DTYPE.itemsize # the KV cache is kept in the compute dtype
-        return self.config.n_layer * 2 * self.config.n_kv_head * head_dim * kv_dtype_bytes
+        return self.eff_depth * 2 * self.config.n_kv_head * head_dim * kv_dtype_bytes
 
     def kv_read_bytes(self, context_len):
         """Bytes of KV cache *read* by one decode step at a given context length, per row.
@@ -493,13 +532,12 @@ class GPT(nn.Module):
 
         # Forward the trunk of the Transformer
         x0 = x  # save initial normalized embedding for x0 residual
-        n_layer = self.config.n_layer
-        backout_layer = n_layer // 2  # cache at halfway point
+        backout_layer = self.eff_depth // 2  # cache at halfway point of the executed steps
         x_backout = None
-        for i, block in enumerate(self.transformer.h):
+        for i, b in enumerate(self.layer_plan): # i = executed step, b = which (possibly shared) block runs at this step
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
-            ve = self.value_embeds[str(i)](idx).to(x.dtype) if str(i) in self.value_embeds else None
-            x = block(x, ve, cos_sin, self.window_sizes[i], kv_cache)
+            ve = self.value_embeds[str(b)](idx).to(x.dtype) if str(b) in self.value_embeds else None
+            x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection

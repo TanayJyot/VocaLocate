@@ -408,6 +408,9 @@ while True:
                     "n_kv_head": model.config.n_kv_head,
                     "n_embd": model.config.n_embd,
                     "window_pattern": model.config.window_pattern,
+                    "n_loops": model.config.n_loops,
+                    "n_prelude": model.config.n_prelude,
+                    "n_coda": model.config.n_coda,
                 },
                 "user_config": user_config, # inputs to the training script
             },
