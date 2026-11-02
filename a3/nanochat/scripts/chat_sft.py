@@ -397,6 +397,8 @@ while True:
             default_tag += "-depth-attention"
             if model.config.depth_attention_stride is not None:
                 default_tag += f"-s{model.config.depth_attention_stride}"
+        if model.config.mgvr:
+            default_tag += "-mgvr"
         output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12 or d12-xiprelu
         checkpoint_dir = os.path.join(base_dir, "chatsft_checkpoints", output_dirname)
         save_checkpoint(
@@ -420,6 +422,7 @@ while True:
                     "n_coda": model.config.n_coda,
                     **({"mlp_activation": model.config.mlp_activation} if model.config.mlp_activation != "relu2" else {}),
                     **({"diff_v2": True} if model.config.diff_v2 else {}),
+                    **({"mgvr": True} if model.config.mgvr else {}),
                     **({"depth_attention": True, "depth_attention_stride": model.config.depth_attention_stride}
                        if model.config.depth_attention else {}),
                 },

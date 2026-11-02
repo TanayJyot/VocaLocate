@@ -315,6 +315,8 @@ for step in range(num_steps):
             default_tag += "-depth-attention"
             if model.config.depth_attention_stride is not None:
                 default_tag += f"-s{model.config.depth_attention_stride}"
+        if model.config.mgvr:
+            default_tag += "-mgvr"
         output_dirname = args.model_tag if args.model_tag else default_tag # base the model tag on the depth and activation of the base model
         checkpoint_dir = os.path.join(base_dir, "chatrl_checkpoints", output_dirname)
         model_config_kwargs = dict(model.config.__dict__) # copy so filtering does not mutate the live config
@@ -325,6 +327,8 @@ for step in range(num_steps):
         if not model.config.depth_attention:
             model_config_kwargs.pop("depth_attention")
             model_config_kwargs.pop("depth_attention_stride")
+        if not model.config.mgvr:
+            model_config_kwargs.pop("mgvr")
         save_checkpoint(
             checkpoint_dir,
             step,
