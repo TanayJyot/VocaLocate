@@ -23,9 +23,11 @@ def cpu_sdpa(monkeypatch):
 
 
 def make_model(diff_v2=True, activation="relu2", active=False, device="cpu", **kwargs):
-    config = GPTConfig(sequence_len=16, vocab_size=256, n_layer=2, n_head=4,
-                       n_kv_head=2, n_embd=32, window_pattern="L",
-                       mlp_activation=activation, diff_v2=diff_v2, **kwargs)
+    options = dict(sequence_len=16, vocab_size=256, n_layer=2, n_head=4,
+                   n_kv_head=2, n_embd=32, window_pattern="L",
+                   mlp_activation=activation, diff_v2=diff_v2)
+    options.update(kwargs)
+    config = GPTConfig(**options)
     with torch.device("meta"):
         model = GPT(config)
     model.to_empty(device=device)
@@ -110,12 +112,24 @@ def test_picochat_projection_shapes_and_meta_initialization(enabled):
     else:
         assert attn.lambda_proj is None
         assert not any("lambda_proj" in key for key in model.state_dict())
+    torch.manual_seed(42)
     small = make_model(diff_v2=enabled)
     assert all(torch.isfinite(p).all() for p in small.parameters())
     if enabled:
         for block in small.transformer.h:
-            lam = block.attn.lambda_proj(torch.randn(1, 4, 32)).sigmoid()
-            torch.testing.assert_close(lam, torch.full_like(lam, 0.5), rtol=0, atol=0)
+            projection = block.attn.lambda_proj
+            # nn.Linear's default distribution is U(-1/sqrt(fan_in), 1/sqrt(fan_in)).
+            bound = projection.in_features ** -0.5
+            assert projection.weight.dtype == torch.float32
+            assert projection.bias is None
+            assert projection.weight.abs().max() <= bound
+            assert (projection.weight < 0).any() and (projection.weight > 0).any()
+            # Basis inputs expose variation over both tokens and heads immediately.
+            lam = projection(torch.eye(32).unsqueeze(0)).sigmoid()
+            assert ((lam > 0) & (lam < 1)).all()
+            assert not torch.equal(lam, torch.full_like(lam, 0.5))
+            assert not torch.equal(lam[:, :1], lam[:, 1:2])
+            assert not torch.equal(lam[..., :1], lam[..., 1:2])
 
 
 @pytest.mark.parametrize("heads,kv_heads", [(4, 1), (4, 2), (4, 4), (6, 6)])
@@ -154,11 +168,13 @@ def test_adjacent_shared_kv_pairing_and_learned_subtraction(monkeypatch, heads, 
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.float16])
-def test_projection_and_subtraction_dtype_finite_outputs_and_gradients(monkeypatch, dtype):
+@pytest.mark.parametrize("heads,kv_heads,head_dim", [(4, 2, 8), (1, 1, 128), (6, 6, 128)])
+def test_projection_and_subtraction_dtype_finite_outputs_and_gradients(monkeypatch, dtype, heads, kv_heads, head_dim):
     monkeypatch.setattr(gpt, "COMPUTE_DTYPE", dtype)
-    model = make_model(active=True)
+    width = heads * head_dim
+    model = make_model(active=True, n_layer=1, n_head=heads, n_kv_head=kv_heads, n_embd=width)
     attn = model.transformer.h[0].attn
-    x = torch.randn(1, 4, 32, dtype=dtype, requires_grad=True)
+    x = torch.randn(1, 4, width, dtype=dtype, requires_grad=True)
     output = attn(x, None, (model.cos[:, :4], model.sin[:, :4]), (-1, 0), None, 0)
     assert output.shape == x.shape and output.dtype == dtype
     assert torch.isfinite(output).all()

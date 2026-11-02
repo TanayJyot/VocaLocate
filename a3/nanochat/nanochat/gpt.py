@@ -350,8 +350,8 @@ class GPT(nn.Module):
             torch.nn.init.uniform_(block.attn.c_v.weight, -s, s)
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
             if block.attn.lambda_proj is not None:
-                # Adaptation choice: start subtraction at sigmoid(0) = 0.5.
-                torch.nn.init.zeros_(block.attn.lambda_proj.weight)
+                # Match the default bias-free nn.Linear in Microsoft's Diff V2 reference.
+                torch.nn.init.kaiming_uniform_(block.attn.lambda_proj.weight, a=math.sqrt(5))
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s * 0.4, s * 0.4)  # 0.4x init scale for c_fc
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
             if block.mlp.act is not None:

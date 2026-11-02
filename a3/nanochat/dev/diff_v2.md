@@ -5,8 +5,9 @@ activation ablation. `GPTConfig.diff_v2` defaults to `False`. The implementation
 follows Microsoft's [reference code](https://github.com/microsoft/unilm/blob/master/Diff-Transformer/Diff-Transformer-V2/multihead_flashdiffv2.py)
 and [explanation](https://huggingface.co/blog/microsoft/diff-attn-v2), adapted to
 this checkout's existing QK normalization, RoPE, value embeddings and residuals.
-Zero initialization of the lambda projection is our experiment's initialization
-choice, giving a starting subtraction coefficient of 0.5.
+The lambda projection uses the reference's default bias-free `nn.Linear` weight
+distribution, explicitly applied after meta-device materialization. NanoChat's
+custom `Linear` remains in use for dtype compatibility.
 
 ## How the code connects to the idea
 
@@ -45,8 +46,10 @@ choice, giving a starting subtraction coefficient of 0.5.
    six heads. The subtraction is after both attention branches, so training,
    prompt prefill and token-by-token generation use the same rule.
 7. **Initialize and optimize safely.** `GPT.init_weights()` explicitly
-   initializes lambda weights after meta-device materialization. Its zero
-   weights give `sigmoid(0) = 0.5`. All projections use NanoChat's `Linear`,
+   initializes lambda weights after meta-device materialization using
+   `kaiming_uniform_(weight, a=sqrt(5))`, equivalent to uniform bounds
+   `+/-1/sqrt(n_embd)`. Initial coefficients vary across tokens and heads.
+   All projections use NanoChat's `Linear`,
    keeping FP32 master weights while following activation dtype; `.to(y)` makes
    the coefficient match the attention output's dtype and device. The existing
    optimizer discovers the new matrices automatically, exactly once. Because
@@ -56,6 +59,21 @@ choice, giving a starting subtraction coefficient of 0.5.
 The xIPReLU formula, coefficients, initialization and optimizer treatment are
 unchanged. It operates in the MLP after attention and can be combined with Diff
 V2, but combining them is a separate experiment from xIPReLU alone.
+
+The lambda initialization matches the standalone Microsoft reference; the host
+model's other initialization choices remain NanoChat's. Q/K/V (including the
+added query rows) keep uniform std `1/sqrt(n_embd)` rather than the reference's
+`1/sqrt(3*n_embd)`, and `c_proj` remains zero rather than randomly initialized.
+Zero `c_proj` already makes the initial attention residual zero for any lambda;
+it does not require zero lambda weights. QK normalization, 1.2 scaling, RoPE,
+value embeddings, windows and residuals also remain NanoChat adaptations.
+The reference module alone does not establish the full training system's
+initialization policy.
+
+This initialization revision changes no dimensions, parameter counts, compute
+dtypes or checkpoint shapes. Existing checkpoints load their saved weights;
+fresh runs consume extra random draws and may change other initialized values
+and training metrics at the same seed.
 
 ## Toggle and checkpoint behavior
 
@@ -102,7 +120,36 @@ The attention backend, optimizer implementation and existing tests are unchanged
 The production Python patch adds about 30 lines. No custom kernels or new runtime
 dependencies are needed. Pytest was installed in the local environment to run tests.
 
-## Verification on November 2, 2026
+## Verification of reference-aligned lambda initialization
+
+On November 2, 2026, the revised initialization passed the following checks on
+CPU SDPA with PyTorch 2.9.1:
+
+- Diff V2 and Depth-Attention unit/integration checks: **87 passed, 6 skipped**
+  (`tests/test_diff_v2.py` and `tests/test_depth_attention.py`). Skips require CUDA.
+- All four real compiled trainer/checkpoint-resume smoke cases passed
+  (`tests/test_diff_v2_smoke.py` and `tests/test_depth_attention_smoke.py`).
+  Compilation uses the CPU `aot_eager` backend, not GPU Inductor.
+- Shape/dtype coverage now includes one and six output heads of dimension 128,
+  as well as tiny GQA heads, each in FP32, BF16 and FP16. Master projection
+  weights remain FP32; outputs and finite gradients retain the expected dtypes.
+- Initialization checks verify reference bounds, random weights of both signs,
+  and coefficient variation across tokens and heads. Disabled Diff V2 remains
+  bitwise equivalent to the pre-Diff-V2 baseline.
+- Depth-Attention's historical comparison loads identical saved weights for
+  Diff V2 cases, including the earlier zero-lambda weights. This tests checkpoint
+  compatibility and disabled depth behavior independently of the intentional
+  initialization change. Non-Diff-V2 cases still compare initial weights exactly.
+
+No Modal/CUDA execution or production-quality benchmark was performed. The
+historical smoke BPBs below belong to the earlier initialization and should not
+be reported as measurements of this revision.
+
+## Historical verification on November 2, 2026 (zero-lambda initialization)
+
+The results in this section were recorded before the reference-aligned lambda
+initialization revision. They describe the earlier implementation, not a fresh
+verification or benchmark of the revised initialization.
 
 Environment: macOS, Python 3.10.22, PyTorch 2.9.1, CPU SDPA. No CUDA GPU.
 

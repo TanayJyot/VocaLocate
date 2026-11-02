@@ -166,6 +166,11 @@ def test_disabled_bitwise_matches_previous_model_and_optimizer(previous_gpt, opt
         models.append(model)
     current, previous = models
     assert current.state_dict().keys() == previous.state_dict().keys()
+    if options.get("diff_v2"):
+        # Lambda initialization changed after this reference commit. Compare the
+        # disabled depth path at identical checkpoint weights, including old zero
+        # lambda weights; the revised initialization is tested in test_diff_v2.py.
+        current.load_state_dict(previous.state_dict(), strict=True)
     for name, value in current.state_dict().items():
         torch.testing.assert_close(value, previous.state_dict()[name], rtol=0, atol=0)
     assert current.num_scaling_params() == previous.num_scaling_params()
