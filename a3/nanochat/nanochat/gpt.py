@@ -49,6 +49,8 @@ class GPTConfig:
     n_loops: int = 1
     n_prelude: int = 0
     n_coda: int = 0
+    # Differential Attention V2: two adjacent query heads per effective output head.
+    diff_v2: bool = False
 
     @property
     def n_core(self):
@@ -98,15 +100,18 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
+        self.diff_v2 = config.diff_v2
+        self.n_q_head = self.n_head * (2 if self.diff_v2 else 1)
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
         assert self.n_kv_head <= self.n_head and self.n_head % self.n_kv_head == 0
-        self.c_q = Linear(self.n_embd, self.n_head * self.head_dim, bias=False)
+        self.c_q = Linear(self.n_embd, self.n_q_head * self.head_dim, bias=False)
         self.c_k = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_v = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_proj = Linear(self.n_embd, self.n_embd, bias=False)
         self.ve_gate_channels = 12
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
+        self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
 
     def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
@@ -115,7 +120,7 @@ class CausalSelfAttention(nn.Module):
 
         # Project the input to get queries, keys, and values
         # Shape: (B, T, H, D) - FA3's native layout, no transpose needed!
-        q = self.c_q(x).view(B, T, self.n_head, self.head_dim)
+        q = self.c_q(x).view(B, T, self.n_q_head, self.head_dim)
         k = self.c_k(x).view(B, T, self.n_kv_head, self.head_dim)
         v = self.c_v(x).view(B, T, self.n_kv_head, self.head_dim)
 
@@ -150,6 +155,12 @@ class CausalSelfAttention(nn.Module):
             # Advance position after last layer processes
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
+
+        if self.diff_v2:
+            # GQA groups are contiguous: adjacent partners always share the same K/V.
+            # Apply after either backend/path so training, prefill and decoding agree.
+            lam = torch.sigmoid(self.lambda_proj(x)).to(y).unsqueeze(-1)
+            y = y[:, :, 0::2] - lam * y[:, :, 1::2]
 
         # Re-assemble the heads and project back to residual stream
         y = y.contiguous().view(B, T, -1)
@@ -289,6 +300,9 @@ class GPT(nn.Module):
             torch.nn.init.uniform_(block.attn.c_k.weight, -s, s)
             torch.nn.init.uniform_(block.attn.c_v.weight, -s, s)
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
+            if block.attn.lambda_proj is not None:
+                # Adaptation choice: start subtraction at sigmoid(0) = 0.5.
+                torch.nn.init.zeros_(block.attn.lambda_proj.weight)
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s * 0.4, s * 0.4)  # 0.4x init scale for c_fc
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
             if block.mlp.act is not None:
@@ -393,6 +407,7 @@ class GPT(nn.Module):
         - Chinchilla counts exp/sum/divide in attention softmax as flops (a little sus and very tiny => we ignore)
         """
         h, q, t = self.config.n_head, self.config.n_embd // self.config.n_head, self.config.sequence_len
+        h *= 2 if self.config.diff_v2 else 1 # attention runs before differential pairs are reduced
         # Sum attention FLOPs per layer, accounting for sliding window
         attn_flops = 0
         for window_size in self.window_sizes:
@@ -427,6 +442,7 @@ class GPT(nn.Module):
         2 FLOPs per matmul param, plus attention over min(context, window) per layer.
         """
         h = self.config.n_head
+        h *= 2 if self.config.diff_v2 else 1
         q = self.config.n_embd // self.config.n_head
         attn_flops = sum(4 * h * q * min(context_len, window) for window, _ in self.window_sizes)
         decode_flops = 2 * self.num_matmul_params() + attn_flops
@@ -435,6 +451,7 @@ class GPT(nn.Module):
     def estimate_prefill_flops(self, num_tokens):
         """Forward FLOPs to prefill a prompt: causal, so token t attends to min(t, window)."""
         h = self.config.n_head
+        h *= 2 if self.config.diff_v2 else 1
         q = self.config.n_embd // self.config.n_head
         attn_flops = 0
         for window, _ in self.window_sizes:

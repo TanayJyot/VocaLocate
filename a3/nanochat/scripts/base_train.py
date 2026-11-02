@@ -56,6 +56,7 @@ parser.add_argument("--n-prelude", type=int, default=0, help="looped model: uniq
 parser.add_argument("--n-coda", type=int, default=0, help="looped model: unique blocks run once after the loop (counted inside --depth)")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
 parser.add_argument("--mlp-activation", choices=["relu2", "xiprelu"], default="relu2", help="MLP activation; xiprelu adds two learned scalars per layer")
+parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
 parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
@@ -146,6 +147,7 @@ def build_model_meta(depth, looped=True):
         n_prelude=args.n_prelude if looped else 0,
         n_coda=args.n_coda if looped else 0,
         mlp_activation=args.mlp_activation,
+        diff_v2=args.diff_v2,
     )
     with torch.device("meta"):
         model_meta = GPT(config)
@@ -158,6 +160,8 @@ model_config_kwargs = asdict(model_config)
 # Keep baseline metadata readable by the pinned, unmodified nanochat loader.
 if model_config.mlp_activation == "relu2":
     model_config_kwargs.pop("mlp_activation")
+if not model_config.diff_v2:
+    model_config_kwargs.pop("diff_v2")
 print0(f"Model config:\n{json.dumps(model_config_kwargs, indent=2)}")
 model.to_empty(device=device) # 2) All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # 3) All tensors get initialized
@@ -167,6 +171,8 @@ base_dir = get_base_dir()
 default_tag = f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "")
 if args.mlp_activation != "relu2":
     default_tag += f"-{args.mlp_activation}"
+if args.diff_v2:
+    default_tag += "-diff-v2"
 output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-l2-xiprelu
 checkpoint_dir = os.path.join(base_dir, "base_checkpoints", output_dirname)
 resuming = args.resume_from_step != -1

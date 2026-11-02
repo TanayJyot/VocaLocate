@@ -309,11 +309,15 @@ for step in range(num_steps):
         base_dir = get_base_dir()
         depth = model.config.n_layer
         default_tag = f"d{depth}" + (f"-{model.config.mlp_activation}" if model.config.mlp_activation != "relu2" else "")
+        if model.config.diff_v2:
+            default_tag += "-diff-v2"
         output_dirname = args.model_tag if args.model_tag else default_tag # base the model tag on the depth and activation of the base model
         checkpoint_dir = os.path.join(base_dir, "chatrl_checkpoints", output_dirname)
         model_config_kwargs = dict(model.config.__dict__) # copy so filtering does not mutate the live config
         if model.config.mlp_activation == "relu2":
             model_config_kwargs.pop("mlp_activation")
+        if not model.config.diff_v2:
+            model_config_kwargs.pop("diff_v2")
         save_checkpoint(
             checkpoint_dir,
             step,
