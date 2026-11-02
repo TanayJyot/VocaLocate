@@ -390,7 +390,8 @@ while True:
 
     # save checkpoint at the end of the run (all ranks participate so each saves its optimizer shard)
     if last_step:
-        output_dirname = args.model_tag if args.model_tag else f"d{depth}" # e.g. d12
+        default_tag = f"d{depth}" + (f"-{model.config.mlp_activation}" if model.config.mlp_activation != "relu2" else "")
+        output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12 or d12-xiprelu
         checkpoint_dir = os.path.join(base_dir, "chatsft_checkpoints", output_dirname)
         save_checkpoint(
             checkpoint_dir,
@@ -411,6 +412,7 @@ while True:
                     "n_loops": model.config.n_loops,
                     "n_prelude": model.config.n_prelude,
                     "n_coda": model.config.n_coda,
+                    **({"mlp_activation": model.config.mlp_activation} if model.config.mlp_activation != "relu2" else {}),
                 },
                 "user_config": user_config, # inputs to the training script
             },

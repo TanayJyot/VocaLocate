@@ -55,6 +55,7 @@ parser.add_argument("--n-loops", type=int, default=1, help="looped model: times 
 parser.add_argument("--n-prelude", type=int, default=0, help="looped model: unique blocks run once before the loop (counted inside --depth)")
 parser.add_argument("--n-coda", type=int, default=0, help="looped model: unique blocks run once after the loop (counted inside --depth)")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
+parser.add_argument("--mlp-activation", choices=["relu2", "xiprelu"], default="relu2", help="MLP activation; xiprelu adds two learned scalars per layer")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
 parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
@@ -144,6 +145,7 @@ def build_model_meta(depth, looped=True):
         n_loops=args.n_loops if looped else 1,
         n_prelude=args.n_prelude if looped else 0,
         n_coda=args.n_coda if looped else 0,
+        mlp_activation=args.mlp_activation,
     )
     with torch.device("meta"):
         model_meta = GPT(config)
@@ -153,13 +155,19 @@ def build_model_meta(depth, looped=True):
 model = build_model_meta(args.depth) # 1) Build on meta device (only shapes/dtypes, no data)
 model_config = model.config
 model_config_kwargs = asdict(model_config)
+# Keep baseline metadata readable by the pinned, unmodified nanochat loader.
+if model_config.mlp_activation == "relu2":
+    model_config_kwargs.pop("mlp_activation")
 print0(f"Model config:\n{json.dumps(model_config_kwargs, indent=2)}")
 model.to_empty(device=device) # 2) All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # 3) All tensors get initialized
 
 # If we are resuming, overwrite the model parameters with those of the checkpoint
 base_dir = get_base_dir()
-output_dirname = args.model_tag if args.model_tag else f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "") # e.g. d12, or d12-l2 for a looped model
+default_tag = f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "")
+if args.mlp_activation != "relu2":
+    default_tag += f"-{args.mlp_activation}"
+output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-l2-xiprelu
 checkpoint_dir = os.path.join(base_dir, "base_checkpoints", output_dirname)
 resuming = args.resume_from_step != -1
 if resuming:
@@ -439,6 +447,7 @@ while True:
             "total_training_flops": flops_so_far,
             "total_training_time": total_training_time,
             "val/bpb": val_bpb,
+            **orig_model.activation_stats(),
         })
         model.train()
 
@@ -491,6 +500,7 @@ while True:
                 "step": step,
                 "val_bpb": val_bpb, # loss at last step
                 "model_config": model_config_kwargs,
+                **({"activation_stats": orig_model.activation_stats()} if args.mlp_activation == "xiprelu" else {}),
                 "user_config": user_config, # inputs to the training script
                 "device_batch_size": args.device_batch_size,
                 "max_seq_len": args.max_seq_len,

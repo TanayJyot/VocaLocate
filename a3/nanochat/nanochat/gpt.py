@@ -4,7 +4,7 @@ Notable features:
 - rotary embeddings (and no positional embeddings)
 - QK norm
 - untied weights for token embedding and lm_head
-- relu^2 activation in MLP
+- relu^2 activation in MLP (optional xIPReLU ablation)
 - norm after token embedding
 - no learnable params in rmsnorm
 - no bias in linear layers
@@ -15,6 +15,7 @@ Notable features:
 
 from functools import partial
 from dataclasses import dataclass
+import math
 
 import torch
 import torch.nn as nn
@@ -38,6 +39,7 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
+    mlp_activation: str = "relu2"
     # Looped / recurrent-depth execution (all defaults = ordinary GPT, fully backward compatible).
     # The n_layer unique blocks are split into [prelude | core | coda]:
     #   prelude = first n_prelude blocks, run once
@@ -155,15 +157,45 @@ class CausalSelfAttention(nn.Module):
         return y
 
 
+class XIPReLU(nn.Module):
+    """Piecewise quadratic with two learned positive coefficients per MLP.
+
+    xIPReLU(x) = softplus(raw_alpha_{p,n}) * x^2 + 0.5*x.
+    See Huang & Schlag, https://arxiv.org/html/2411.13010v3#A6.
+    """
+    def __init__(self):
+        super().__init__()
+        self.raw_alpha_p = nn.Parameter(torch.empty((), dtype=torch.float32))
+        self.raw_alpha_n = nn.Parameter(torch.empty((), dtype=torch.float32))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        # Inverse softplus: the effective coefficients both start at 0.8.
+        # GPT.init_weights repeats this after meta -> to_empty materialization.
+        raw_init = math.log(math.expm1(0.8))
+        nn.init.constant_(self.raw_alpha_p, raw_init)
+        nn.init.constant_(self.raw_alpha_n, raw_init)
+
+    def forward(self, x):
+        # Keep master scalars in fp32; preserve the activation's compute dtype.
+        alpha_p = F.softplus(self.raw_alpha_p).to(dtype=x.dtype)
+        alpha_n = F.softplus(self.raw_alpha_n).to(dtype=x.dtype)
+        alpha = torch.where(x > 0, alpha_p, alpha_n)
+        return alpha * x.square() + 0.5 * x
+
+
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
+        if config.mlp_activation not in {"relu2", "xiprelu"}:
+            raise ValueError(f"Unsupported MLP activation: {config.mlp_activation!r}")
         self.c_fc = Linear(config.n_embd, 4 * config.n_embd, bias=False)
         self.c_proj = Linear(4 * config.n_embd, config.n_embd, bias=False)
+        self.act = XIPReLU() if config.mlp_activation == "xiprelu" else None
 
     def forward(self, x):
         x = self.c_fc(x)
-        x = F.relu(x).square()
+        x = F.relu(x).square() if self.act is None else self.act(x)
         x = self.c_proj(x)
         return x
 
@@ -259,6 +291,8 @@ class GPT(nn.Module):
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s * 0.4, s * 0.4)  # 0.4x init scale for c_fc
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
+            if block.mlp.act is not None:
+                block.mlp.act.reset_parameters()
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
@@ -442,8 +476,9 @@ class GPT(nn.Module):
         wte = sum(p.numel() for p in self.transformer.wte.parameters())
         value_embeds = sum(p.numel() for p in self.value_embeds.parameters())
         lm_head = sum(p.numel() for p in self.lm_head.parameters())
-        transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters())
+        transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters() if p.ndim == 2)
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
+        scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
         total = wte + value_embeds + lm_head + transformer_matrices + scalars
         assert total == sum(p.numel() for p in self.parameters()), "Parameter count mismatch"
         return {
@@ -459,14 +494,15 @@ class GPT(nn.Module):
         model_dim = self.config.n_embd
 
         # Separate out all parameters into groups
-        matrix_params = list(self.transformer.h.parameters())
+        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2]
+        activation_params = [p for p in self.transformer.h.parameters() if p.ndim < 2]
         value_embeds_params = list(self.value_embeds.parameters())
         embedding_params = list(self.transformer.wte.parameters())
         lm_head_params = list(self.lm_head.parameters())
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
         smear_params = [self.smear_gate.weight, self.smear_lambda, self.backout_lambda]
-        assert len(list(self.parameters())) == len(matrix_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params)
+        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params)
 
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (tuned for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -482,6 +518,11 @@ class GPT(nn.Module):
             dict(kind='adamw', params=x0_params, lr=scalar_lr, betas=(0.96, 0.95), eps=1e-10, weight_decay=0.0),  # higher beta1 for x0
             dict(kind='adamw', params=smear_params, lr=0.2, betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0),
         ]
+        if activation_params:
+            # Use the residual-scalar LR scale, without weight decay on the
+            # unconstrained raw coefficients. Muon only accepts matrices.
+            param_groups.append(dict(kind='adamw', params=activation_params, lr=scalar_lr * 0.01,
+                                     betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0))
         # Muon groups (matrix params, grouped by shape for stacking)
         for shape in sorted({p.shape for p in matrix_params}):
             group_params = [p for p in matrix_params if p.shape == shape]
@@ -494,6 +535,16 @@ class GPT(nn.Module):
         for group in optimizer.param_groups:
             group["initial_lr"] = group["lr"]
         return optimizer
+
+    @torch.no_grad()
+    def activation_stats(self):
+        """Effective coefficients for validation logging and checkpoint metadata."""
+        stats = {}
+        for i, block in enumerate(self.transformer.h):
+            if block.mlp.act is not None:
+                stats[f"xiprelu/layer_{i}/alpha_p"] = F.softplus(block.mlp.act.raw_alpha_p).item()
+                stats[f"xiprelu/layer_{i}/alpha_n"] = F.softplus(block.mlp.act.raw_alpha_n).item()
+        return stats
 
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
         B, T = idx.size()
