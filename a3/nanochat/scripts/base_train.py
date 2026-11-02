@@ -57,6 +57,9 @@ parser.add_argument("--n-coda", type=int, default=0, help="looped model: unique 
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
 parser.add_argument("--mlp-activation", choices=["relu2", "xiprelu"], default="relu2", help="MLP activation; xiprelu adds two learned scalars per layer")
 parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
+parser.add_argument("--depth-attention", action="store_true", help="enable parameter-free cross-layer value mixing")
+parser.add_argument("--depth-attention-stride", type=int, default=None, help="depth source stride (default: max(1, depth // 2)); requires --depth-attention")
+parser.add_argument("--gpu-hourly-cost", type=float, default=None, help="optional cost per GPU-hour for Depth-Attention run reporting")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
 parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
@@ -83,6 +86,15 @@ parser.add_argument("--save-every", type=int, default=-1, help="save checkpoints
 # Output
 parser.add_argument("--model-tag", type=str, default=None, help="override model tag for checkpoint directory name")
 args = parser.parse_args()
+if args.depth_attention_stride is not None and (not args.depth_attention or args.depth_attention_stride < 1):
+    parser.error("--depth-attention-stride must be positive and requires --depth-attention")
+if args.gpu_hourly_cost is not None and (not args.depth_attention or args.gpu_hourly_cost < 0):
+    parser.error("--gpu-hourly-cost must be nonnegative and requires --depth-attention")
+if args.depth_attention:
+    depth_run_start = time.perf_counter()
+    depth_step_seconds = 0.0
+    depth_step_tokens = 0
+    depth_core_metric = None
 user_config = vars(args).copy()  # for logging
 # -----------------------------------------------------------------------------
 # Compute init and wandb logging
@@ -148,6 +160,8 @@ def build_model_meta(depth, looped=True):
         n_coda=args.n_coda if looped else 0,
         mlp_activation=args.mlp_activation,
         diff_v2=args.diff_v2,
+        depth_attention=args.depth_attention,
+        depth_attention_stride=args.depth_attention_stride,
     )
     with torch.device("meta"):
         model_meta = GPT(config)
@@ -162,6 +176,9 @@ if model_config.mlp_activation == "relu2":
     model_config_kwargs.pop("mlp_activation")
 if not model_config.diff_v2:
     model_config_kwargs.pop("diff_v2")
+if not model_config.depth_attention:
+    model_config_kwargs.pop("depth_attention")
+    model_config_kwargs.pop("depth_attention_stride")
 print0(f"Model config:\n{json.dumps(model_config_kwargs, indent=2)}")
 model.to_empty(device=device) # 2) All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # 3) All tensors get initialized
@@ -173,12 +190,22 @@ if args.mlp_activation != "relu2":
     default_tag += f"-{args.mlp_activation}"
 if args.diff_v2:
     default_tag += "-diff-v2"
+if args.depth_attention:
+    default_tag += "-depth-attention"
+    if args.depth_attention_stride is not None:
+        default_tag += f"-s{args.depth_attention_stride}"
 output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-l2-xiprelu
 checkpoint_dir = os.path.join(base_dir, "base_checkpoints", output_dirname)
 resuming = args.resume_from_step != -1
 if resuming:
     print0(f"Resuming optimization from step {args.resume_from_step}")
     model_data, optimizer_data, meta_data = load_checkpoint(checkpoint_dir, args.resume_from_step, device, load_optimizer=True, rank=ddp_rank)
+    saved_config = meta_data["model_config"]
+    if args.depth_attention or saved_config.get("depth_attention", False):
+        saved_depth_config = GPTConfig(**saved_config)
+        if (model_config.depth_attention != saved_depth_config.depth_attention or
+                model_config.effective_depth_attention_stride != saved_depth_config.effective_depth_attention_stride):
+            raise ValueError("Resume requires the checkpoint's --depth-attention and --depth-attention-stride settings")
     model.load_state_dict(model_data, strict=True, assign=True)
     del model_data # free up this memory after the copy
 
@@ -434,6 +461,22 @@ print0(f"Tokens / micro-batch: {world_tokens_per_fwdbwd:,}")
 print0(f"Total batch size {total_batch_size:,} => gradient accumulation steps: {grad_accum_steps}")
 
 # Go!
+def depth_run_metrics():
+    """Opt-in measurements for this invocation, including warmup and evaluation wall time."""
+    elapsed = time.perf_counter() - depth_run_start
+    return {
+        "wall_clock_seconds": elapsed,
+        "training_step_seconds": depth_step_seconds,
+        "training_tokens_per_second": depth_step_tokens / depth_step_seconds if depth_step_seconds else None,
+        "peak_cuda_memory_bytes_per_rank": get_max_memory() if device_type == "cuda" else None,
+        "gpu_cost": elapsed / 3600 * ddp_world_size * args.gpu_hourly_cost
+                    if device_type == "cuda" and args.gpu_hourly_cost is not None else None,
+        "gpu_hourly_cost": args.gpu_hourly_cost,
+        "val_bpb": val_bpb,
+        "core_metric": depth_core_metric,
+        "depth_forward_flops_per_token_approx": orig_model.estimate_depth_attention_flops(),
+    }
+
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * total_batch_size * step
@@ -465,6 +508,8 @@ while True:
         model.eval()
         with disable_fp8(orig_model):
             results = evaluate_core(orig_model, tokenizer, device, max_per_task=args.core_metric_max_per_task)
+        if args.depth_attention:
+            depth_core_metric = results["core_metric"]
         print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
         wandb_run.log({
             "step": step,
@@ -506,6 +551,7 @@ while True:
                 "step": step,
                 "val_bpb": val_bpb, # loss at last step
                 "model_config": model_config_kwargs,
+                **({"depth_attention_metrics": depth_run_metrics()} if args.depth_attention else {}),
                 **({"activation_stats": orig_model.activation_stats()} if args.mlp_activation == "xiprelu" else {}),
                 "user_config": user_config, # inputs to the training script
                 "device_batch_size": args.device_batch_size,
@@ -564,6 +610,9 @@ while True:
     train_loss_f = train_loss.item() # .item() is a CPU-GPU sync point
     synchronize()
     t1 = time.time()
+    if args.depth_attention:
+        depth_step_seconds += t1 - t0
+        depth_step_tokens += total_batch_size
     dt = t1 - t0
     # -------------------------------------------------------------------------
 
@@ -623,5 +672,9 @@ if val_bpb is not None:
     print0(f"Minimum validation bpb: {min_val_bpb:.6f}")
 
 # cleanup
+if args.depth_attention:
+    depth_metrics = depth_run_metrics()
+    print0(f"Depth-Attention metrics (approximate FLOPs): {json.dumps(depth_metrics)}")
+    wandb_run.log({f"depth_attention/{key}": value for key, value in depth_metrics.items() if value is not None})
 wandb_run.finish() # wandb run finish
 compute_cleanup()

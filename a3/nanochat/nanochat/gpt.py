@@ -26,6 +26,7 @@ from nanochat.optim import MuonAdamW
 
 # Our custom Flash Attention module that automatically uses FA3 when compatible and SDPA fallback otherwise
 from nanochat.flash_attention import flash_attn
+from nanochat.depth_attention import depth_source_layers, mix_depth_values
 
 @dataclass
 class GPTConfig:
@@ -51,6 +52,17 @@ class GPTConfig:
     n_coda: int = 0
     # Differential Attention V2: two adjacent query heads per effective output head.
     diff_v2: bool = False
+    depth_attention: bool = False
+    depth_attention_stride: int | None = None
+
+    @property
+    def effective_depth_attention_stride(self):
+        stride = self.depth_attention_stride
+        if stride is None:
+            return max(1, self.n_layer // 2)
+        if not isinstance(stride, int) or isinstance(stride, bool) or stride < 1:
+            raise ValueError("depth_attention_stride must be a positive integer")
+        return stride
 
     @property
     def n_core(self):
@@ -101,6 +113,10 @@ class CausalSelfAttention(nn.Module):
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
         self.diff_v2 = config.diff_v2
+        self.depth_attention = config.depth_attention
+        if self.depth_attention:
+            self.depth_stride = config.effective_depth_attention_stride
+            self.depth_count = config.effective_depth
         self.n_q_head = self.n_head * (2 if self.diff_v2 else 1)
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
@@ -113,7 +129,7 @@ class CausalSelfAttention(nn.Module):
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
         self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
         # each execution needs its own KV cache slot (its keys/values differ per iteration).
         B, T, C = x.size()
@@ -137,6 +153,24 @@ class CausalSelfAttention(nn.Module):
         q = q * 1.2  # sharper attention (split scale between Q and K), TODO think through better
         k = k * 1.2
 
+        if self.depth_attention:
+            if kv_cache is None:
+                if depth_kv is None:
+                    raise ValueError("Depth-Attention training requires per-forward source references")
+                v = mix_depth_values(q, k, v, depth_kv)
+                if cache_idx % self.depth_stride == 0 and cache_idx + 1 < self.depth_count:
+                    depth_kv.append((k, v))
+            else:
+                # Earlier layers have already written these *new* token positions.
+                # Gather per row: never include the cached token history as depth sources.
+                positions = kv_cache.cache_seqlens.long()[:, None] + torch.arange(T, device=x.device)
+                rows = torch.arange(B, device=x.device)[:, None]
+                sources = []
+                for source in depth_source_layers(cache_idx, self.depth_stride)[:-1]:
+                    source_k, source_v = kv_cache.get_layer_cache(source)
+                    sources.append((source_k[rows, positions], source_v[rows, positions]))
+                v = mix_depth_values(q, k, v, sources)
+
         # Flash Attention (FA3 or SDPA fallback)
         # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
         if kv_cache is None:
@@ -145,13 +179,25 @@ class CausalSelfAttention(nn.Module):
         else:
             # Inference: use flash_attn_with_kvcache which handles cache management
             k_cache, v_cache = kv_cache.get_layer_cache(cache_idx)
-            y = flash_attn.flash_attn_with_kvcache(
-                q, k_cache, v_cache,
-                k=k, v=v,
-                cache_seqlens=kv_cache.cache_seqlens,
-                causal=True,
-                window_size=window_size,
-            )
+            if self.depth_attention and not torch.equal(kv_cache.cache_seqlens, kv_cache.cache_seqlens[:1].expand(B)):
+                # The existing SDPA wrapper assumes equal offsets. Row calls also work
+                # with FA3, preserve its API, and write into the original cache views.
+                y = torch.cat([
+                    flash_attn.flash_attn_with_kvcache(
+                        q[row:row+1], k_cache[row:row+1], v_cache[row:row+1],
+                        k=k[row:row+1], v=v[row:row+1],
+                        cache_seqlens=kv_cache.cache_seqlens[row:row+1],
+                        causal=True, window_size=window_size,
+                    ) for row in range(B)
+                ], dim=0)
+            else:
+                y = flash_attn.flash_attn_with_kvcache(
+                    q, k_cache, v_cache,
+                    k=k, v=v,
+                    cache_seqlens=kv_cache.cache_seqlens,
+                    causal=True,
+                    window_size=window_size,
+                )
             # Advance position after last layer processes
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
@@ -217,8 +263,11 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
-        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None):
+        if self.attn.depth_attention:
+            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv)
+        else:
+            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
         x = x + self.mlp(norm(x))
         return x
 
@@ -415,7 +464,21 @@ class GPT(nn.Module):
             effective_seq = t if window < 0 else min(window, t)
             attn_flops += 12 * h * q * effective_seq
         num_flops_per_token = 6 * self.num_matmul_params() + attn_flops
+        if self.config.depth_attention:
+            num_flops_per_token += 3 * self.estimate_depth_attention_flops()
         return num_flops_per_token
+
+    def estimate_depth_attention_flops(self):
+        """Approximate forward FLOPs/token: depth dots + weighted value sums.
+
+        Omits small softmax/GQA reductions and memory traffic; training uses 3x.
+        Source selection follows executed depth for weight-shared looped models.
+        """
+        if not self.config.depth_attention:
+            return 0
+        stride = self.config.effective_depth_attention_stride
+        candidates = sum(len(depth_source_layers(i, stride)) for i in range(1, self.eff_depth))
+        return 4 * self.config.n_kv_head * (self.config.n_embd // self.config.n_head) * candidates
 
     def num_matmul_params(self):
         """
@@ -446,6 +509,8 @@ class GPT(nn.Module):
         q = self.config.n_embd // self.config.n_head
         attn_flops = sum(4 * h * q * min(context_len, window) for window, _ in self.window_sizes)
         decode_flops = 2 * self.num_matmul_params() + attn_flops
+        if self.config.depth_attention:
+            decode_flops += self.estimate_depth_attention_flops()
         return decode_flops
 
     def estimate_prefill_flops(self, num_tokens):
@@ -459,6 +524,8 @@ class GPT(nn.Module):
             attended_tokens = w * (w + 1) // 2 + (num_tokens - w) * w # ramp up to w, then flat
             attn_flops += 4 * h * q * attended_tokens
         prefill_flops = 2 * self.num_matmul_params() * num_tokens + attn_flops
+        if self.config.depth_attention:
+            prefill_flops += self.estimate_depth_attention_flops() * num_tokens
         return prefill_flops
 
     def kv_bytes_per_token(self):
@@ -573,6 +640,9 @@ class GPT(nn.Module):
         # if kv cache exists, we need to offset the rotary embeddings to the current position in the cache
         T0 = 0 if kv_cache is None else kv_cache.get_pos()
         cos_sin = self.cos[:, T0:T0+T], self.sin[:, T0:T0+T] # truncate cache to current sequence length
+        if self.config.depth_attention and kv_cache is not None:
+            positions = kv_cache.cache_seqlens.long()[:, None] + torch.arange(T, device=idx.device)
+            cos_sin = self.cos[0, positions], self.sin[0, positions]
 
         # Embed the tokens
         x = self.transformer.wte(idx) # embed current token
@@ -592,7 +662,12 @@ class GPT(nn.Module):
             if T > 1:
                 # Prefill: apply smear to positions 1+, same as training
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, 1:, :24]))
-                x = torch.cat([x[:, :1], x[:, 1:] + gate * x[:, :-1]], dim=1)
+                first = x[:, :1]
+                if self.config.depth_attention and x_pre_smear is not None:
+                    # Continue the existing smear across a multi-token chunk boundary.
+                    first_gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(first[..., :24]))
+                    first = first + first_gate * x_pre_smear
+                x = torch.cat([first, x[:, 1:] + gate * x[:, :-1]], dim=1)
             elif x_pre_smear is not None:
                 # Decode: single token, use cached prev embedding
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, :, :24]))
@@ -602,10 +677,14 @@ class GPT(nn.Module):
         x0 = x  # save initial normalized embedding for x0 residual
         backout_layer = self.eff_depth // 2  # cache at halfway point of the executed steps
         x_backout = None
+        depth_kv = [] if self.config.depth_attention and kv_cache is None else None
         for i, b in enumerate(self.layer_plan): # i = executed step, b = which (possibly shared) block runs at this step
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(b)](idx).to(x.dtype) if str(b) in self.value_embeds else None
-            x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
+            if self.config.depth_attention:
+                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i, depth_kv)
+            else:
+                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection
