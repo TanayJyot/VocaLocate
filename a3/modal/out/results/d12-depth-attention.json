@@ -1,0 +1,29 @@
+{
+  "tag": "d12-depth-attention",
+  "returncode": 0,
+  "container_s": 3356.6272966861725,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=depth-attention",
+    "--run=d12-depth-attention",
+    "--model-tag=d12-depth-attention"
+  ],
+  "val_bpb": 0.846656,
+  "min_val_bpb": 0.846656,
+  "core": 0.151,
+  "train_minutes": 43.12,
+  "peak_mem_mib": 30493.2,
+  "flops_per_token": 759944900.0,
+  "tok_per_sec": 508440.6868,
+  "mfu_pct": 39.068495999999996,
+  "fa3": true
+}

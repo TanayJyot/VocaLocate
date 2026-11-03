@@ -1,0 +1,33 @@
+{
+  "tag": "smoke-d12-xiprelu",
+  "returncode": 0,
+  "container_s": 109.51631498336792,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=xiprelu",
+    "--run=smoke-d12-xiprelu",
+    "--model-tag=smoke-d12-xiprelu",
+    "--num-iterations=30",
+    "--eval-every=15",
+    "--eval-tokens=1048576",
+    "--core-metric-max-per-task=20"
+  ],
+  "val_bpb": 1.763461,
+  "min_val_bpb": 1.763461,
+  "core": null,
+  "train_minutes": 0.31,
+  "peak_mem_mib": 28819.12,
+  "flops_per_token": 759696000.0,
+  "tok_per_sec": 543015.4,
+  "mfu_pct": 41.71300000000001,
+  "fa3": true
+}

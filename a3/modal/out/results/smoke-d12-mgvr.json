@@ -1,0 +1,33 @@
+{
+  "tag": "smoke-d12-mgvr",
+  "returncode": 0,
+  "container_s": 148.29577541351318,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=mgvr",
+    "--run=smoke-d12-mgvr",
+    "--model-tag=smoke-d12-mgvr",
+    "--num-iterations=30",
+    "--eval-every=15",
+    "--eval-tokens=1048576",
+    "--core-metric-max-per-task=20"
+  ],
+  "val_bpb": 1.765704,
+  "min_val_bpb": 1.765704,
+  "core": null,
+  "train_minutes": 0.36,
+  "peak_mem_mib": 32400.26,
+  "flops_per_token": 762179800.0,
+  "tok_per_sec": 454992.1,
+  "mfu_pct": 35.063,
+  "fa3": true
+}
