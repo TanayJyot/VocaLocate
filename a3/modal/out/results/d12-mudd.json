@@ -1,0 +1,29 @@
+{
+  "tag": "d12-mudd",
+  "returncode": 0,
+  "container_s": 3285.2693169116974,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=mudd",
+    "--run=d12-mudd",
+    "--model-tag=d12-mudd"
+  ],
+  "val_bpb": 0.847347,
+  "min_val_bpb": 0.847347,
+  "core": 0.151,
+  "train_minutes": 42.2,
+  "peak_mem_mib": 29240.15,
+  "flops_per_token": 760290500.0,
+  "tok_per_sec": 519959.926,
+  "mfu_pct": 39.97183199999999,
+  "fa3": true
+}

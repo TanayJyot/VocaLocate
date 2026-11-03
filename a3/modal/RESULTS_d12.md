@@ -1,6 +1,6 @@
 # A3 Part 2: d12 picochat ablations
 
-Eleven d12 configurations (thirteen runs), each on one Modal H100 (80 GB, Flash Attention 3), trained 2026-11-02 to 11-03.
+Thirteen d12 configurations (seventeen runs), each on one Modal H100 (80 GB, Flash Attention 3), trained 2026-11-02 to 11-03.
 Script: [train_d12.py](train_d12.py). Per-run logs and result JSONs are in `out/logs/` and `out/results/`.
 
 ## Setup (identical for every run)
@@ -11,9 +11,9 @@ Script: [train_d12.py](train_d12.py). Per-run logs and result JSONs are in `out/
 | Data | ClimbMix shards 0–31 (the same order for every run), tokenizer: 32,768 vocab |
 | Budget | 2,520 steps × 524,288 tokens = **1.32B tokens** (12 tokens per scaling param of the baseline, nanochat's default) |
 | Batch | 524,288 tokens/step (nanochat's d12 reference), device batch 32 × 2048 |
-| Seed | 42 (nanochat default), one run per config |
+| Seed | 42 (nanochat default), one run per config; the baseline was also run at seeds 1 and 2 (`NANOCHAT_SEED`, init only) |
 | Eval | val bpb on 42M held-out tokens every 250 steps; CORE (22 tasks, ≤500 examples each) at the end |
-| Code | VocaLocate PR #27 (`feat/a3-other-ablation-ideas`, `04ab375`); each run turns on one change with `--experiment=`. `--loop-embed` and `--n-loops-min/max` were added on this branch (PR #28) |
+| Code | VocaLocate PR #27 (`feat/a3-other-ablation-ideas`, `04ab375`); each run turns on one change with `--experiment=`. `--loop-embed`, `--n-loops-min/max` and the `xsa`/`mudd` experiments were added on this branch (PR #28) |
 
 The token budget and batch are **pinned to the baseline's values**. Otherwise nanochat's auto-sizing would give
 Diff V2, which adds parameters, a 6% longer schedule, and the comparison would no longer be controlled.
@@ -33,9 +33,14 @@ Diff V2, which adds parameters, a 6% longer schedule, and the comparison would n
 | baseline-long † | baseline trained 4,224 steps (2.21B tokens), looped-l2's total compute | 84.9M | 7.60e8 (×1.68 tokens) | 0.8280 | −0.0200 | 0.1667 | +0.0059 |
 | looped-l2-embed | looped-l2 + a learned vector per core pass | 84.9M (+1.5k other) | 12.74e8 (+68%) | 0.8378 | −0.0102 | 0.1806 | +0.0198 |
 | looped-rand13 | looped-l2 trained with 1–3 loops per step (uniform), eval at 2 | 84.9M | 12.69e8 (+67%, mean) | 0.8464 | −0.0016 | 0.1723 | +0.0115 |
+| **XSA** | each head removes its output's component along its own value (learned gate, zero-init) | 84.9M (+72 scalars) | 7.60e8 | **0.8462** | **−0.0018** | 0.1595 | −0.0013 |
+| MUDD-lite | token-dependent mixing of earlier hidden states on the last 2 layers | 84.9M (+0.1M other) | 7.60e8 (+0.08%) | 0.8473 | −0.0007 | 0.1510 | −0.0098 |
+| baseline, seed 1 | — (different init) | 84.9M | 7.60e8 | 0.8479 | −0.0001 | 0.1565 | −0.0043 |
+| baseline, seed 2 | — (different init) | 84.9M | 7.60e8 | 0.8469 | −0.0011 | 0.1439 | −0.0169 |
 
 † Mean of two identical runs (same config and seed; a launcher preemption ran each twice, see Caveats).
 looped-u9: 0.8559 / 0.8561 bpb, CORE 0.1456 / 0.1526. baseline-long: 0.8280 / 0.8279 bpb, CORE 0.1690 / 0.1643.
+All Δ are against the seed-42 baseline; the seed-1/2 rows show how far a different init alone moves it.
 
 Validation bpb during training (lower is better):
 
@@ -71,6 +76,54 @@ interpolated (linearly in log compute) for any run that spends extra compute:
 - **The same-compute looped runs lose less as sharing shrinks.** With 25% fewer weights (u9) the loss is
   +0.008 bpb, with 42% fewer (u7) +0.022. Neither ties the baseline, so at this token budget weight sharing
   costs quality rather than saving it for free.
+
+## Same-compute candidates from the 2026 speedrun records: XSA and MUDD-lite
+
+Two changes taken from modded-nanogpt records that Karpathy never ran in this form, both with no meaningful
+extra compute, plus the baseline at two more seeds to measure how much the init alone moves the result:
+
+- **XSA (`--experiment=xsa`)**, Exclusive Self-Attention (arXiv 2603.09078) in the learnable form of speedrun
+  record #82: after attention, each head subtracts a fraction tanh(α) of its output's component along the token's
+  own value vector. α is one scalar per head and layer, zero-initialised, so training starts as the baseline.
+  Karpathy's nanochat log only tried a fixed version on the last 3 layers.
+- **MUDD-lite (`--experiment=mudd`)**, after speedrun record #81: on the last two layers only, a small MLP
+  (768→64→6) on the hidden state gives per-token weights over the input embedding, the mid-network residual
+  (nanochat's backout point) and the layer's own output. Layer 10 adds the mix to the residual and to layer 11's
+  values; layer 11 adds a second mix to the final residual. Output weights start at zero, so it starts as the
+  baseline. It differs from Depth-Attention, which mixed values across all layers with no learned weights.
+
+Both runs use seed 42, and every weight they share with the baseline starts identical (checked in
+`tests/ablations/test_xsa_mudd.py`).
+
+| Run | Val bpb | Δ vs seed-42 baseline | Δ vs 3-seed baseline mean | CORE |
+|---|---|---|---|---|
+| baseline, seeds 42 / 1 / 2 | 0.8480 / 0.8479 / 0.8469 | — | mean **0.8476**, sd 0.0006 | 0.1608 / 0.1565 / 0.1439 (mean 0.1537, sd 0.009) |
+| **XSA** | **0.8462** | **−0.0018** | **−0.0014** | 0.1595 |
+| Depth-Attention | 0.8467 | −0.0013 | −0.0010 | 0.1510 |
+| MGVR | 0.8467 | −0.0013 | −0.0009 | 0.1637 |
+| MUDD-lite | 0.8473 | −0.0007 | −0.0003 | 0.1510 |
+
+Validation bpb during training:
+
+| Step | baseline s42 | baseline s1 | baseline s2 | XSA | MUDD-lite |
+|---|---|---|---|---|---|
+| 500 | 1.0062 | 1.0076 | 1.0056 | 1.0034 | 1.0030 |
+| 1000 | 0.9491 | 0.9472 | 0.9474 | 0.9467 | 0.9469 |
+| 1500 | 0.9049 | 0.9046 | 0.9040 | 0.9030 | 0.9036 |
+| 2000 | 0.8715 | 0.8712 | 0.8703 | 0.8693 | 0.8705 |
+| 2520 | 0.8480 | 0.8479 | 0.8469 | 0.8462 | 0.8473 |
+
+- **The seed matters more than the earlier same-seed repeats suggested.** A different init moves final val bpb
+  by up to 0.0011 (sd 0.0006), against under 0.0002 for a same-seed rerun. The seed-42 baseline happens to be the
+  worst of the three, so every Δ against it reads about 0.0004 too favourable.
+- **XSA is the best same-compute change so far, but only just.** It is 0.0007 below the best baseline seed and
+  0.0014 below the mean, ahead at every checkpoint from step 500. That is about two baseline standard deviations,
+  from one XSA seed. It beats Depth-Attention and MGVR by 0.0005, which is inside the seed noise.
+- **MUDD-lite is a tie.** It sits inside the baseline's seed range (−0.0003 vs the mean). Its early lead
+  (step 500) is gone by step 2000. Restricting cross-layer mixing to the last two layers and learning the
+  weights did not rescue Depth-Attention's idea at this size.
+- **CORE cannot rank these runs.** The three baseline seeds alone span 0.017 CORE (sd 0.009), wider than every
+  same-compute CORE gap in the table.
 
 ## Looped extensions: per-loop embedding and random loop count
 
@@ -118,8 +171,11 @@ about 0.001 higher than the 42M-token training eval; CORE as in training):
 - **Diff V2 is the strongest of Carmen's four at equal tokens** (−0.0065 bpb, +0.012 CORE, clear at every
   checkpoint), but it also uses 19% more FLOPs and 8% more weights. Corrected for compute, its bpb gain
   disappears and only a borderline CORE gain remains.
-- **Depth-Attention and MGVR are ties on bpb** (−0.0013, smaller than what a different seed would plausibly
-  change). Their CORE moves in opposite directions by about 0.01, which is within CORE's noise at this size.
+- **Depth-Attention and MGVR are small gains or ties on bpb**: −0.0013 against the seed-42 baseline, but only
+  −0.0009/−0.0010 against the 3-seed mean, which is about 1.5 baseline standard deviations. Their CORE moves in
+  opposite directions by about 0.01, inside CORE's seed noise (sd 0.009).
+- **XSA is the strongest same-compute change** (−0.0014 vs the baseline mean, beyond the baseline's seed
+  range), and MUDD-lite is a tie (see above). XSA's margin over Depth-Attention and MGVR is within seed noise.
 - **xIPReLU is slightly worse** on both metrics.
 - **Of the looped extensions, only the random loop count changes anything**: it trades 0.008 bpb at the trained
   depth for a checkpoint that works from 1 to 6 loops. The per-loop embedding is a tie (see above).
@@ -145,7 +201,11 @@ Container time includes startup, `torch.compile`, all validation evals and the f
 | MGVR | 48.4 min | 61.2 min | 453k | 34.9% | 31.7 GB | $4.03 |
 | looped-l2-embed | 67.8 min | 84.5 min | 323k | 41.6% | 45.1 GB | $5.57 |
 | looped-rand13 | 69.1 min | 90.2 min | 355k | 45.6%* | 62.0 GB | $5.94 |
-| **Total** (13 runs) | | **≈14.6 H100-hours** | | | | **≈$57.58** |
+| XSA | 42.2 min | 55.6 min | 520k | 39.9% | 30.4 GB | $3.66 |
+| MUDD-lite | 42.2 min | 54.8 min | 520k | 40.0% | 28.6 GB | $3.60 |
+| baseline, seed 1 | 40.3 min | 52.1 min | 543k | 41.7% | 28.1 GB | $3.43 |
+| baseline, seed 2 | 40.9 min | 53.6 min | 536k | 41.2% | 28.1 GB | $3.53 |
+| **Total** (17 runs) | | **≈18.2 H100-hours** | | | | **≈$71.80** |
 
 \* rand13's per-step MFU is computed against the *mean* FLOPs of 1–3 loops, so 1-loop steps read low and 3-loop
 steps high; the average is not comparable to the other rows. Its peak memory is set by the 3-loop steps.
@@ -155,15 +215,19 @@ The loop-count sweep (10 evals of bpb on 21M tokens + CORE, one H100 each, in pa
 
 Add $0.87 for the 30-step smoke test of every config, run before the full runs. The first seven runs ran in
 parallel (about 1.5 hours wall-clock); looped-u9 and baseline-long ran later as a second batch (about 1.4 hours), and
-looped-l2-embed and looped-rand13 as a third (about 1.5 hours).
+looped-l2-embed and looped-rand13 as a third (about 1.5 hours), and XSA, MUDD-lite and the two baseline seeds as
+a fourth (about 0.9 hours, after a $0.45 smoke test). XSA and MUDD-lite train about 4% slower per second than the
+baseline (elementwise work outside the matmuls); at a fixed step count that changes cost, not results.
 
 MGVR runs 12% slower than its FLOPs imply (35% MFU vs ~41%). Carmen's PR replicates the AdamW update for
 MGVR's unevenly shaped matrices instead of sharding it. That is a cost of the implementation, not of the idea.
 
 ## Caveats
 
-- **One seed per run.** Gaps under about 0.003 bpb, and CORE gaps under about 0.01, should be treated as ties.
-- **Run-to-run noise, measured.** Modal preempted the CPU launcher ~11 minutes into the second batch, and on
+- **One seed per run, except the baseline (three seeds).** A different init moves val bpb by sd 0.0006 (range
+  0.0011) and CORE by sd 0.009 (range 0.017). So single-run bpb gaps under about 0.0012 and CORE gaps under about
+  0.02 are ties.
+- **Same-seed run-to-run noise, measured.** Modal preempted the CPU launcher ~11 minutes into the second batch, and on
   restart it spawned looped-u9 and baseline-long again, so both ran twice with the same seed. GPU
   nondeterminism alone moved val bpb by under 0.0002, but CORE by 0.005–0.007. So bpb differences are reliable
   at this size, and CORE differences under ~0.01 are not. (The duplicate cost ≈$9.)
@@ -177,9 +241,9 @@ MGVR's unevenly shaped matrices instead of sharding it. That is a cost of the im
 
 ## W&B
 
-All 13 runs are uploaded to the W&B project
+All 17 runs are uploaded to the W&B project
 [vocalocate-a3](https://forge.coreweave.com/wandb/tanayjyot-university-of-toronto/vocalocate-a3/workspace), tagged
-`pr27`, `looped`, `extension`, `control` or `repeat`. The figures in `figures/` are rebuilt from the committed logs
+`baseline`, `pr27`, `looped`, `extension`, `speedrun`, `control` or `repeat`. The figures in `figures/` are rebuilt from the committed logs
 with `python plots.py`.
 
 The runs were logged with `WANDB_MODE=offline` and saved in `out/wandb/wandb/`. To upload them to another W&B
@@ -192,10 +256,14 @@ wandb sync offline-run-20261103_040506-2msa7208 offline-run-20261103_040529-e4cy
   offline-run-20261103_040506-u4asolds offline-run-20261103_040507-kn36s4nh \
   offline-run-20261103_040507-y6nvh3l6 offline-run-20261103_143326-8q6ma4j8 \
   offline-run-20261103_143326-brihic8u offline-run-20261103_144732-hnvy3kv8 \
-  offline-run-20261103_144732-ys0w0wws offline-run-20261103_144744-cqcpx9lb   offline-run-20261103_144743-3uaqex4a
+  offline-run-20261103_144732-ys0w0wws offline-run-20261103_144744-cqcpx9lb \
+  offline-run-20261103_144743-3uaqex4a \
+  offline-run-20261103_190310-hwxzvtrl offline-run-20261103_190311-t9k0bjol \
+  offline-run-20261103_190312-24wheiew offline-run-20261103_190316-cgwmsfqi
 ```
 
 These are, in order: baseline, looped-l2, looped-u7, xIPReLU, Diff V2, Depth-Attention, MGVR, looped-u9 (a),
-baseline-long (a), looped-u9 (b), baseline-long (b), looped-l2-embed and looped-rand13. Only these full runs are committed; the smoke-test runs
+baseline-long (a), looped-u9 (b), baseline-long (b), looped-l2-embed, looped-rand13, XSA, MUDD-lite, baseline
+seed 1 and baseline seed 2. Only these full runs are committed; the smoke-test runs
 and a stopped launch were left out. `out/logs` and `out/results` hold u9 (b) and baseline-long (a), since the
 repeat of each wrote to the same volume path; baseline-long (b)'s metrics are in `bc_results.json`.

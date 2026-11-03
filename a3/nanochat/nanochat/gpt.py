@@ -63,6 +63,13 @@ class GPTConfig:
     depth_attention: bool = False
     depth_attention_stride: int | None = None
     mgvr: bool = False
+    # Exclusive Self-Attention (arXiv 2603.09078), learnable form of modded-nanogpt record #82: each head removes
+    # a fraction tanh(alpha) of its output's component along the token's own value vector (alpha zero-init).
+    xsa: bool = False
+    # MUDD-lite (modded-nanogpt record #81): token-dependent dense connections on the last two layers only.
+    # Layer n-2 mixes {x0, mid-layer residual, itself} into the residual and into layer n-1's values;
+    # layer n-1 mixes {x0, mid-layer residual, layer n-2's output} into the final residual. Zero-init = identity.
+    mudd: bool = False
 
     @property
     def effective_depth_attention_stride(self):
@@ -191,8 +198,9 @@ class CausalSelfAttention(nn.Module):
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
         self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
         self.mgvr = MGVR(self.n_embd, self.n_kv_head) if config.mgvr and layer_idx > 0 else None
+        self.xsa_alpha = nn.Parameter(torch.zeros(self.n_head)) if config.xsa else None # fake init, real init in init_weights()
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None, v_extra=None):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
         # each execution needs its own KV cache slot (its keys/values differ per iteration).
         B, T, C = x.size()
@@ -208,6 +216,10 @@ class CausalSelfAttention(nn.Module):
             ve = ve.view(B, T, self.n_kv_head, self.head_dim)
             gate = 3 * torch.sigmoid(self.ve_gate(x[..., :self.ve_gate_channels]))  # (B, T, n_kv_head), range (0, 3)
             v = v + gate.unsqueeze(-1) * ve
+
+        # MUDD-lite: values mixed from earlier hidden states by the previous layer
+        if v_extra is not None:
+            v = v + v_extra
 
         if first_layer_v is not None:
             if cache_idx == 0:
@@ -271,6 +283,12 @@ class CausalSelfAttention(nn.Module):
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
 
+        if self.xsa_alpha is not None:
+            # XSA: drop a per-head fraction of the output along the token's own (post-mixing) value direction
+            vn = F.normalize(v, dim=-1, eps=1e-4).repeat_interleave(self.n_head // self.n_kv_head, dim=2)
+            alpha = torch.tanh(self.xsa_alpha).to(y.dtype).view(1, 1, self.n_head, 1)
+            y = y - alpha * (y * vn).sum(-1, keepdim=True) * vn
+
         if self.diff_v2:
             # GQA groups are contiguous: adjacent partners always share the same K/V.
             # Apply after either backend/path so training, prefill and decoding agree.
@@ -332,11 +350,13 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None, v_extra=None):
         if first_layer_v is not None:
             x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv, first_layer_v)
         elif self.attn.depth_attention:
             x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv)
+        elif v_extra is not None:
+            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, v_extra=v_extra)
         else:
             x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
         x = x + self.mlp(norm(x))
@@ -357,6 +377,9 @@ class GPT(nn.Module):
         variable_loops = config.loop_range[0] < config.loop_range[1]
         assert not ((variable_loops or config.loop_embed) and (config.depth_attention or config.mgvr)), \
             "loop_embed / random loop counts are not supported together with depth_attention or mgvr"
+        assert not (config.xsa and config.diff_v2), "xsa is not supported together with diff_v2"
+        assert not (config.mudd and (config.n_loops > 1 or config.depth_attention or config.mgvr or config.n_layer < 4)), \
+            "mudd needs a plain (non-looped) model of depth >= 4 without depth_attention or mgvr"
         self.slot_windows = self._compute_window_sizes(config) # one per per-step scalar slot
         self._plans = {n: self._execution_plan(n) for n in range(config.loop_range[0], config.loop_range[1] + 1)}
         self.layer_plan = config.layer_plan() # block index executed at each step (length = effective depth)
@@ -385,6 +408,15 @@ class GPT(nn.Module):
         self.smear_lambda = nn.Parameter(torch.zeros(1))
         # Backout: subtract cached mid-layer residual before final norm to remove low-level features
         self.backout_lambda = nn.Parameter(0.2 * torch.ones(1))
+        # MUDD-lite: per MUDD layer (n-2, n-1), a small MLP on the hidden state gives per-token weights
+        # (2 channels: values, residual) x (3 sources). Layer n-1 uses only the residual channel.
+        if config.mudd:
+            assert config.n_kv_head * (config.n_embd // config.n_head) == config.n_embd, "mudd values need kv_dim == n_embd"
+            self.mudd_w1 = nn.Parameter(torch.empty(2, 64, config.n_embd))
+            self.mudd_w2 = nn.Parameter(torch.empty(2, 64, 2, 3))
+            self.mudd_b = nn.Parameter(torch.empty(2, 2, 3))
+        else:
+            self.mudd_w1 = self.mudd_w2 = self.mudd_b = None
         # Value embeddings (ResFormer-style): alternating layers, last layer always included
         head_dim = config.n_embd // config.n_head
         kv_dim = config.n_kv_head * head_dim
@@ -437,6 +469,8 @@ class GPT(nn.Module):
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
             if block.mlp.act is not None:
                 block.mlp.act.reset_parameters()
+            if block.attn.xsa_alpha is not None:
+                torch.nn.init.zeros_(block.attn.xsa_alpha) # tanh(0) = 0: starts as plain attention
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
@@ -463,6 +497,14 @@ class GPT(nn.Module):
         for block in self.transformer.h:
             if block.attn.ve_gate is not None:
                 torch.nn.init.uniform_(block.attn.ve_gate.weight, 0.0, 0.02)
+
+        # MUDD last, so every other weight draws the same random numbers as the baseline at the same seed.
+        # As in the speedrun: kaiming-uniform hidden layer, zero output weights and biases => starts as identity
+        if self.mudd_w1 is not None:
+            for j in range(2):
+                torch.nn.init.kaiming_uniform_(self.mudd_w1[j], a=math.sqrt(5))
+            torch.nn.init.zeros_(self.mudd_w2)
+            torch.nn.init.zeros_(self.mudd_b)
 
         # Rotary embeddings
         head_dim = self.config.n_embd // self.config.n_head
@@ -615,6 +657,8 @@ class GPT(nn.Module):
         # Linears outside the block stack (lm_head, smear_gate) run once
         block_linears = {id(m) for block in self.transformer.h for m in block.modules()}
         matmul_params += sum(m.weight.numel() for m in self.modules() if isinstance(m, Linear) and id(m) not in block_linears)
+        if self.mudd_w1 is not None: # MUDD's weight MLPs run once each (the source-weighted sums are elementwise)
+            matmul_params += self.mudd_w1.numel() + self.mudd_w2.numel()
         return matmul_params
 
     def estimate_decode_flops(self, context_len):
@@ -688,7 +732,9 @@ class GPT(nn.Module):
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
         scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
         scalars += self.loop_embeds.numel() if self.loop_embeds is not None else 0
-        total =wte + value_embeds + lm_head + transformer_matrices + scalars + mgvr
+        # MUDD sits outside transformer_matrices so it doesn't change the trainer's scaling-law budget/schedule
+        mudd = sum(p.numel() for p in (self.mudd_w1, self.mudd_w2, self.mudd_b) if p is not None)
+        total =wte + value_embeds + lm_head + transformer_matrices + scalars + mgvr + mudd
         assert total == sum(p.numel() for p in self.parameters()), "Parameter count mismatch"
         return {
             'wte': wte,
@@ -697,6 +743,7 @@ class GPT(nn.Module):
             'transformer_matrices': transformer_matrices,
             'scalars': scalars,
             **({'mgvr': mgvr} if self.config.mgvr else {}),
+            **({'mudd': mudd} if self.config.mudd else {}),
             'total': total,
         }
 
@@ -715,7 +762,8 @@ class GPT(nn.Module):
         x0_params = [self.x0_lambdas]
         smear_params = [self.smear_gate.weight, self.smear_lambda, self.backout_lambda]
         loop_embed_params = [self.loop_embeds] if self.loop_embeds is not None else []
-        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(mgvr_params) + len(loop_embed_params)
+        mudd_params = [p for p in (self.mudd_w1, self.mudd_w2, self.mudd_b) if p is not None]
+        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(mgvr_params) + len(loop_embed_params) + len(mudd_params)
 
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (tuned for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -743,6 +791,10 @@ class GPT(nn.Module):
         if mgvr_params:
             param_groups.append(dict(kind='adamw', params=mgvr_params, lr=unembedding_lr * dmodel_lr_scale,
                                      betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0))
+        if mudd_params:
+            # Small gating MLP like MGVR's W_z: AdamW at the unembedding LR, betas as in the speedrun, no weight decay
+            param_groups.append(dict(kind='adamw', params=mudd_params, lr=unembedding_lr * dmodel_lr_scale,
+                                     betas=(0.9, 0.99), eps=1e-10, weight_decay=0.0))
         # Muon groups (matrix params, grouped by shape for stacking)
         for shape in sorted({p.shape for p in matrix_params}):
             group_params = [p for p in matrix_params if p.shape == shape]
@@ -787,6 +839,12 @@ class GPT(nn.Module):
                 handle.remove()
         names = ("gate_mean", "added_to_current_norm", "mix_norm", "offdiagonal_mix_norm")
         return dict(zip(names, torch.stack(rows).mean(0).cpu().tolist())) if rows else {}
+
+    def _mudd_weights(self, x, j):
+        """Per-token MUDD weights (B, T, 2 channels [values, residual], 3 sources) for MUDD layer j."""
+        h = F.gelu(F.linear(norm(x), self.mudd_w1[j].to(x.dtype)))
+        m = torch.einsum("btd,dcl->btcl", h, self.mudd_w2[j].to(x.dtype)) + self.mudd_b[j].to(x.dtype)
+        return m * (0.2 / math.sqrt(3)) # speedrun's scale: biases live in the pre-scaled domain
 
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean', n_loops=None):
         """n_loops overrides config.n_loops for this call (random-loop training, loop-count sweeps at eval)."""
@@ -840,6 +898,8 @@ class GPT(nn.Module):
         x_backout = None
         depth_kv = [] if self.config.depth_attention and kv_cache is None else None
         first_layer_v = [] if self.config.mgvr else None
+        mudd_layer = len(plan["blocks"]) - 2 if self.mudd_w1 is not None else None # first of the two MUDD layers
+        v_extra, x_mudd = None, None
         # i = executed step (KV cache slot), b = which (possibly shared) block runs, s = per-step scalar slot
         for i, (b, s, window) in enumerate(zip(plan["blocks"], plan["slots"], plan["windows"])):
             x = self.resid_lambdas[s] * x + self.x0_lambdas[s] * x0
@@ -850,10 +910,25 @@ class GPT(nn.Module):
                 x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i, depth_kv, first_layer_v)
             elif self.config.depth_attention:
                 x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i, depth_kv)
+            elif v_extra is not None:
+                x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i, v_extra=v_extra)
+                v_extra = None
             else:
                 x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i)
             if i == backout_layer:
                 x_backout = x
+            if i == mudd_layer:
+                # values for the last layer and a residual update, from {x0, mid-layer residual, this layer's output}
+                m = self._mudd_weights(x, 0)
+                mv, mr = m[:, :, 0], m[:, :, 1]
+                v_extra = mv[..., 0:1] * x0 + mv[..., 1:2] * x_backout + mv[..., 2:3] * x
+                v_extra = v_extra.view(B, T, self.config.n_kv_head, -1)
+                x_mudd = x
+                x = (1 + mr[..., 2:3]) * x + mr[..., 0:1] * x0 + mr[..., 1:2] * x_backout
+        if mudd_layer is not None:
+            # after the last layer: residual update from {x0, mid-layer residual, layer n-2's output}
+            mr = self._mudd_weights(x, 1)[:, :, 1]
+            x = x + mr[..., 0:1] * x0 + mr[..., 1:2] * x_backout + mr[..., 2:3] * x_mudd
         # Subtract mid-layer residual to remove low-level features before logit projection
         if x_backout is not None:
             x = x - self.backout_lambda.to(x.dtype) * x_backout

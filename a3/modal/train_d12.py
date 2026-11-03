@@ -1,7 +1,7 @@
 """
 A3 Part 2: d12 picochat ablations on Modal (one H100 per run).
 
-Every run uses the same data, tokenizer, seed, batch and token budget; only the
+Every run uses the same data, tokenizer, batch and token budget, and seed 42 unless SEEDS says otherwise; only the
 architecture changes, selected with nanochat's --experiment flag so that each
 ablation runs standalone against the baseline.
 
@@ -69,7 +69,15 @@ CONFIGS = {
     "d12-diff-v2": ["--experiment=diff-v2"],
     "d12-depth-attention": ["--experiment=depth-attention"],
     "d12-mgvr": ["--experiment=mgvr"],
+    # same-compute candidates from the 2026 modded-nanogpt records: learnable XSA (#82) and MUDD on the last two
+    # layers (#81). Both start as the baseline (zero init); MUDD adds ~0.1M weights and ~0.1% FLOPs/token.
+    "d12-xsa": ["--experiment=xsa"],
+    "d12-mudd": ["--experiment=mudd"],
+    # baseline at other init seeds (NANOCHAT_SEED; data order is unchanged) to measure seed-to-seed noise
+    "d12-baseline-s1": ["--experiment=baseline"],
+    "d12-baseline-s2": ["--experiment=baseline"],
 }
+SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2}  # everything else uses nanochat's default seed 42
 SMOKE = ["--num-iterations=30", "--eval-every=15", "--eval-tokens=1048576", "--core-metric-max-per-task=20"]
 
 
@@ -107,7 +115,8 @@ def train(tag: str, smoke: bool = False):
     t0 = time.time()
     run_tag = f"smoke-{tag}" if smoke else tag
     env = dict(os.environ, NANOCHAT_BASE_DIR=BASE, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
-               OMP_NUM_THREADS="1", WANDB_MODE="offline", WANDB_DIR=f"{BASE}/wandb")
+               OMP_NUM_THREADS="1", WANDB_MODE="offline", WANDB_DIR=f"{BASE}/wandb",
+               NANOCHAT_SEED=str(SEEDS.get(tag, 42)))
     os.makedirs(f"{BASE}/wandb", exist_ok=True)
     os.makedirs(f"{BASE}/logs", exist_ok=True)
     cmd = ["python", "-m", "scripts.base_train", *COMMON, *CONFIGS[tag], f"--run={run_tag}", f"--model-tag={run_tag}"]

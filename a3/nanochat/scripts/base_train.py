@@ -66,6 +66,8 @@ parser.add_argument("--diff-v2", action="store_true", help="enable Differential 
 parser.add_argument("--depth-attention", action="store_true", help="enable parameter-free cross-layer value mixing")
 parser.add_argument("--depth-attention-stride", type=int, default=None, help="depth source stride (default: max(1, depth // 2)); requires --depth-attention")
 parser.add_argument("--mgvr", action="store_true", help="enable baseline-initialized Multi-head Gated Value Residuals")
+parser.add_argument("--xsa", action="store_true", help="enable learnable Exclusive Self-Attention (zero-init per-head gate)")
+parser.add_argument("--mudd", action="store_true", help="enable MUDD-lite dense connections on the last two layers")
 parser.add_argument("--gpu-hourly-cost", type=float, default=None, help="optional cost per GPU-hour for Depth-Attention/MGVR reporting")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
@@ -177,6 +179,8 @@ def build_model_meta(depth, looped=True):
         depth_attention=args.depth_attention,
         depth_attention_stride=args.depth_attention_stride,
         mgvr=args.mgvr,
+        xsa=args.xsa,
+        mudd=args.mudd,
     )
     with torch.device("meta"):
         model_meta = GPT(config)
@@ -196,6 +200,9 @@ if not model_config.depth_attention:
     model_config_kwargs.pop("depth_attention_stride")
 if not model_config.mgvr:
     model_config_kwargs.pop("mgvr")
+for key in ("xsa", "mudd"):
+    if not model_config_kwargs[key]:
+        model_config_kwargs.pop(key)
 for key in ("loop_embed", "n_loops_min", "n_loops_max"):
     if not model_config_kwargs[key]:
         model_config_kwargs.pop(key)
@@ -216,6 +223,10 @@ if args.depth_attention:
         default_tag += f"-s{args.depth_attention_stride}"
 if args.mgvr:
     default_tag += "-mgvr"
+if args.xsa:
+    default_tag += "-xsa"
+if args.mudd:
+    default_tag += "-mudd"
 output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-l2-xiprelu
 checkpoint_dir = os.path.join(base_dir, "base_checkpoints", output_dirname)
 resuming = args.resume_from_step != -1

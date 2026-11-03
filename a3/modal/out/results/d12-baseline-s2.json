@@ -1,0 +1,29 @@
+{
+  "tag": "d12-baseline-s2",
+  "returncode": 0,
+  "container_s": 3218.8187868595123,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=baseline",
+    "--run=d12-baseline-s2",
+    "--model-tag=d12-baseline-s2"
+  ],
+  "val_bpb": 0.846906,
+  "min_val_bpb": 0.846906,
+  "core": 0.1439,
+  "train_minutes": 40.88,
+  "peak_mem_mib": 28818.7,
+  "flops_per_token": 759696000.0,
+  "tok_per_sec": 536309.562,
+  "mfu_pct": 41.196415999999914,
+  "fa3": true
+}
