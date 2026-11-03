@@ -26,6 +26,7 @@ import torch
 import torch.distributed as dist
 
 from nanochat.gpt import GPT, GPTConfig, Linear
+from nanochat.experiments import EXPERIMENTS, select_experiment
 from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit, tokenizing_distributed_data_loader_with_state_bos_bestfit
 from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, COMPUTE_DTYPE, COMPUTE_DTYPE_REASON, is_ddp_initialized
 from nanochat.tokenizer import get_tokenizer, get_token_bytes
@@ -47,6 +48,7 @@ parser.add_argument("--device-type", type=str, default="", help="cuda|cpu|mps (e
 parser.add_argument("--fp8", action="store_true", help="enable FP8 training (requires H100+ GPU)")
 parser.add_argument("--fp8-recipe", type=str, default="tensorwise", choices=["rowwise", "tensorwise"], help="FP8 scaling recipe: tensorwise (faster, recommended) or rowwise (more accurate but slower)")
 # Model architecture
+parser.add_argument("--experiment", choices=EXPERIMENTS, default=None, help="explicit architecture selection; rejects conflicting ablation flags (combined allows intentional mixtures)")
 parser.add_argument("--depth", type=int, default=20, help="depth of the Transformer model")
 parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = depth * aspect_ratio")
 parser.add_argument("--head-dim", type=int, default=128, help="target head dimension for attention")
@@ -87,6 +89,10 @@ parser.add_argument("--save-every", type=int, default=-1, help="save checkpoints
 # Output
 parser.add_argument("--model-tag", type=str, default=None, help="override model tag for checkpoint directory name")
 args = parser.parse_args()
+try:
+    select_experiment(args)
+except ValueError as error:
+    parser.error(str(error))
 if args.depth_attention_stride is not None and (not args.depth_attention or args.depth_attention_stride < 1):
     parser.error("--depth-attention-stride must be positive and requires --depth-attention")
 if args.gpu_hourly_cost is not None and (not (args.depth_attention or args.mgvr) or args.gpu_hourly_cost < 0):

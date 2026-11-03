@@ -38,6 +38,11 @@ parameters, for **355,212 total**. Gate/mixing math and master parameters use
 FP32; the result returns to the original Value dtype. The new AdamW group has
 zero weight decay, betas `(0.9, 0.999)`, epsilon `1e-8`, and the existing
 unembedding learning-rate scale. Every original optimizer group is preserved.
+Distributed AdamW shards matrices whose leading dimension divides evenly by
+the world size. Other matrices use averaged all-reduce gradients and replicate
+their optimizer state. This supports d12 MGVR's `(42, 768)` projection on four
+or eight ranks without changing the MGVR formula, parameter shape, or group
+ordering. Replication uses more optimizer-state memory on those ranks.
 New parameters are reported separately from `transformer_matrices` so the
 trainer's automatic token/batch/learning-rate scaling keeps its original
 inputs. Training/decode/prefill FLOPs include the gate projection and head
@@ -111,6 +116,13 @@ offline steps, saves model/optimizer/metadata, and resumes for another step.
 It covers MGVR alone and all prior architecture flags combined, confirms both
 new matrices learn and continue updating, checks diagnostics/output directories,
 and rejects resuming with the wrong MGVR setting. It reuses existing smoke data.
+
+`tests/test_optim_distributed.py` checks actual AdamW updates and state roundtrips
+using simulated asynchronous transport for two, four and eight ranks, KV-head
+counts two, six and eight, and both replicated and sharded matrices. Every
+rank's weights agree with `torch.optim.AdamW` using the averaged gradients.
+This validates the uneven-shape fallback; actual NCCL collectives still require
+a multi-GPU check.
 
 CUDA/FA3 smoke cases are included but skip on this CPU-only host. GPU BF16,
 CUDA Inductor, FP8 execution, distributed training, full-scale throughput/cost,
