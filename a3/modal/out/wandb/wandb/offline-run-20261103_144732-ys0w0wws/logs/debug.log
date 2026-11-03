@@ -1,0 +1,23 @@
+2026-11-03 14:47:32,801 INFO    MainThread:4 [wandb_setup.py:_flush():81] Current SDK version is 0.31.0
+2026-11-03 14:47:32,801 INFO    MainThread:4 [wandb_setup.py:_flush():81] Configure stats pid to 4
+2026-11-03 14:47:32,802 INFO    MainThread:4 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-11-03 14:47:32,802 INFO    MainThread:4 [wandb_init.py:setup_run_log_directory():740] Logging user logs to /vol/a3/wandb/wandb/offline-run-20261103_144732-ys0w0wws/logs/debug.log
+2026-11-03 14:47:32,802 INFO    MainThread:4 [wandb_init.py:setup_run_log_directory():741] Logging internal logs to /vol/a3/wandb/wandb/offline-run-20261103_144732-ys0w0wws/logs/debug-internal.log
+2026-11-03 14:47:32,802 INFO    MainThread:4 [wandb_init.py:init():784] calling init triggers
+2026-11-03 14:47:32,803 INFO    MainThread:4 [wandb_init.py:init():789] wandb.init called with sweep_config: {}
+config: {'run': 'd12-baseline-long', 'device_type': '', 'fp8': False, 'fp8_recipe': 'tensorwise', 'experiment': 'baseline', 'depth': 12, 'aspect_ratio': 64, 'head_dim': 128, 'max_seq_len': 2048, 'n_loops': 1, 'n_prelude': 0, 'n_coda': 0, 'window_pattern': 'SSSL', 'mlp_activation': 'relu2', 'diff_v2': False, 'depth_attention': False, 'depth_attention_stride': None, 'mgvr': False, 'gpu_hourly_cost': None, 'num_iterations': 4224, 'target_flops': -1.0, 'target_param_data_ratio': 12, 'device_batch_size': 32, 'total_batch_size': 524288, 'embedding_lr': 0.3, 'unembedding_lr': 0.008, 'weight_decay': 0.28, 'matrix_lr': 0.02, 'scalar_lr': 0.5, 'warmup_steps': 40, 'warmdown_ratio': 0.65, 'final_lr_frac': 0.05, 'resume_from_step': -1, 'eval_every': 250, 'eval_tokens': 41943040, 'core_metric_every': 999999, 'core_metric_max_per_task': 500, 'sample_every': -1, 'save_every': -1, 'model_tag': 'd12-baseline-long', '_wandb': {}}
+2026-11-03 14:47:32,803 INFO    MainThread:4 [wandb_init.py:init():832] starting backend
+2026-11-03 14:47:33,013 INFO    MainThread:4 [wandb_init.py:init():847] sending inform_init request
+2026-11-03 14:47:33,027 INFO    MainThread:4 [wandb_init.py:init():852] backend started and connected
+2026-11-03 14:47:33,028 INFO    MainThread:4 [wandb_init.py:init():922] updated telemetry
+2026-11-03 14:47:33,031 INFO    MainThread:4 [wandb_init.py:init():940] communicating run to backend with 90.0 second timeout
+2026-11-03 14:47:33,035 INFO    MainThread:4 [wandb_init.py:init():977] starting run threads in backend
+2026-11-03 14:47:33,123 INFO    MainThread:4 [wandb_run.py:_console_start():2528] atexit reg
+2026-11-03 14:47:33,123 INFO    MainThread:4 [wandb_run.py:_redirect():2378] redirect: wrap_raw
+2026-11-03 14:47:33,124 INFO    MainThread:4 [wandb_run.py:_redirect():2447] Wrapping output streams.
+2026-11-03 14:47:33,125 INFO    MainThread:4 [wandb_run.py:_redirect():2470] Redirects installed.
+2026-11-03 14:47:33,468 INFO    MainThread:4 [wandb_init.py:init():1015] run started, returning control to user process
+2026-11-03 16:12:11,360 INFO    MainThread:4 [wandb_run.py:_finish():2300] finishing run nanochat/ys0w0wws
+2026-11-03 16:12:11,361 INFO    MainThread:4 [wandb_run.py:_atexit_cleanup():2495] got exitcode: 0
+2026-11-03 16:12:11,362 INFO    MainThread:4 [wandb_run.py:_restore():2477] restore
+2026-11-03 16:12:11,362 INFO    MainThread:4 [wandb_run.py:_restore():2483] restore done

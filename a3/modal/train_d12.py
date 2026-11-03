@@ -52,6 +52,19 @@ CONFIGS = {
     # (7*109=763, rounded up to a multiple of head_dim 128). Mirrors base-d10 vs looped-d6-l2 in the d6 study.
     "d12-looped-u7": ["--experiment=looped", "--depth=7", "--aspect-ratio=109", "--n-loops=2", "--n-prelude=1",
                       "--n-coda=1"],
+    # milder compute-matched sharing: 9 unique blocks (3 prelude + 3 core x2 + 3 coda) = 12 effective layers,
+    # 25% fewer weights. aspect 85 keeps width at 768 (9*85=765, rounded up to 768).
+    "d12-looped-u9": ["--experiment=looped", "--depth=9", "--aspect-ratio=85", "--n-loops=2", "--n-prelude=3",
+                      "--n-coda=3"],
+    # compute-matched control for looped-l2: plain baseline trained for l2's FLOPs
+    # (2520 steps * 12.74e8 / 7.60e8 FLOPs/token = 4224 steps). Later --num-iterations overrides COMMON's.
+    "d12-baseline-long": ["--experiment=baseline", "--num-iterations=4224"],
+    # looped-l2 plus a learned vector per core pass (2 x 768 extra params), so shared blocks know which pass they're in
+    "d12-looped-l2-embed": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
+    # looped-l2 trained with a loop count drawn uniformly from {1,2,3} each step: same expected compute as l2,
+    # evaluated at 2 loops by default and swept over loop counts afterwards (loop_sweep)
+    "d12-looped-rand13": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--n-loops-min=1",
+                          "--n-loops-max=3"],
     "d12-xiprelu": ["--experiment=xiprelu"],
     "d12-diff-v2": ["--experiment=diff-v2"],
     "d12-depth-attention": ["--experiment=depth-attention"],
@@ -122,12 +135,66 @@ def train(tag: str, smoke: bool = False):
     return out
 
 
+@app.function(gpu="H100!", volumes={"/vol": vol}, timeout=2 * 3600)
+def eval_loops(tag: str, n_loops: int):
+    """val bpb + CORE of a trained looped checkpoint run with n_loops core passes (CORE as in training, bpb on 21M tokens)."""
+    env = dict(os.environ, NANOCHAT_BASE_DIR=BASE, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1", OMP_NUM_THREADS="1")
+    cmd = ["python", "-m", "scripts.base_eval", "--eval=core,bpb", f"--model-tag={tag}", f"--n-loops={n_loops}",
+           "--max-per-task=500", "--split-tokens=20971520"]
+    p = subprocess.run(cmd, cwd="/root/nanochat", env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    print(p.stdout[-4000:])
+    def last(pattern):
+        m = re.findall(pattern, p.stdout)
+        return float(m[-1]) if m else None
+    out = {"tag": tag, "n_loops": n_loops, "returncode": p.returncode, "val_bpb": last(r"val bpb: ([\d.]+)"),
+           "core": last(r"CORE metric: (-?[\d.]+)")}
+    if p.returncode != 0:
+        out["error_tail"] = p.stdout[-3000:]
+    os.makedirs(f"{BASE}/results", exist_ok=True)
+    with open(f"{BASE}/results/sweep-{tag}-n{n_loops}.json", "w") as f:
+        json.dump(out, f, indent=2)
+    vol.commit()
+    return out
+
+
+def _spawn_once(launch_id, key, fn, *args):
+    """Spawn fn(*args), or reattach to the call this launch already spawned. Modal can preempt and restart a
+    launcher with the same input; without this, the restart would spawn (and pay for) every run a second time."""
+    path = f"{BASE}/launches/{launch_id}/{key}.fc"
+    vol.reload()
+    if os.path.exists(path):
+        return modal.FunctionCall.from_id(open(path).read().strip())
+    call = fn.spawn(*args)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(call.object_id)
+    vol.commit()
+    return call
+
+
+@app.function(volumes={"/vol": vol}, timeout=3 * 3600)
+def loop_sweep(tags: str = "d12-looped-rand13,d12-looped-l2", loops: str = "1,2,3,4,6", launch_id: str = ""):
+    """One container per (checkpoint, loop count), all in parallel."""
+    jobs = [(t, int(n)) for t in tags.split(",") for n in loops.split(",")]
+    launch_id = launch_id or f"sweep-{time.time_ns()}"
+    calls = [_spawn_once(launch_id, f"{t}-n{n}", eval_loops, t, n) for t, n in jobs]
+    print("spawned:", {f"{t}-n{n}": c.object_id for (t, n), c in zip(jobs, calls)}, flush=True)
+    results = []
+    for c in calls:
+        try:
+            results.append(c.get())
+        except Exception as e:
+            results.append({"error": repr(e)})
+    return results
+
+
 @app.function(volumes={"/vol": vol}, timeout=5 * 3600)
-def launch_all(smoke: bool = False, only: str = ""):
+def launch_all(smoke: bool = False, only: str = "", launch_id: str = ""):
     """Spawns every run from inside Modal, so `modal run --detach` keeps them all alive (a detached app only
     keeps the last function the local client triggered) even if the laptop disconnects."""
     tags = [t for t in CONFIGS if not only or t in only.split(",")]
-    calls = {t: train.spawn(t, smoke) for t in tags}
+    launch_id = launch_id or f"train-{time.time_ns()}"
+    calls = {t: _spawn_once(launch_id, t, train, t, smoke) for t in tags}
     print("spawned:", {t: c.object_id for t, c in calls.items()}, flush=True)
     results = {}
     for t, c in calls.items():
@@ -139,11 +206,11 @@ def launch_all(smoke: bool = False, only: str = ""):
 
 
 @app.local_entrypoint()
-def main(smoke: bool = False, only: str = ""):
-    results = launch_all.remote(smoke, only)
+def main(smoke: bool = False, only: str = "", out: str = ""):
+    results = launch_all.remote(smoke, only, f"train-{time.time_ns()}") # id fixed by the client, so a restarted launcher reattaches
     for t, r in results.items():
         print(t, json.dumps({k: r.get(k) for k in ("returncode", "val_bpb", "core", "train_minutes", "tok_per_sec",
                                                    "mfu_pct", "peak_mem_mib", "fa3", "container_s", "error")}), flush=True)
-    name = "smoke_results.json" if smoke else "d12_results.json"
+    name = out or ("smoke_results.json" if smoke else "d12_results.json")
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), name), "w") as f:
         json.dump(results, f, indent=2)
