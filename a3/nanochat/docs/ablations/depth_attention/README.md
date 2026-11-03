@@ -168,7 +168,7 @@ Run the offline acceptance checks:
 
 ```bash
 OMP_NUM_THREADS=1 .venv/bin/python -m pytest -q \
-  tests/test_depth_attention.py tests/test_depth_attention_smoke.py
+  tests/ablations/test_depth_attention.py tests/ablations/test_depth_attention_smoke.py
 ```
 
 The tests cover manual arithmetic, same-position mixing, recursive values, source

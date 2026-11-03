@@ -177,7 +177,7 @@ def test_existing_baseline_checkpoint_loads_without_activation_config(tmp_path, 
 @pytest.mark.parametrize("active_projections", [False, True])
 def test_default_baseline_matches_original_model(monkeypatch, active_projections):
     """Preserve baseline initialization, gradients, counts and optimizer updates."""
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     original = subprocess.run(["git", "show", "92d63d4:./nanochat/gpt.py"],
                               cwd=root, capture_output=True, encoding="utf-8")
     if original.returncode != 0:

@@ -107,6 +107,17 @@ See an example [here](https://github.com/karpathy/nanochat/pull/498#issuecomment
 
 The important thing to note is that nanochat is written and configured around one single dial of complexity - the depth of the transformer. This single integer automatically determines all other hyperparameters (the width of the transformer, number of heads, learning rate adjustments, training horizons, weight decays, ...) so that the trained model comes out compute optimal. The idea is that the user doesn't have to think about or set any of this, they are simply asking for a smaller or bigger model using `--depth`, and everything "just works". By sweeping out the depth, you achieve the nanochat miniseries of compute optimal models at various sizes. GPT-2 capability model (which is of most interest at the moment) happens to be somewhere around d24-d26 range with the current code. But any candidate changes to the repo have to be principled enough that they work for all settings of depth.
 
+## Architecture ablations
+
+See [docs/ablations/README.md](docs/ablations/README.md) for the looped-depth,
+xIPReLU, Differential Attention V2, Depth-Attention and MGVR documentation.
+Their tests are centralized in `tests/ablations/` and can be run from the
+repository root:
+
+```sh
+OMP_NUM_THREADS=1 python -m pytest -q tests/ablations/
+```
+
 ## Running on CPU / MPS
 
 The script [runs/runcpu.sh](runs/runcpu.sh) shows a very simple example of running on CPU or Apple Silicon. It dramatically shrinks the LLM that is being trained to make things fit into a reasonable time interval of a few ten minutes of training. You will not get strong results in this way.
@@ -150,6 +161,19 @@ I've published a number of guides that might contain helpful information, most r
 ├── dev
 │   ├── nanochat.png
 │   └── repackage_data_reference.py # Pretraining data shard generation
+├── docs
+│   └── ablations
+│       ├── README.md              # Index and test commands
+│       ├── looped
+│       │   └── README.md
+│       ├── xiprelu
+│       │   └── README.md
+│       ├── diff_v2
+│       │   └── README.md
+│       ├── depth_attention
+│       │   └── README.md
+│       └── mgvr
+│           └── README.md
 ├── nanochat
 │   ├── __init__.py                 # empty
 │   ├── checkpoint_manager.py       # Save/Load model checkpoints
@@ -187,6 +211,16 @@ I've published a number of guides that might contain helpful information, most r
 │   ├── mmlu.py                     # Multiple choice questions, broad topics
 │   └── smoltalk.py                 # Conglomerate dataset of SmolTalk from HF
 ├── tests
+│   ├── ablations
+│   │   ├── test_looped.py
+│   │   ├── test_xiprelu.py
+│   │   ├── test_xiprelu_smoke.py
+│   │   ├── test_diff_v2.py
+│   │   ├── test_diff_v2_smoke.py
+│   │   ├── test_depth_attention.py
+│   │   ├── test_depth_attention_smoke.py
+│   │   ├── test_mgvr.py
+│   │   └── test_mgvr_smoke.py
 │   ├── test_attention_fallback.py  # FA3/SDPA attention fallback
 │   ├── test_engine.py              # Inference engine, KV cache
 │   ├── test_execution.py           # Sandboxed code execution

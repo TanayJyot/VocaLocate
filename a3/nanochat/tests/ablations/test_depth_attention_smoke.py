@@ -30,7 +30,7 @@ def test_compiled_training_and_resume(local_data, combined):
     previous = None
     for step, options in ((3, ["--num-iterations=3"]),
                           (4, ["--num-iterations=4", "--resume-from-step=3"])):
-        result = subprocess.run(command + options, cwd=Path(__file__).resolve().parents[1], env=environment,
+        result = subprocess.run(command + options, cwd=Path(__file__).resolve().parents[2], env=environment,
                                 capture_output=True, text=True, timeout=120)
         assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
         meta = json.loads((directory / f"meta_{step:06d}.json").read_text())

@@ -112,9 +112,9 @@ checkout; no external runner was edited or launched.
 | `scripts/base_train.py` | CLI flag, config persistence and distinct default tag |
 | `scripts/chat_sft.py` | Preserve the flag in its manually assembled checkpoint config and default tag |
 | `scripts/chat_rl.py` | Preserve the flag and default tag when saving |
-| `tests/test_diff_v2.py` | Arithmetic, baseline/xIPReLU regression, dtype, training, cache, checkpoint, FLOPs and compile checks |
-| `tests/test_diff_v2_smoke.py` | Real trainer compilation, checkpoint saving and resume, reusing existing offline smoke data |
-| `dev/diff_v2.md` | Explanation, usage and verification report |
+| `tests/ablations/test_diff_v2.py` | Arithmetic, baseline/xIPReLU regression, dtype, training, cache, checkpoint, FLOPs and compile checks |
+| `tests/ablations/test_diff_v2_smoke.py` | Real trainer compilation, checkpoint saving and resume, reusing existing offline smoke data |
+| `docs/ablations/diff_v2/README.md` | Explanation, usage and verification report |
 
 The attention backend, optimizer implementation and existing tests are unchanged.
 The production Python patch adds about 30 lines. No custom kernels or new runtime
@@ -126,9 +126,9 @@ On November 2, 2026, the revised initialization passed the following checks on
 CPU SDPA with PyTorch 2.9.1:
 
 - Diff V2 and Depth-Attention unit/integration checks: **87 passed, 6 skipped**
-  (`tests/test_diff_v2.py` and `tests/test_depth_attention.py`). Skips require CUDA.
+  (`tests/ablations/test_diff_v2.py` and `tests/ablations/test_depth_attention.py`). Skips require CUDA.
 - All four real compiled trainer/checkpoint-resume smoke cases passed
-  (`tests/test_diff_v2_smoke.py` and `tests/test_depth_attention_smoke.py`).
+  (`tests/ablations/test_diff_v2_smoke.py` and `tests/ablations/test_depth_attention_smoke.py`).
   Compilation uses the CPU `aot_eager` backend, not GPU Inductor.
 - Shape/dtype coverage now includes one and six output heads of dimension 128,
   as well as tiny GQA heads, each in FP32, BF16 and FP16. Master projection
@@ -199,6 +199,6 @@ checks use `aot_eager`; GPU kernel compilation still requires a short GPU smoke.
 Reproduce the focused checks or all tests using the local environment:
 
 ```sh
-.venv/bin/python -m pytest tests/test_diff_v2.py tests/test_diff_v2_smoke.py -v
+.venv/bin/python -m pytest tests/ablations/test_diff_v2.py tests/ablations/test_diff_v2_smoke.py -v
 .venv/bin/python -m pytest tests -q
 ```

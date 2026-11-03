@@ -1,11 +1,11 @@
 """
 Tests for the looped (weight-shared recurrent depth) GPT. Run with:
 
-python -m pytest tests/test_looped.py -v
+python -m pytest tests/ablations/test_looped.py -v
 """
 
 import importlib.util
-import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -46,7 +46,7 @@ def test_layer_plan():
 def test_default_matches_original_gpt():
     """n_loops=1 must reproduce the pre-change model exactly (same params, same logits, same flops)."""
     # upstream karpathy/nanochat commit just before looping was added (the un-looped reference model)
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = Path(__file__).resolve().parents[2]
     git = lambda *a: subprocess.run(["git", *a], cwd=root, capture_output=True, text=True, encoding="utf-8")
     src = git("show", "92d63d4:./nanochat/gpt.py")
     if src.returncode != 0:

@@ -133,7 +133,7 @@ def test_training_retains_only_stride_sources_after_value_embedding_and_qk_norm(
 def previous_gpt(monkeypatch):
     # Immutable repository state before Depth-Attention, including all local ablations.
     result = subprocess.run(["git", "show", "0fb10042b1ce1c1f07bf9b744e7466d0733049b6:./nanochat/gpt.py"],
-                            cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+                            cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
     if result.returncode:
         pytest.skip("Pre-Depth-Attention Git reference unavailable")
     module = ModuleType("_pre_depth_attention_gpt")
@@ -310,7 +310,7 @@ def test_strict_checkpoint_roundtrip_and_old_metadata(tmp_path, monkeypatch, ena
 @pytest.mark.parametrize("enabled", [False, True])
 def test_finetuning_checkpoint_preserves_opt_in_without_training(tmp_path, monkeypatch, script, folder, enabled):
     # Execute the real save block offline; importing these scripts would launch training.
-    source = Path(__file__).resolve().parents[1] / "scripts" / script
+    source = Path(__file__).resolve().parents[2] / "scripts" / script
     tree = ast.parse(source.read_text())
     block = next(node for node in ast.walk(tree) if isinstance(node, ast.If) and any(
         isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)

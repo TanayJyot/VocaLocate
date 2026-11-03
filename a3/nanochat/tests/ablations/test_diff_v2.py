@@ -46,7 +46,7 @@ def previous_gpt(monkeypatch):
     # Pin the local baseline + xIPReLU implementation immediately before this change.
     result = subprocess.run(
         ["git", "show", "2aece7fd74449ead75399995bb8352beb53ffb95:./nanochat/gpt.py"],
-        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+        cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
     if result.returncode:
         pytest.skip("Pre-Diff-V2 Git reference unavailable in this clone")
     module = ModuleType("_pre_diff_v2_gpt")

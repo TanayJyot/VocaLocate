@@ -4,13 +4,13 @@ From the repository root, using a Python environment with the project dependenci
 and pytest installed:
 
 ```sh
-python -m pytest -q tests/test_xiprelu_smoke.py
+python -m pytest -q tests/ablations/test_xiprelu_smoke.py
 ```
 
 Alternatively, let uv prepare the CPU dependencies:
 
 ```sh
-uv run --extra cpu --with pytest python -m pytest -q tests/test_xiprelu_smoke.py
+uv run --extra cpu --with pytest python -m pytest -q tests/ablations/test_xiprelu_smoke.py
 ```
 
 The test uses the real `scripts.base_train` entry point with a two-layer,
@@ -50,5 +50,5 @@ ReLU². That requires matched, adequately trained runs on meaningful data.
 For the numerical, checkpoint, inference and baseline regression tests as well:
 
 ```sh
-python -m pytest -q tests/test_xiprelu.py tests/test_xiprelu_smoke.py
+python -m pytest -q tests/ablations/test_xiprelu.py tests/ablations/test_xiprelu_smoke.py
 ```

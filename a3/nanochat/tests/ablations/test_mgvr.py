@@ -105,7 +105,7 @@ def test_first_layer_anchor_keeps_projection_and_ve_autograd():
 @pytest.fixture
 def previous_gpt(monkeypatch):
     result = subprocess.run(["git", "show", "d854e74:./nanochat/gpt.py"],
-                            cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+                            cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
     if result.returncode:
         pytest.skip("Pre-MGVR Git reference unavailable")
     module = ModuleType("_pre_mgvr_gpt")
@@ -263,7 +263,7 @@ def test_depth12_parameter_budget_and_meta_initialization():
 @pytest.mark.parametrize("script,folder", [("chat_sft.py", "chatsft_checkpoints"), ("chat_rl.py", "chatrl_checkpoints")])
 @pytest.mark.parametrize("enabled", [False, True])
 def test_finetuning_save_blocks_preserve_flag_and_directory(tmp_path, monkeypatch, script, folder, enabled):
-    source = Path(__file__).resolve().parents[1] / "scripts" / script
+    source = Path(__file__).resolve().parents[2] / "scripts" / script
     block = next(node for node in ast.walk(ast.parse(source.read_text())) if isinstance(node, ast.If) and any(
         isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)
         and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == "save_checkpoint" for stmt in node.body))

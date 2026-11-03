@@ -1,4 +1,4 @@
-"""Offline CPU smoke test: python -m pytest -q tests/test_xiprelu_smoke.py.
+"""Offline CPU smoke test: python -m pytest -q tests/ablations/test_xiprelu_smoke.py.
 
 Runs the real trainer with tiny generated data and AOTAutograd compilation.
 CUDA, Flash Attention, FP8 and GPU kernel generation need GPU checks separately.
@@ -120,7 +120,7 @@ def test_local_compiled_training_and_resume(local_data, activation, n_loops, cap
     history = {}
     for step, options in ((3, ["--num-iterations=3"]),
                           (4, ["--num-iterations=4", "--resume-from-step=3"])):
-        result = subprocess.run(command + options, cwd=Path(__file__).resolve().parents[1],
+        result = subprocess.run(command + options, cwd=Path(__file__).resolve().parents[2],
                                 env=environment, capture_output=True, encoding="utf-8", timeout=90)
         assert result.returncode == 0, f"{activation} step {step}\n{result.stdout}\n{result.stderr}"
         metadata = json.loads((checkpoint_dir / f"meta_{step:06d}.json").read_text())
