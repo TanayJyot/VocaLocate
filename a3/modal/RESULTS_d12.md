@@ -177,7 +177,12 @@ MGVR's unevenly shaped matrices instead of sharding it. That is a cost of the im
 
 ## W&B
 
-The runs were logged with `WANDB_MODE=offline` and saved in `out/wandb/wandb/`. To upload them to your W&B
+All 13 runs are uploaded to the W&B project
+[vocalocate-a3](https://forge.coreweave.com/wandb/tanayjyot-university-of-toronto/vocalocate-a3/workspace), tagged
+`pr27`, `looped`, `extension`, `control` or `repeat`. The figures in `figures/` are rebuilt from the committed logs
+with `python plots.py`.
+
+The runs were logged with `WANDB_MODE=offline` and saved in `out/wandb/wandb/`. To upload them to another W&B
 account (run `wandb login` first):
 
 ```bash
