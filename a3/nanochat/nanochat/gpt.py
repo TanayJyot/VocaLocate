@@ -50,6 +50,14 @@ class GPTConfig:
     n_loops: int = 1
     n_prelude: int = 0
     n_coda: int = 0
+    # loop_embed: a learned vector per core pass, added to the residual stream at the start of that pass so the
+    # shared blocks can tell which iteration they are in (zero init = starts as the plain looped model).
+    loop_embed: bool = False
+    # Random loop count: training draws the loop count uniformly from [n_loops_min, n_loops_max] each step
+    # (0 = same as n_loops); n_loops stays the default used for eval and inference. Per-step scalars are sized for
+    # n_passes = max(n_loops, n_loops_max) core passes; running more passes than that reuses the last pass's.
+    n_loops_min: int = 0
+    n_loops_max: int = 0
     # Differential Attention V2: two adjacent query heads per effective output head.
     diff_v2: bool = False
     depth_attention: bool = False
@@ -73,12 +81,38 @@ class GPTConfig:
     def effective_depth(self):
         return self.n_prelude + self.n_core * self.n_loops + self.n_coda
 
-    def layer_plan(self):
+    @property
+    def loop_range(self):
+        """(min, max) loop count used in training; (n_loops, n_loops) unless random loop counts are on."""
+        lo, hi = self.n_loops_min or self.n_loops, self.n_loops_max or self.n_loops
+        assert 1 <= lo <= self.n_loops <= hi, f"need 1 <= n_loops_min <= n_loops <= n_loops_max, got {lo}, {self.n_loops}, {hi}"
+        return lo, hi
+
+    @property
+    def n_passes(self):
+        return self.loop_range[1]
+
+    @property
+    def n_step_slots(self):
+        """Number of per-step scalar slots (== effective_depth unless n_loops_max > n_loops)."""
+        return self.n_prelude + self.n_core * self.n_passes + self.n_coda
+
+    def layer_plan(self, n_loops=None):
         """Block index used at each executed step, e.g. n_layer=4, prelude=1, coda=1, loops=3 -> [0,1,2,1,2,1,2,3]."""
-        assert self.n_loops >= 1 and self.n_prelude >= 0 and self.n_coda >= 0
+        n_loops = self.n_loops if n_loops is None else n_loops
+        assert n_loops >= 1 and self.n_prelude >= 0 and self.n_coda >= 0
         assert self.n_core >= 1, f"need at least one core block: n_layer={self.n_layer}, prelude={self.n_prelude}, coda={self.n_coda}"
         core = list(range(self.n_prelude, self.n_prelude + self.n_core))
-        return list(range(self.n_prelude)) + core * self.n_loops + list(range(self.n_layer - self.n_coda, self.n_layer))
+        return list(range(self.n_prelude)) + core * n_loops + list(range(self.n_layer - self.n_coda, self.n_layer))
+
+    def step_slots(self, n_loops=None):
+        """Per-step scalar slot used at each executed step. Equals range(effective_depth) for a fixed loop count;
+        core passes beyond n_passes reuse the last pass's slots, and the coda always keeps its own."""
+        n_loops = self.n_loops if n_loops is None else n_loops
+        last = self.n_passes - 1
+        core = [self.n_prelude + min(j, last) * self.n_core + k for j in range(n_loops) for k in range(self.n_core)]
+        coda_start = self.n_prelude + self.n_core * self.n_passes
+        return list(range(self.n_prelude)) + core + list(range(coda_start, coda_start + self.n_coda))
 
 
 def norm(x):
@@ -320,9 +354,14 @@ class GPT(nn.Module):
         self.config = config
         # Compute per-layer window sizes for sliding window attention
         # window_size is (left, right) tuple: (-1, 0) for full context, (N, 0) for sliding window
+        variable_loops = config.loop_range[0] < config.loop_range[1]
+        assert not ((variable_loops or config.loop_embed) and (config.depth_attention or config.mgvr)), \
+            "loop_embed / random loop counts are not supported together with depth_attention or mgvr"
+        self.slot_windows = self._compute_window_sizes(config) # one per per-step scalar slot
+        self._plans = {n: self._execution_plan(n) for n in range(config.loop_range[0], config.loop_range[1] + 1)}
         self.layer_plan = config.layer_plan() # block index executed at each step (length = effective depth)
         self.eff_depth = len(self.layer_plan)
-        self.window_sizes = self._compute_window_sizes(config) # one per executed step
+        self.window_sizes = self._plans[config.n_loops]["windows"] # one per executed step
         # Pad vocab for efficiency (DDP, tensor cores). This is just an optimization - outputs are cropped in forward().
         # https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.resize_token_embeddings
         padded_vocab_size = ((config.vocab_size + pad_vocab_size_to - 1) // pad_vocab_size_to) * pad_vocab_size_to
@@ -337,8 +376,10 @@ class GPT(nn.Module):
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
         # x0_lambdas: blends initial embedding back in at each layer (init 0.0 = disabled)
         # Separate parameters so they can have different optimizer treatment
-        self.resid_lambdas = nn.Parameter(torch.ones(self.eff_depth))   # (per executed step, not per unique block) fake init, real init in init_weights()
-        self.x0_lambdas = nn.Parameter(torch.zeros(self.eff_depth))     # (per executed step) fake init, real init in init_weights()
+        self.resid_lambdas = nn.Parameter(torch.ones(config.n_step_slots))   # (per executed step slot, not per unique block) fake init, real init in init_weights()
+        self.x0_lambdas = nn.Parameter(torch.zeros(config.n_step_slots))     # (per executed step slot) fake init, real init in init_weights()
+        # Per-loop embeddings: one vector per core pass (None unless loop_embed)
+        self.loop_embeds = nn.Parameter(torch.zeros(config.n_passes, config.n_embd)) if config.loop_embed else None
         # Smear: mix previous token's embedding into current token (cheap bigram-like info)
         self.smear_gate = Linear(24, 1, bias=False)
         self.smear_lambda = nn.Parameter(torch.zeros(1))
@@ -399,13 +440,15 @@ class GPT(nn.Module):
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
-        n_layer = self.eff_depth # effective depth: schedules are over executed steps
+        n_layer = self.config.n_step_slots # schedules are over executed step slots (== effective depth for fixed loops)
         for i in range(n_layer):
             self.resid_lambdas.data[i] = 1.15 - (0.10 * i / max(n_layer - 1, 1))
         # Decaying x0 init: earlier layers get more input embedding blending
         # (with looping this doubles as "input injection" into every iteration, as in recurrent-depth models)
         for i in range(n_layer):
             self.x0_lambdas.data[i] = 0.20 - (0.15 * i / max(n_layer - 1, 1))
+        if self.loop_embeds is not None:
+            torch.nn.init.zeros_(self.loop_embeds)
 
         # Smear/backout scalars and smear gate must be explicitly initialized 
         torch.nn.init.zeros_(self.smear_lambda)
@@ -471,19 +514,36 @@ class GPT(nn.Module):
             "L": (long_window, 0),
             "S": (short_window, 0),
         }
-        # Tile pattern across layers
+        # Tile pattern across step slots (== executed layers for a fixed loop count)
         window_sizes = []
-        for layer_idx in range(self.eff_depth):
+        for layer_idx in range(config.n_step_slots):
             char = pattern[layer_idx % len(pattern)]
             window_sizes.append(char_to_window[char])
         # Final layer always gets full context
         window_sizes[-1] = (long_window, 0)
         return window_sizes
 
+    def _execution_plan(self, n_loops):
+        """What runs at each executed step for a given loop count: block index, scalar slot, window size, and
+        (at the first step of each core pass) which loop embedding to add."""
+        config = self.config
+        blocks, slots = config.layer_plan(n_loops), config.step_slots(n_loops)
+        windows = [self.slot_windows[s] for s in slots]
+        windows[-1] = (config.sequence_len, 0) # final executed layer always gets full context
+        pass_starts = {config.n_prelude + j * config.n_core: min(j, config.n_passes - 1) for j in range(n_loops)}
+        return dict(blocks=blocks, slots=slots, windows=windows, pass_starts=pass_starts)
+
+    def execution_plan(self, n_loops=None):
+        n_loops = self.config.n_loops if n_loops is None else n_loops
+        plan = self._plans[n_loops] if n_loops in self._plans else self._execution_plan(n_loops)
+        if n_loops == self.config.n_loops: # the default loop count follows self.window_sizes, which callers may override
+            plan = {**plan, "windows": self.window_sizes}
+        return plan
+
     def get_device(self):
         return self.transformer.wte.weight.device
 
-    def estimate_flops(self):
+    def estimate_flops(self, n_loops=None):
         """
         Return the estimated FLOPs per token for the model (forward + backward).
         Each matmul weight parameter contributes 2 FLOPs (multiply *, accumulate +) in forward, and 2X that in backward => 2+4=6.
@@ -494,16 +554,21 @@ class GPT(nn.Module):
         This is ~1% off from the exact formulas of Chinchilla paper, the difference is:
         - Chinchilla counts the embedding layer as flops (? weird, it's just a lookup => we ignore)
         - Chinchilla counts exp/sum/divide in attention softmax as flops (a little sus and very tiny => we ignore)
+        With random loop counts (n_loops=None and n_loops_min < n_loops_max) this is the expected training cost,
+        averaged over the uniformly sampled loop counts.
         """
+        lo, hi = self.config.loop_range
+        if n_loops is None and lo < hi:
+            return sum(self.estimate_flops(n) for n in range(lo, hi + 1)) / (hi - lo + 1)
         h, q, t = self.config.n_head, self.config.n_embd // self.config.n_head, self.config.sequence_len
         h *= 2 if self.config.diff_v2 else 1 # attention runs before differential pairs are reduced
         # Sum attention FLOPs per layer, accounting for sliding window
         attn_flops = 0
-        for window_size in self.window_sizes:
+        for window_size in self.execution_plan(n_loops)["windows"]:
             window = window_size[0]  # (left, right) tuple, we use left
             effective_seq = t if window < 0 else min(window, t)
             attn_flops += 12 * h * q * effective_seq
-        num_flops_per_token = 6 * self.num_matmul_params() + attn_flops
+        num_flops_per_token = 6 * self.num_matmul_params(n_loops) + attn_flops
         if self.config.depth_attention:
             num_flops_per_token += 3 * self.estimate_depth_attention_flops()
         if self.config.mgvr:
@@ -531,7 +596,7 @@ class GPT(nn.Module):
         candidates = sum(len(depth_source_layers(i, stride)) for i in range(1, self.eff_depth))
         return 4 * self.config.n_kv_head * (self.config.n_embd // self.config.n_head) * candidates
 
-    def num_matmul_params(self):
+    def num_matmul_params(self, n_loops=None):
         """
         The number of (execution-weighted) parameters that participate in matmuls with the token stream,
         i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally from
@@ -540,7 +605,7 @@ class GPT(nn.Module):
         """
         # With looping a shared block executes several times per token, so its params count once per execution.
         uses = {}
-        for b in self.layer_plan:
+        for b in self.execution_plan(n_loops)["blocks"]:
             uses[b] = uses.get(b, 0) + 1
         matmul_params = 0
         for b, block in enumerate(self.transformer.h):
@@ -622,7 +687,8 @@ class GPT(nn.Module):
         transformer_matrices -= mgvr # preserve the trainer's original scaling-law budget/schedule
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
         scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
-        total = wte + value_embeds + lm_head + transformer_matrices + scalars + mgvr
+        scalars += self.loop_embeds.numel() if self.loop_embeds is not None else 0
+        total =wte + value_embeds + lm_head + transformer_matrices + scalars + mgvr
         assert total == sum(p.numel() for p in self.parameters()), "Parameter count mismatch"
         return {
             'wte': wte,
@@ -648,7 +714,8 @@ class GPT(nn.Module):
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
         smear_params = [self.smear_gate.weight, self.smear_lambda, self.backout_lambda]
-        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(mgvr_params)
+        loop_embed_params = [self.loop_embeds] if self.loop_embeds is not None else []
+        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(mgvr_params) + len(loop_embed_params)
 
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (tuned for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -669,6 +736,10 @@ class GPT(nn.Module):
             # unconstrained raw coefficients. Muon only accepts matrices.
             param_groups.append(dict(kind='adamw', params=activation_params, lr=scalar_lr * 0.01,
                                      betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0))
+        if loop_embed_params:
+            # Added to the residual stream like an embedding: a tenth of the token-embedding LR, no weight decay
+            param_groups.append(dict(kind='adamw', params=loop_embed_params, lr=embedding_lr * dmodel_lr_scale * 0.1,
+                                     betas=(0.8, 0.995), eps=1e-10, weight_decay=0.0))
         if mgvr_params:
             param_groups.append(dict(kind='adamw', params=mgvr_params, lr=unembedding_lr * dmodel_lr_scale,
                                      betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0))
@@ -717,8 +788,11 @@ class GPT(nn.Module):
         names = ("gate_mean", "added_to_current_norm", "mix_norm", "offdiagonal_mix_norm")
         return dict(zip(names, torch.stack(rows).mean(0).cpu().tolist())) if rows else {}
 
-    def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
+    def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean', n_loops=None):
+        """n_loops overrides config.n_loops for this call (random-loop training, loop-count sweeps at eval)."""
         B, T = idx.size()
+        plan = self.execution_plan(n_loops)
+        assert kv_cache is None or len(plan["blocks"]) == self.eff_depth, "the KV cache has one slot per step of the default loop count"
 
         # Grab the rotary embeddings for the current sequence length (they are of shape (1, seq_len, 1, head_dim/2))
         assert T <= self.cos.size(1), f"Sequence length grew beyond the rotary embeddings cache: {T} > {self.cos.size(1)}"
@@ -762,19 +836,22 @@ class GPT(nn.Module):
 
         # Forward the trunk of the Transformer
         x0 = x  # save initial normalized embedding for x0 residual
-        backout_layer = self.eff_depth // 2  # cache at halfway point of the executed steps
+        backout_layer = len(plan["blocks"]) // 2  # cache at halfway point of the executed steps
         x_backout = None
         depth_kv = [] if self.config.depth_attention and kv_cache is None else None
         first_layer_v = [] if self.config.mgvr else None
-        for i, b in enumerate(self.layer_plan): # i = executed step, b = which (possibly shared) block runs at this step
-            x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
+        # i = executed step (KV cache slot), b = which (possibly shared) block runs, s = per-step scalar slot
+        for i, (b, s, window) in enumerate(zip(plan["blocks"], plan["slots"], plan["windows"])):
+            x = self.resid_lambdas[s] * x + self.x0_lambdas[s] * x0
+            if self.loop_embeds is not None and i in plan["pass_starts"]:
+                x = x + self.loop_embeds[plan["pass_starts"][i]].to(x.dtype)
             ve = self.value_embeds[str(b)](idx).to(x.dtype) if str(b) in self.value_embeds else None
             if self.config.mgvr:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i, depth_kv, first_layer_v)
+                x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i, depth_kv, first_layer_v)
             elif self.config.depth_attention:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i, depth_kv)
+                x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i, depth_kv)
             else:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
+                x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection

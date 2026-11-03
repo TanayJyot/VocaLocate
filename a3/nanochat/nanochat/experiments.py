@@ -13,7 +13,7 @@ def select_experiment(args):
     if selected is None:
         return
     active = set()
-    if args.n_loops != 1:
+    if args.n_loops != 1 or any(getattr(args, k, 0) for k in ("loop_embed", "n_loops_min", "n_loops_max")):
         active.add("looped")
     if args.mlp_activation != "relu2":
         active.add("xiprelu")

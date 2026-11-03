@@ -45,7 +45,8 @@ def test_selection_rejects_other_enabled_ablations(selected, extra):
         select_experiment(options(experiment=selected, **flags))
 
 
-@pytest.mark.parametrize("flag", [dict(n_prelude=1), dict(n_coda=1), dict(depth_attention_stride=2)])
+@pytest.mark.parametrize("flag", [dict(n_prelude=1), dict(n_coda=1), dict(depth_attention_stride=2),
+                                  dict(loop_embed=True), dict(n_loops_max=3)])
 def test_baseline_rejects_stray_architecture_options(flag):
     with pytest.raises(ValueError):
         select_experiment(options(experiment="baseline", **flag))

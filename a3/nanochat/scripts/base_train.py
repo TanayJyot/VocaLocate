@@ -17,6 +17,7 @@ import gc
 import json
 import time
 import math
+import random
 import argparse
 from dataclasses import asdict
 from contextlib import contextmanager
@@ -56,6 +57,9 @@ parser.add_argument("--max-seq-len", type=int, default=2048, help="max context l
 parser.add_argument("--n-loops", type=int, default=1, help="looped model: times the core blocks are executed with shared weights (1 = ordinary GPT)")
 parser.add_argument("--n-prelude", type=int, default=0, help="looped model: unique blocks run once before the loop (counted inside --depth)")
 parser.add_argument("--n-coda", type=int, default=0, help="looped model: unique blocks run once after the loop (counted inside --depth)")
+parser.add_argument("--loop-embed", action="store_true", help="looped model: add a learned vector per core pass to the residual stream")
+parser.add_argument("--n-loops-min", type=int, default=0, help="looped model: train with a loop count drawn uniformly from [min, max] each step (0 = --n-loops)")
+parser.add_argument("--n-loops-max", type=int, default=0, help="looped model: upper end of the random loop count (0 = --n-loops); eval uses --n-loops")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
 parser.add_argument("--mlp-activation", choices=["relu2", "xiprelu"], default="relu2", help="MLP activation; xiprelu adds two learned scalars per layer")
 parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
@@ -165,6 +169,9 @@ def build_model_meta(depth, looped=True):
         n_loops=args.n_loops if looped else 1,
         n_prelude=args.n_prelude if looped else 0,
         n_coda=args.n_coda if looped else 0,
+        loop_embed=args.loop_embed if looped else False,
+        n_loops_min=args.n_loops_min if looped else 0,
+        n_loops_max=args.n_loops_max if looped else 0,
         mlp_activation=args.mlp_activation,
         diff_v2=args.diff_v2,
         depth_attention=args.depth_attention,
@@ -189,6 +196,9 @@ if not model_config.depth_attention:
     model_config_kwargs.pop("depth_attention_stride")
 if not model_config.mgvr:
     model_config_kwargs.pop("mgvr")
+for key in ("loop_embed", "n_loops_min", "n_loops_max"):
+    if not model_config_kwargs[key]:
+        model_config_kwargs.pop(key)
 print0(f"Model config:\n{json.dumps(model_config_kwargs, indent=2)}")
 model.to_empty(device=device) # 2) All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # 3) All tensors get initialized
@@ -304,6 +314,10 @@ def disable_fp8(model):
 # -----------------------------------------------------------------------------
 # Compile the model
 
+random_loops = model_config.loop_range[0] < model_config.loop_range[1]
+loop_rng = random.Random(42) # same draws on every rank, so DDP ranks always run the same loop count
+if random_loops:
+    print0(f"Random loop count: uniform over {model_config.loop_range} each step (compiles once per value), eval uses {model_config.n_loops}")
 orig_model = model # original, uncompiled model, for saving raw model state_dict and for inference/evaluation (because the shapes may change shape)
 model = torch.compile(model, dynamic=False) # the inputs to model will never change shape so dynamic=False is safe
 
@@ -601,8 +615,9 @@ while True:
     # evaluate the gradient
     synchronize()
     t0 = time.time()
+    train_loops = loop_rng.randint(*model_config.loop_range) if random_loops else None # one loop count per optimizer step
     for micro_step in range(grad_accum_steps):
-        loss = model(x, y)
+        loss = model(x, y, n_loops=train_loops)
         train_loss = loss.detach() # for logging
         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
         if scaler is not None:
