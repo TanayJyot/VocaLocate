@@ -1,4 +1,4 @@
-"""Exercise the real trainer offline, reusing the existing xIPReLU smoke data."""
+"""Exercise the real trainer offline, reusing the shared smoke data."""
 import json
 import os
 from pathlib import Path
@@ -8,10 +8,10 @@ import sys
 import pytest
 import torch
 
-from test_xiprelu_smoke import LOCAL_TRAINER, local_data
+from smoke_helpers import LOCAL_TRAINER, local_data
 
 
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 def test_compiled_diff_v2_training_and_resume(local_data, activation):
     environment = dict(os.environ, NANOCHAT_BASE_DIR=str(local_data),
                        NANOCHAT_DTYPE="float32", PYTHONDONTWRITEBYTECODE="1",
@@ -20,14 +20,13 @@ def test_compiled_diff_v2_training_and_resume(local_data, activation):
         environment.pop(name, None)
     command = [
         sys.executable, "-c", LOCAL_TRAINER, "--diff-v2",
-        f"--mlp-activation={activation}",
         "--device-type=cpu", "--depth=2", "--aspect-ratio=16", "--head-dim=8",
         "--max-seq-len=16", "--window-pattern=L", "--device-batch-size=2",
         "--total-batch-size=32", "--eval-every=1", "--eval-tokens=32",
         "--core-metric-every=-1", "--sample-every=-1", "--warmup-steps=0",
         "--warmdown-ratio=0", "--weight-decay=0", "--run=dummy",
     ]
-    tag = "d2" + ("-xiprelu" if activation == "xiprelu" else "") + "-diff-v2"
+    tag = "d2-diff-v2"
     directory = local_data / "base_checkpoints" / tag
     previous = None
     for step, options in ((3, ["--num-iterations=3"]),
@@ -48,13 +47,7 @@ def test_compiled_diff_v2_training_and_resume(local_data, activation):
             assert weights[f"transformer.h.{layer}.attn.c_q.weight"].shape == (64, 32)
             if previous is not None:
                 assert not torch.equal(weights[key], previous[key])
-        if activation == "xiprelu":
-            assert meta["model_config"]["mlp_activation"] == "xiprelu"
-            assert len(meta["activation_stats"]) == 4
-            assert all(abs(value - 0.8) > 1e-7 for value in meta["activation_stats"].values())
-        else:
-            assert "mlp_activation" not in meta["model_config"]
-            assert "activation_stats" not in meta
+        assert "activation_stats" not in meta
         assert "SDPA fallback" in result.stdout
         previous = weights
         print(f"{tag} step {step}: {sum(v.numel() for v in weights.values()):,} parameters, "

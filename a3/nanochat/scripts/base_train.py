@@ -61,7 +61,6 @@ parser.add_argument("--loop-embed", action="store_true", help="looped model: add
 parser.add_argument("--n-loops-min", type=int, default=0, help="looped model: train with a loop count drawn uniformly from [min, max] each step (0 = --n-loops)")
 parser.add_argument("--n-loops-max", type=int, default=0, help="looped model: upper end of the random loop count (0 = --n-loops); eval uses --n-loops")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
-parser.add_argument("--mlp-activation", choices=["relu2", "xiprelu"], default="relu2", help="MLP activation; xiprelu adds two learned scalars per layer")
 parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
 parser.add_argument("--depth-attention", action="store_true", help="enable parameter-free cross-layer value mixing")
 parser.add_argument("--depth-attention-stride", type=int, default=None, help="depth source stride (default: max(1, depth // 2)); requires --depth-attention")
@@ -100,15 +99,6 @@ try:
     select_experiment(args)
 except ValueError as error:
     parser.error(str(error))
-if args.depth_attention_stride is not None and (not args.depth_attention or args.depth_attention_stride < 1):
-    parser.error("--depth-attention-stride must be positive and requires --depth-attention")
-if args.gpu_hourly_cost is not None and (not (args.depth_attention or args.mgvr) or args.gpu_hourly_cost < 0):
-    parser.error("--gpu-hourly-cost must be nonnegative and requires --depth-attention or --mgvr")
-if args.depth_attention or args.mgvr:
-    ablation_run_start = time.perf_counter()
-    ablation_step_seconds = 0.0
-    ablation_step_tokens = 0
-    ablation_core_metric = None
 user_config = vars(args).copy()  # for logging
 # -----------------------------------------------------------------------------
 # Compute init and wandb logging
@@ -193,8 +183,6 @@ model = build_model_meta(args.depth) # 1) Build on meta device (only shapes/dtyp
 model_config = model.config
 model_config_kwargs = asdict(model_config)
 # Keep baseline metadata readable by the pinned, unmodified nanochat loader.
-if model_config.mlp_activation == "relu2":
-    model_config_kwargs.pop("mlp_activation")
 if not model_config.diff_v2:
     model_config_kwargs.pop("diff_v2")
 if not model_config.depth_attention:
@@ -215,8 +203,6 @@ model.init_weights() # 3) All tensors get initialized
 # If we are resuming, overwrite the model parameters with those of the checkpoint
 base_dir = get_base_dir()
 default_tag = f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "")
-if args.mlp_activation != "relu2":
-    default_tag += f"-{args.mlp_activation}"
 if args.diff_v2:
     default_tag += "-diff-v2"
 if args.depth_attention:
@@ -237,14 +223,6 @@ resuming = args.resume_from_step != -1
 if resuming:
     print0(f"Resuming optimization from step {args.resume_from_step}")
     model_data, optimizer_data, meta_data = load_checkpoint(checkpoint_dir, args.resume_from_step, device, load_optimizer=True, rank=ddp_rank)
-    saved_config = meta_data["model_config"]
-    if args.mgvr != saved_config.get("mgvr", False):
-        raise ValueError("Resume requires the checkpoint's --mgvr setting")
-    if args.depth_attention or saved_config.get("depth_attention", False):
-        saved_depth_config = GPTConfig(**saved_config)
-        if (model_config.depth_attention != saved_depth_config.depth_attention or
-                model_config.effective_depth_attention_stride != saved_depth_config.effective_depth_attention_stride):
-            raise ValueError("Resume requires the checkpoint's --depth-attention and --depth-attention-stride settings")
     model.load_state_dict(model_data, strict=True, assign=True)
     del model_data # free up this memory after the copy
 
@@ -504,28 +482,6 @@ print0(f"Tokens / micro-batch: {world_tokens_per_fwdbwd:,}")
 print0(f"Total batch size {total_batch_size:,} => gradient accumulation steps: {grad_accum_steps}")
 
 # Go!
-def ablation_run_metrics():
-    """Opt-in measurements for this invocation, including warmup and evaluation wall time."""
-    elapsed = time.perf_counter() - ablation_run_start
-    return {
-        "wall_clock_seconds": elapsed,
-        "training_step_seconds": ablation_step_seconds,
-        "training_tokens_per_second": ablation_step_tokens / ablation_step_seconds if ablation_step_seconds else None,
-        "peak_cuda_memory_bytes_per_rank": get_max_memory() if device_type == "cuda" else None,
-        "gpu_cost": elapsed / 3600 * ddp_world_size * args.gpu_hourly_cost
-                    if device_type == "cuda" and args.gpu_hourly_cost is not None else None,
-        "gpu_hourly_cost": args.gpu_hourly_cost,
-        "val_bpb": val_bpb,
-        "core_metric": ablation_core_metric,
-        "depth_forward_flops_per_token_approx": orig_model.estimate_depth_attention_flops(),
-        **({"additional_parameters": param_counts["mgvr"],
-            "mgvr_forward_flops_per_token_approx": orig_model.estimate_mgvr_flops()
-                + 2 * sum(orig_model.transformer.h[b].attn.mgvr.w_z.numel()
-                          for b in orig_model.layer_plan if orig_model.transformer.h[b].attn.mgvr is not None)}
-           if args.mgvr else {}),
-    }
-
-mgvr_diagnostics = {}
 while True:
     last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
     flops_so_far = num_flops_per_token * total_batch_size * step
@@ -537,9 +493,6 @@ while True:
         eval_steps = args.eval_tokens // (args.device_batch_size * args.max_seq_len * ddp_world_size)
         with disable_fp8(model):
             val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
-        if args.mgvr:
-            with disable_fp8(orig_model):
-                mgvr_diagnostics = orig_model.mgvr_stats(x[:1])
         print0(f"Step {step:05d} | Validation bpb: {val_bpb:.6f}")
         if val_bpb < min_val_bpb:
             min_val_bpb = val_bpb
@@ -548,8 +501,6 @@ while True:
             "total_training_flops": flops_so_far,
             "total_training_time": total_training_time,
             "val/bpb": val_bpb,
-            **orig_model.activation_stats(),
-            **{f"mgvr/{key}": value for key, value in mgvr_diagnostics.items()},
         })
         model.train()
 
@@ -561,8 +512,6 @@ while True:
         model.eval()
         with disable_fp8(orig_model):
             results = evaluate_core(orig_model, tokenizer, device, max_per_task=args.core_metric_max_per_task)
-        if args.depth_attention or args.mgvr:
-            ablation_core_metric = results["core_metric"]
         print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
         wandb_run.log({
             "step": step,
@@ -604,9 +553,6 @@ while True:
                 "step": step,
                 "val_bpb": val_bpb, # loss at last step
                 "model_config": model_config_kwargs,
-                **({"depth_attention_metrics": ablation_run_metrics()} if args.depth_attention else {}),
-                **({"mgvr_metrics": ablation_run_metrics(), "mgvr_stats": mgvr_diagnostics} if args.mgvr else {}),
-                **({"activation_stats": orig_model.activation_stats()} if args.mlp_activation == "xiprelu" else {}),
                 "user_config": user_config, # inputs to the training script
                 "device_batch_size": args.device_batch_size,
                 "max_seq_len": args.max_seq_len,
@@ -665,9 +611,6 @@ while True:
     train_loss_f = train_loss.item() # .item() is a CPU-GPU sync point
     synchronize()
     t1 = time.time()
-    if args.depth_attention or args.mgvr:
-        ablation_step_seconds += t1 - t0
-        ablation_step_tokens += total_batch_size
     dt = t1 - t0
     # -------------------------------------------------------------------------
 
@@ -727,13 +670,5 @@ if val_bpb is not None:
     print0(f"Minimum validation bpb: {min_val_bpb:.6f}")
 
 # cleanup
-if args.depth_attention:
-    depth_metrics = ablation_run_metrics()
-    print0(f"Depth-Attention metrics (approximate FLOPs): {json.dumps(depth_metrics)}")
-    wandb_run.log({f"depth_attention/{key}": value for key, value in depth_metrics.items() if value is not None})
-if args.mgvr:
-    mgvr_metrics = ablation_run_metrics()
-    print0(f"MGVR metrics (approximate FLOPs): {json.dumps(mgvr_metrics)}")
-    wandb_run.log({f"mgvr/{key}": value for key, value in mgvr_metrics.items() if value is not None})
 wandb_run.finish() # wandb run finish
 compute_cleanup()

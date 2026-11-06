@@ -7,7 +7,7 @@ def select_experiment(args):
     """Resolve an explicit selection, rejecting flags for other architectures.
 
     Omitting the selector preserves existing CLI calls. ``combined`` requires
-    at least two enabled ablations and makes the intention to mix them explicit.
+    both ablations and makes the intention to mix them explicit.
     """
     selected = args.experiment
     if selected is None:
@@ -29,12 +29,8 @@ def select_experiment(args):
         raise ValueError(f"--experiment={selected} conflicts with enabled ablations: {', '.join(sorted(conflicts))}")
     if selected != "looped" and (args.n_prelude != 0 or args.n_coda != 0):
         raise ValueError(f"--experiment={selected} requires --n-prelude=0 and --n-coda=0")
-    if selected != "depth-attention" and args.depth_attention_stride is not None:
-        raise ValueError(f"--experiment={selected} cannot set --depth-attention-stride")
     if selected == "looped":
         if args.n_loops < 2:
             raise ValueError("--experiment=looped requires --n-loops >= 2")
-    elif selected == "xiprelu":
-        args.mlp_activation = "xiprelu"
-    elif selected != "baseline":
-        setattr(args, selected.replace("-", "_"), True)
+    elif selected == "diff-v2":
+        args.diff_v2 = True

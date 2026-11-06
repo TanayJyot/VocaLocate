@@ -4,7 +4,7 @@ Notable features:
 - rotary embeddings (and no positional embeddings)
 - QK norm
 - untied weights for token embedding and lm_head
-- relu^2 activation in MLP (optional xIPReLU ablation)
+- relu^2 activation in MLP
 - norm after token embedding
 - no learnable params in rmsnorm
 - no bias in linear layers
@@ -26,7 +26,6 @@ from nanochat.optim import MuonAdamW
 
 # Our custom Flash Attention module that automatically uses FA3 when compatible and SDPA fallback otherwise
 from nanochat.flash_attention import flash_attn
-from nanochat.depth_attention import depth_source_layers, mix_depth_values
 
 @dataclass
 class GPTConfig:
@@ -40,7 +39,6 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
-    mlp_activation: str = "relu2"
     # Looped / recurrent-depth execution (all defaults = ordinary GPT, fully backward compatible).
     # The n_layer unique blocks are split into [prelude | core | coda]:
     #   prelude = first n_prelude blocks, run once
@@ -151,32 +149,6 @@ def apply_rotary_emb(x, cos, sin):
     return torch.cat([y1, y2], 3)
 
 
-class MGVR(nn.Module):
-    """Full cross-head Value residual; zero initialization preserves NanoChat Values.
-
-    Unlike the reference's primary Lambda=0.5*I initialization, both parameters
-    start at zero. Real initialization happens in GPT.init_weights after to_empty.
-    """
-    def __init__(self, n_embd, n_kv_head):
-        super().__init__()
-        self.n_kv_head = n_kv_head
-        self.scale = n_embd ** -0.5
-        self.w_z = nn.Parameter(torch.empty(n_kv_head + n_kv_head**2, n_embd, dtype=torch.float32))
-        self.lam = nn.Parameter(torch.empty(n_kv_head, n_kv_head, dtype=torch.float32))
-
-    def components(self, x, v0):
-        G = self.n_kv_head
-        z = F.linear(x.float(), self.w_z) * self.scale
-        gate = 2 * torch.sigmoid(z[..., :G])
-        mix = self.lam + torch.tanh(z[..., G:].unflatten(-1, (G, G)))
-        added = torch.einsum("btgh,bthd->btgd", mix, v0.float())
-        return gate, mix, added
-
-    def forward(self, x, v, v0):
-        gate, _, added = self.components(x, v0)
-        return (gate.unsqueeze(-1) * v.float() + added).to(v.dtype)
-
-
 class CausalSelfAttention(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -185,10 +157,6 @@ class CausalSelfAttention(nn.Module):
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
         self.diff_v2 = config.diff_v2
-        self.depth_attention = config.depth_attention
-        if self.depth_attention:
-            self.depth_stride = config.effective_depth_attention_stride
-            self.depth_count = config.effective_depth
         self.n_q_head = self.n_head * (2 if self.diff_v2 else 1)
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
@@ -271,25 +239,13 @@ class CausalSelfAttention(nn.Module):
         else:
             # Inference: use flash_attn_with_kvcache which handles cache management
             k_cache, v_cache = kv_cache.get_layer_cache(cache_idx)
-            if self.depth_attention and not torch.equal(kv_cache.cache_seqlens, kv_cache.cache_seqlens[:1].expand(B)):
-                # The existing SDPA wrapper assumes equal offsets. Row calls also work
-                # with FA3, preserve its API, and write into the original cache views.
-                y = torch.cat([
-                    flash_attn.flash_attn_with_kvcache(
-                        q[row:row+1], k_cache[row:row+1], v_cache[row:row+1],
-                        k=k[row:row+1], v=v[row:row+1],
-                        cache_seqlens=kv_cache.cache_seqlens[row:row+1],
-                        causal=True, window_size=window_size,
-                    ) for row in range(B)
-                ], dim=0)
-            else:
-                y = flash_attn.flash_attn_with_kvcache(
-                    q, k_cache, v_cache,
-                    k=k, v=v,
-                    cache_seqlens=kv_cache.cache_seqlens,
-                    causal=True,
-                    window_size=window_size,
-                )
+            y = flash_attn.flash_attn_with_kvcache(
+                q, k_cache, v_cache,
+                k=k, v=v,
+                cache_seqlens=kv_cache.cache_seqlens,
+                causal=True,
+                window_size=window_size,
+            )
             # Advance position after last layer processes
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
@@ -312,45 +268,15 @@ class CausalSelfAttention(nn.Module):
         return y
 
 
-class XIPReLU(nn.Module):
-    """Piecewise quadratic with two learned positive coefficients per MLP.
-
-    xIPReLU(x) = softplus(raw_alpha_{p,n}) * x^2 + 0.5*x.
-    See Huang & Schlag, https://arxiv.org/html/2411.13010v3#A6.
-    """
-    def __init__(self):
-        super().__init__()
-        self.raw_alpha_p = nn.Parameter(torch.empty((), dtype=torch.float32))
-        self.raw_alpha_n = nn.Parameter(torch.empty((), dtype=torch.float32))
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        # Inverse softplus: the effective coefficients both start at 0.8.
-        # GPT.init_weights repeats this after meta -> to_empty materialization.
-        raw_init = math.log(math.expm1(0.8))
-        nn.init.constant_(self.raw_alpha_p, raw_init)
-        nn.init.constant_(self.raw_alpha_n, raw_init)
-
-    def forward(self, x):
-        # Keep master scalars in fp32; preserve the activation's compute dtype.
-        alpha_p = F.softplus(self.raw_alpha_p).to(dtype=x.dtype)
-        alpha_n = F.softplus(self.raw_alpha_n).to(dtype=x.dtype)
-        alpha = torch.where(x > 0, alpha_p, alpha_n)
-        return alpha * x.square() + 0.5 * x
-
-
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
-        if config.mlp_activation not in {"relu2", "xiprelu"}:
-            raise ValueError(f"Unsupported MLP activation: {config.mlp_activation!r}")
         self.c_fc = Linear(config.n_embd, 4 * config.n_embd, bias=False)
         self.c_proj = Linear(4 * config.n_embd, config.n_embd, bias=False)
-        self.act = XIPReLU() if config.mlp_activation == "xiprelu" else None
 
     def forward(self, x):
         x = self.c_fc(x)
-        x = F.relu(x).square() if self.act is None else self.act(x)
+        x = F.relu(x).square()
         x = self.c_proj(x)
         return x
 
@@ -471,9 +397,6 @@ class GPT(nn.Module):
             torch.nn.init.uniform_(block.attn.c_k.weight, -s, s)
             torch.nn.init.uniform_(block.attn.c_v.weight, -s, s)
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
-            if block.attn.mgvr is not None:
-                nn.init.zeros_(block.attn.mgvr.w_z)
-                nn.init.zeros_(block.attn.mgvr.lam)
             if block.attn.lambda_proj is not None:
                 # Match the default bias-free nn.Linear in Microsoft's Diff V2 reference.
                 torch.nn.init.kaiming_uniform_(block.attn.lambda_proj.weight, a=math.sqrt(5))
@@ -655,8 +578,8 @@ class GPT(nn.Module):
     def num_matmul_params(self, n_loops=None):
         """
         The number of (execution-weighted) parameters that participate in matmuls with the token stream,
-        i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally from
-        Linear weights and MGVR's explicit W_z, while non-matmul params
+        i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally: every
+        matmul in this model goes through the Linear class, while non-matmul params
         (embeddings = lookups, per-layer scalars) are nn.Embedding or raw Parameters.
         """
         # With looping a shared block executes several times per token, so its params count once per execution.
@@ -666,8 +589,6 @@ class GPT(nn.Module):
         matmul_params = 0
         for b, block in enumerate(self.transformer.h):
             matmul_params += uses[b] * sum(m.weight.numel() for m in block.modules() if isinstance(m, Linear))
-            if block.attn.mgvr is not None:
-                matmul_params += uses[b] * block.attn.mgvr.w_z.numel()
         # Linears outside the block stack (lm_head, smear_gate) run once
         block_linears = {id(m) for block in self.transformer.h for m in block.modules()}
         matmul_params += sum(m.weight.numel() for m in self.modules() if isinstance(m, Linear) and id(m) not in block_linears)
@@ -685,10 +606,6 @@ class GPT(nn.Module):
         q = self.config.n_embd // self.config.n_head
         attn_flops = sum(4 * h * q * min(context_len, window) for window, _ in self.window_sizes)
         decode_flops = 2 * self.num_matmul_params() + attn_flops
-        if self.config.depth_attention:
-            decode_flops += self.estimate_depth_attention_flops()
-        if self.config.mgvr:
-            decode_flops += self.estimate_mgvr_flops()
         return decode_flops
 
     def estimate_prefill_flops(self, num_tokens):
@@ -702,10 +619,6 @@ class GPT(nn.Module):
             attended_tokens = w * (w + 1) // 2 + (num_tokens - w) * w # ramp up to w, then flat
             attn_flops += 4 * h * q * attended_tokens
         prefill_flops = 2 * self.num_matmul_params() * num_tokens + attn_flops
-        if self.config.depth_attention:
-            prefill_flops += self.estimate_depth_attention_flops() * num_tokens
-        if self.config.mgvr:
-            prefill_flops += self.estimate_mgvr_flops() * num_tokens
         return prefill_flops
 
     def kv_bytes_per_token(self):
@@ -741,8 +654,6 @@ class GPT(nn.Module):
         value_embeds = sum(p.numel() for p in self.value_embeds.parameters())
         lm_head = sum(p.numel() for p in self.lm_head.parameters())
         transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters() if p.ndim == 2)
-        mgvr = sum(p.numel() for b in self.transformer.h if b.attn.mgvr is not None for p in b.attn.mgvr.parameters())
-        transformer_matrices -= mgvr # preserve the trainer's original scaling-law budget/schedule
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
         scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
         scalars += self.loop_embeds.numel() if self.loop_embeds is not None else 0
@@ -765,9 +676,7 @@ class GPT(nn.Module):
         model_dim = self.config.n_embd
 
         # Separate out all parameters into groups
-        mgvr_params = [p for b in self.transformer.h if b.attn.mgvr is not None for p in b.attn.mgvr.parameters()]
-        mgvr_ids = {id(p) for p in mgvr_params}
-        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2 and id(p) not in mgvr_ids]
+        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2]
         activation_params = [p for p in self.transformer.h.parameters() if p.ndim < 2]
         value_embeds_params = list(self.value_embeds.parameters())
         embedding_params = list(self.transformer.wte.parameters())
@@ -873,10 +782,6 @@ class GPT(nn.Module):
         # if kv cache exists, we need to offset the rotary embeddings to the current position in the cache
         T0 = 0 if kv_cache is None else kv_cache.get_pos()
         cos_sin = self.cos[:, T0:T0+T], self.sin[:, T0:T0+T] # truncate cache to current sequence length
-        if self.config.depth_attention and kv_cache is not None:
-            positions = kv_cache.cache_seqlens.long()[:, None] + torch.arange(T, device=idx.device)
-            cos_sin = self.cos[0, positions], self.sin[0, positions]
-
         # Embed the tokens
         x = self.transformer.wte(idx) # embed current token
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
@@ -895,12 +800,7 @@ class GPT(nn.Module):
             if T > 1:
                 # Prefill: apply smear to positions 1+, same as training
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, 1:, :24]))
-                first = x[:, :1]
-                if self.config.depth_attention and x_pre_smear is not None:
-                    # Continue the existing smear across a multi-token chunk boundary.
-                    first_gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(first[..., :24]))
-                    first = first + first_gate * x_pre_smear
-                x = torch.cat([first, x[:, 1:] + gate * x[:, :-1]], dim=1)
+                x = torch.cat([x[:, :1], x[:, 1:] + gate * x[:, :-1]], dim=1)
             elif x_pre_smear is not None:
                 # Decode: single token, use cached prev embedding
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, :, :24]))

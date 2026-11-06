@@ -33,10 +33,9 @@ OMP_NUM_THREADS=1 python -m pytest -q tests/ablations/test_looped.py
 
 The tests cover the layer plan, baseline regression, shared block weights,
 compute accounting, gradients and cached decoding. Compiled training and resume
-with looping are also covered by the xIPReLU smoke tests:
 
 ```sh
-OMP_NUM_THREADS=1 python -m pytest -q tests/ablations/test_xiprelu_smoke.py
+OMP_NUM_THREADS=1 python -m pytest -q tests/ablations/test_diff_v2_smoke.py
 ```
 
 See the [ablation index](../README.md) for the other architecture experiments.
