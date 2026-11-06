@@ -4,7 +4,7 @@ Notable features:
 - rotary embeddings (and no positional embeddings)
 - QK norm
 - untied weights for token embedding and lm_head
-- relu^2 activation in MLP (optional xIPReLU ablation)
+- relu^2 activation in MLP
 - norm after token embedding
 - no learnable params in rmsnorm
 - no bias in linear layers
@@ -26,7 +26,6 @@ from nanochat.optim import MuonAdamW
 
 # Our custom Flash Attention module that automatically uses FA3 when compatible and SDPA fallback otherwise
 from nanochat.flash_attention import flash_attn
-from nanochat.depth_attention import depth_source_layers, mix_depth_values
 
 @dataclass
 class GPTConfig:
@@ -40,7 +39,6 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
-    mlp_activation: str = "relu2"
     # Looped / recurrent-depth execution (all defaults = ordinary GPT, fully backward compatible).
     # The n_layer unique blocks are split into [prelude | core | coda]:
     #   prelude = first n_prelude blocks, run once
@@ -52,18 +50,6 @@ class GPTConfig:
     n_coda: int = 0
     # Differential Attention V2: two adjacent query heads per effective output head.
     diff_v2: bool = False
-    depth_attention: bool = False
-    depth_attention_stride: int | None = None
-    mgvr: bool = False
-
-    @property
-    def effective_depth_attention_stride(self):
-        stride = self.depth_attention_stride
-        if stride is None:
-            return max(1, self.n_layer // 2)
-        if not isinstance(stride, int) or isinstance(stride, bool) or stride < 1:
-            raise ValueError("depth_attention_stride must be a positive integer")
-        return stride
 
     @property
     def n_core(self):
@@ -107,32 +93,6 @@ def apply_rotary_emb(x, cos, sin):
     return torch.cat([y1, y2], 3)
 
 
-class MGVR(nn.Module):
-    """Full cross-head Value residual; zero initialization preserves NanoChat Values.
-
-    Unlike the reference's primary Lambda=0.5*I initialization, both parameters
-    start at zero. Real initialization happens in GPT.init_weights after to_empty.
-    """
-    def __init__(self, n_embd, n_kv_head):
-        super().__init__()
-        self.n_kv_head = n_kv_head
-        self.scale = n_embd ** -0.5
-        self.w_z = nn.Parameter(torch.empty(n_kv_head + n_kv_head**2, n_embd, dtype=torch.float32))
-        self.lam = nn.Parameter(torch.empty(n_kv_head, n_kv_head, dtype=torch.float32))
-
-    def components(self, x, v0):
-        G = self.n_kv_head
-        z = F.linear(x.float(), self.w_z) * self.scale
-        gate = 2 * torch.sigmoid(z[..., :G])
-        mix = self.lam + torch.tanh(z[..., G:].unflatten(-1, (G, G)))
-        added = torch.einsum("btgh,bthd->btgd", mix, v0.float())
-        return gate, mix, added
-
-    def forward(self, x, v, v0):
-        gate, _, added = self.components(x, v0)
-        return (gate.unsqueeze(-1) * v.float() + added).to(v.dtype)
-
-
 class CausalSelfAttention(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -141,10 +101,6 @@ class CausalSelfAttention(nn.Module):
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
         self.diff_v2 = config.diff_v2
-        self.depth_attention = config.depth_attention
-        if self.depth_attention:
-            self.depth_stride = config.effective_depth_attention_stride
-            self.depth_count = config.effective_depth
         self.n_q_head = self.n_head * (2 if self.diff_v2 else 1)
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
@@ -156,9 +112,8 @@ class CausalSelfAttention(nn.Module):
         self.ve_gate_channels = 12
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
         self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
-        self.mgvr = MGVR(self.n_embd, self.n_kv_head) if config.mgvr and layer_idx > 0 else None
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
         # each execution needs its own KV cache slot (its keys/values differ per iteration).
         B, T, C = x.size()
@@ -175,36 +130,12 @@ class CausalSelfAttention(nn.Module):
             gate = 3 * torch.sigmoid(self.ve_gate(x[..., :self.ve_gate_channels]))  # (B, T, n_kv_head), range (0, 3)
             v = v + gate.unsqueeze(-1) * ve
 
-        if first_layer_v is not None:
-            if cache_idx == 0:
-                first_layer_v.append(v) # temporary, post-VE anchor; keep its autograd graph
-            elif self.mgvr is not None:
-                v = self.mgvr(x, v, first_layer_v[0])
-
         # Apply Rotary Embeddings to queries and keys to get relative positional encoding
         cos, sin = cos_sin
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k) # QK norm
         q = q * 1.2  # sharper attention (split scale between Q and K), TODO think through better
         k = k * 1.2
-
-        if self.depth_attention:
-            if kv_cache is None:
-                if depth_kv is None:
-                    raise ValueError("Depth-Attention training requires per-forward source references")
-                v = mix_depth_values(q, k, v, depth_kv)
-                if cache_idx % self.depth_stride == 0 and cache_idx + 1 < self.depth_count:
-                    depth_kv.append((k, v))
-            else:
-                # Earlier layers have already written these *new* token positions.
-                # Gather per row: never include the cached token history as depth sources.
-                positions = kv_cache.cache_seqlens.long()[:, None] + torch.arange(T, device=x.device)
-                rows = torch.arange(B, device=x.device)[:, None]
-                sources = []
-                for source in depth_source_layers(cache_idx, self.depth_stride)[:-1]:
-                    source_k, source_v = kv_cache.get_layer_cache(source)
-                    sources.append((source_k[rows, positions], source_v[rows, positions]))
-                v = mix_depth_values(q, k, v, sources)
 
         # Flash Attention (FA3 or SDPA fallback)
         # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
@@ -214,25 +145,13 @@ class CausalSelfAttention(nn.Module):
         else:
             # Inference: use flash_attn_with_kvcache which handles cache management
             k_cache, v_cache = kv_cache.get_layer_cache(cache_idx)
-            if self.depth_attention and not torch.equal(kv_cache.cache_seqlens, kv_cache.cache_seqlens[:1].expand(B)):
-                # The existing SDPA wrapper assumes equal offsets. Row calls also work
-                # with FA3, preserve its API, and write into the original cache views.
-                y = torch.cat([
-                    flash_attn.flash_attn_with_kvcache(
-                        q[row:row+1], k_cache[row:row+1], v_cache[row:row+1],
-                        k=k[row:row+1], v=v[row:row+1],
-                        cache_seqlens=kv_cache.cache_seqlens[row:row+1],
-                        causal=True, window_size=window_size,
-                    ) for row in range(B)
-                ], dim=0)
-            else:
-                y = flash_attn.flash_attn_with_kvcache(
-                    q, k_cache, v_cache,
-                    k=k, v=v,
-                    cache_seqlens=kv_cache.cache_seqlens,
-                    causal=True,
-                    window_size=window_size,
-                )
+            y = flash_attn.flash_attn_with_kvcache(
+                q, k_cache, v_cache,
+                k=k, v=v,
+                cache_seqlens=kv_cache.cache_seqlens,
+                causal=True,
+                window_size=window_size,
+            )
             # Advance position after last layer processes
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
@@ -249,45 +168,15 @@ class CausalSelfAttention(nn.Module):
         return y
 
 
-class XIPReLU(nn.Module):
-    """Piecewise quadratic with two learned positive coefficients per MLP.
-
-    xIPReLU(x) = softplus(raw_alpha_{p,n}) * x^2 + 0.5*x.
-    See Huang & Schlag, https://arxiv.org/html/2411.13010v3#A6.
-    """
-    def __init__(self):
-        super().__init__()
-        self.raw_alpha_p = nn.Parameter(torch.empty((), dtype=torch.float32))
-        self.raw_alpha_n = nn.Parameter(torch.empty((), dtype=torch.float32))
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        # Inverse softplus: the effective coefficients both start at 0.8.
-        # GPT.init_weights repeats this after meta -> to_empty materialization.
-        raw_init = math.log(math.expm1(0.8))
-        nn.init.constant_(self.raw_alpha_p, raw_init)
-        nn.init.constant_(self.raw_alpha_n, raw_init)
-
-    def forward(self, x):
-        # Keep master scalars in fp32; preserve the activation's compute dtype.
-        alpha_p = F.softplus(self.raw_alpha_p).to(dtype=x.dtype)
-        alpha_n = F.softplus(self.raw_alpha_n).to(dtype=x.dtype)
-        alpha = torch.where(x > 0, alpha_p, alpha_n)
-        return alpha * x.square() + 0.5 * x
-
-
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
-        if config.mlp_activation not in {"relu2", "xiprelu"}:
-            raise ValueError(f"Unsupported MLP activation: {config.mlp_activation!r}")
         self.c_fc = Linear(config.n_embd, 4 * config.n_embd, bias=False)
         self.c_proj = Linear(4 * config.n_embd, config.n_embd, bias=False)
-        self.act = XIPReLU() if config.mlp_activation == "xiprelu" else None
 
     def forward(self, x):
         x = self.c_fc(x)
-        x = F.relu(x).square() if self.act is None else self.act(x)
+        x = F.relu(x).square()
         x = self.c_proj(x)
         return x
 
@@ -298,13 +187,8 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None):
-        if first_layer_v is not None:
-            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv, first_layer_v)
-        elif self.attn.depth_attention:
-            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv)
-        else:
-            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
+        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache, cache_idx)
         x = x + self.mlp(norm(x))
         return x
 
@@ -386,16 +270,11 @@ class GPT(nn.Module):
             torch.nn.init.uniform_(block.attn.c_k.weight, -s, s)
             torch.nn.init.uniform_(block.attn.c_v.weight, -s, s)
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
-            if block.attn.mgvr is not None:
-                nn.init.zeros_(block.attn.mgvr.w_z)
-                nn.init.zeros_(block.attn.mgvr.lam)
             if block.attn.lambda_proj is not None:
                 # Match the default bias-free nn.Linear in Microsoft's Diff V2 reference.
                 torch.nn.init.kaiming_uniform_(block.attn.lambda_proj.weight, a=math.sqrt(5))
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s * 0.4, s * 0.4)  # 0.4x init scale for c_fc
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
-            if block.mlp.act is not None:
-                block.mlp.act.reset_parameters()
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
@@ -504,38 +383,13 @@ class GPT(nn.Module):
             effective_seq = t if window < 0 else min(window, t)
             attn_flops += 12 * h * q * effective_seq
         num_flops_per_token = 6 * self.num_matmul_params() + attn_flops
-        if self.config.depth_attention:
-            num_flops_per_token += 3 * self.estimate_depth_attention_flops()
-        if self.config.mgvr:
-            num_flops_per_token += 3 * self.estimate_mgvr_flops()
         return num_flops_per_token
-
-    def estimate_mgvr_flops(self):
-        """Approximate forward FLOPs/token beyond W_z: cross-head mixing + gating.
-
-        W_z is counted in num_matmul_params; omits sigmoid/tanh and memory traffic.
-        """
-        G, D = self.config.n_kv_head, self.config.n_embd // self.config.n_head
-        uses = sum(self.transformer.h[b].attn.mgvr is not None for b in self.layer_plan)
-        return uses * (2 * G * G * D + 2 * G * D)
-
-    def estimate_depth_attention_flops(self):
-        """Approximate forward FLOPs/token: depth dots + weighted value sums.
-
-        Omits small softmax/GQA reductions and memory traffic; training uses 3x.
-        Source selection follows executed depth for weight-shared looped models.
-        """
-        if not self.config.depth_attention:
-            return 0
-        stride = self.config.effective_depth_attention_stride
-        candidates = sum(len(depth_source_layers(i, stride)) for i in range(1, self.eff_depth))
-        return 4 * self.config.n_kv_head * (self.config.n_embd // self.config.n_head) * candidates
 
     def num_matmul_params(self):
         """
         The number of (execution-weighted) parameters that participate in matmuls with the token stream,
-        i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally from
-        Linear weights and MGVR's explicit W_z, while non-matmul params
+        i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally: every
+        matmul in this model goes through the Linear class, while non-matmul params
         (embeddings = lookups, per-layer scalars) are nn.Embedding or raw Parameters.
         """
         # With looping a shared block executes several times per token, so its params count once per execution.
@@ -545,8 +399,6 @@ class GPT(nn.Module):
         matmul_params = 0
         for b, block in enumerate(self.transformer.h):
             matmul_params += uses[b] * sum(m.weight.numel() for m in block.modules() if isinstance(m, Linear))
-            if block.attn.mgvr is not None:
-                matmul_params += uses[b] * block.attn.mgvr.w_z.numel()
         # Linears outside the block stack (lm_head, smear_gate) run once
         block_linears = {id(m) for block in self.transformer.h for m in block.modules()}
         matmul_params += sum(m.weight.numel() for m in self.modules() if isinstance(m, Linear) and id(m) not in block_linears)
@@ -562,10 +414,6 @@ class GPT(nn.Module):
         q = self.config.n_embd // self.config.n_head
         attn_flops = sum(4 * h * q * min(context_len, window) for window, _ in self.window_sizes)
         decode_flops = 2 * self.num_matmul_params() + attn_flops
-        if self.config.depth_attention:
-            decode_flops += self.estimate_depth_attention_flops()
-        if self.config.mgvr:
-            decode_flops += self.estimate_mgvr_flops()
         return decode_flops
 
     def estimate_prefill_flops(self, num_tokens):
@@ -579,10 +427,6 @@ class GPT(nn.Module):
             attended_tokens = w * (w + 1) // 2 + (num_tokens - w) * w # ramp up to w, then flat
             attn_flops += 4 * h * q * attended_tokens
         prefill_flops = 2 * self.num_matmul_params() * num_tokens + attn_flops
-        if self.config.depth_attention:
-            prefill_flops += self.estimate_depth_attention_flops() * num_tokens
-        if self.config.mgvr:
-            prefill_flops += self.estimate_mgvr_flops() * num_tokens
         return prefill_flops
 
     def kv_bytes_per_token(self):
@@ -618,11 +462,9 @@ class GPT(nn.Module):
         value_embeds = sum(p.numel() for p in self.value_embeds.parameters())
         lm_head = sum(p.numel() for p in self.lm_head.parameters())
         transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters() if p.ndim == 2)
-        mgvr = sum(p.numel() for b in self.transformer.h if b.attn.mgvr is not None for p in b.attn.mgvr.parameters())
-        transformer_matrices -= mgvr # preserve the trainer's original scaling-law budget/schedule
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
         scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
-        total = wte + value_embeds + lm_head + transformer_matrices + scalars + mgvr
+        total = wte + value_embeds + lm_head + transformer_matrices + scalars
         assert total == sum(p.numel() for p in self.parameters()), "Parameter count mismatch"
         return {
             'wte': wte,
@@ -630,7 +472,6 @@ class GPT(nn.Module):
             'lm_head': lm_head,
             'transformer_matrices': transformer_matrices,
             'scalars': scalars,
-            **({'mgvr': mgvr} if self.config.mgvr else {}),
             'total': total,
         }
 
@@ -638,9 +479,7 @@ class GPT(nn.Module):
         model_dim = self.config.n_embd
 
         # Separate out all parameters into groups
-        mgvr_params = [p for b in self.transformer.h if b.attn.mgvr is not None for p in b.attn.mgvr.parameters()]
-        mgvr_ids = {id(p) for p in mgvr_params}
-        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2 and id(p) not in mgvr_ids]
+        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2]
         activation_params = [p for p in self.transformer.h.parameters() if p.ndim < 2]
         value_embeds_params = list(self.value_embeds.parameters())
         embedding_params = list(self.transformer.wte.parameters())
@@ -648,7 +487,7 @@ class GPT(nn.Module):
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
         smear_params = [self.smear_gate.weight, self.smear_lambda, self.backout_lambda]
-        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(mgvr_params)
+        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params)
 
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (tuned for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -669,9 +508,6 @@ class GPT(nn.Module):
             # unconstrained raw coefficients. Muon only accepts matrices.
             param_groups.append(dict(kind='adamw', params=activation_params, lr=scalar_lr * 0.01,
                                      betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0))
-        if mgvr_params:
-            param_groups.append(dict(kind='adamw', params=mgvr_params, lr=unembedding_lr * dmodel_lr_scale,
-                                     betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0))
         # Muon groups (matrix params, grouped by shape for stacking)
         for shape in sorted({p.shape for p in matrix_params}):
             group_params = [p for p in matrix_params if p.shape == shape]
@@ -685,38 +521,6 @@ class GPT(nn.Module):
             group["initial_lr"] = group["lr"]
         return optimizer
 
-    @torch.no_grad()
-    def activation_stats(self):
-        """Effective coefficients for validation logging and checkpoint metadata."""
-        stats = {}
-        for i, block in enumerate(self.transformer.h):
-            if block.mlp.act is not None:
-                stats[f"xiprelu/layer_{i}/alpha_p"] = F.softplus(block.mlp.act.raw_alpha_p).item()
-                stats[f"xiprelu/layer_{i}/alpha_n"] = F.softplus(block.mlp.act.raw_alpha_n).item()
-        return stats
-
-    @torch.no_grad()
-    def mgvr_stats(self, idx):
-        """Validation-only eager probe; aggregate on device and transfer once."""
-        rows, handles = [], []
-        def collect(module, inputs, output):
-            x, v, v0 = inputs
-            gate, mix, added = module.components(x, v0)
-            offdiag = mix - torch.diag_embed(mix.diagonal(dim1=-2, dim2=-1))
-            rows.append(torch.stack((gate.mean(), added.norm() / v.float().norm().clamp_min(1e-12),
-                                     mix.norm(dim=(-2, -1)).mean(), offdiag.norm(dim=(-2, -1)).mean())))
-        try:
-            for block in self.transformer.h:
-                if block.attn.mgvr is not None:
-                    handles.append(block.attn.mgvr.register_forward_hook(collect))
-            if handles:
-                self(idx)
-        finally:
-            for handle in handles:
-                handle.remove()
-        names = ("gate_mean", "added_to_current_norm", "mix_norm", "offdiagonal_mix_norm")
-        return dict(zip(names, torch.stack(rows).mean(0).cpu().tolist())) if rows else {}
-
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
         B, T = idx.size()
 
@@ -727,10 +531,6 @@ class GPT(nn.Module):
         # if kv cache exists, we need to offset the rotary embeddings to the current position in the cache
         T0 = 0 if kv_cache is None else kv_cache.get_pos()
         cos_sin = self.cos[:, T0:T0+T], self.sin[:, T0:T0+T] # truncate cache to current sequence length
-        if self.config.depth_attention and kv_cache is not None:
-            positions = kv_cache.cache_seqlens.long()[:, None] + torch.arange(T, device=idx.device)
-            cos_sin = self.cos[0, positions], self.sin[0, positions]
-
         # Embed the tokens
         x = self.transformer.wte(idx) # embed current token
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
@@ -749,12 +549,7 @@ class GPT(nn.Module):
             if T > 1:
                 # Prefill: apply smear to positions 1+, same as training
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, 1:, :24]))
-                first = x[:, :1]
-                if self.config.depth_attention and x_pre_smear is not None:
-                    # Continue the existing smear across a multi-token chunk boundary.
-                    first_gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(first[..., :24]))
-                    first = first + first_gate * x_pre_smear
-                x = torch.cat([first, x[:, 1:] + gate * x[:, :-1]], dim=1)
+                x = torch.cat([x[:, :1], x[:, 1:] + gate * x[:, :-1]], dim=1)
             elif x_pre_smear is not None:
                 # Decode: single token, use cached prev embedding
                 gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, :, :24]))
@@ -764,17 +559,10 @@ class GPT(nn.Module):
         x0 = x  # save initial normalized embedding for x0 residual
         backout_layer = self.eff_depth // 2  # cache at halfway point of the executed steps
         x_backout = None
-        depth_kv = [] if self.config.depth_attention and kv_cache is None else None
-        first_layer_v = [] if self.config.mgvr else None
         for i, b in enumerate(self.layer_plan): # i = executed step, b = which (possibly shared) block runs at this step
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(b)](idx).to(x.dtype) if str(b) in self.value_embeds else None
-            if self.config.mgvr:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i, depth_kv, first_layer_v)
-            elif self.config.depth_attention:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i, depth_kv)
-            else:
-                x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
+            x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection

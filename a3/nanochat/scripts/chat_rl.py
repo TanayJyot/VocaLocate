@@ -308,27 +308,14 @@ for step in range(num_steps):
     if master_process and ((step > 0 and step % args.save_every == 0) or step == num_steps - 1):
         base_dir = get_base_dir()
         depth = model.config.n_layer
-        default_tag = f"d{depth}" + (f"-{model.config.mlp_activation}" if model.config.mlp_activation != "relu2" else "")
+        default_tag = f"d{depth}"
         if model.config.diff_v2:
             default_tag += "-diff-v2"
-        if model.config.depth_attention:
-            default_tag += "-depth-attention"
-            if model.config.depth_attention_stride is not None:
-                default_tag += f"-s{model.config.depth_attention_stride}"
-        if model.config.mgvr:
-            default_tag += "-mgvr"
         output_dirname = args.model_tag if args.model_tag else default_tag # base the model tag on the depth and activation of the base model
         checkpoint_dir = os.path.join(base_dir, "chatrl_checkpoints", output_dirname)
         model_config_kwargs = dict(model.config.__dict__) # copy so filtering does not mutate the live config
-        if model.config.mlp_activation == "relu2":
-            model_config_kwargs.pop("mlp_activation")
         if not model.config.diff_v2:
             model_config_kwargs.pop("diff_v2")
-        if not model.config.depth_attention:
-            model_config_kwargs.pop("depth_attention")
-            model_config_kwargs.pop("depth_attention_stride")
-        if not model.config.mgvr:
-            model_config_kwargs.pop("mgvr")
         save_checkpoint(
             checkpoint_dir,
             step,

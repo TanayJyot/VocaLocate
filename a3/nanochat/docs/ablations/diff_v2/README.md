@@ -56,9 +56,7 @@ custom `Linear` remains in use for dtype compatibility.
    `c_proj` starts at zero, query/lambda gradients initially vanish; they become
    nonzero after the output projection's first optimizer update.
 
-The xIPReLU formula, coefficients, initialization and optimizer treatment are
 unchanged. It operates in the MLP after attention and can be combined with Diff
-V2, but combining them is a separate experiment from xIPReLU alone.
 
 The lambda initialization matches the standalone Microsoft reference; the host
 model's other initialization choices remain NanoChat's. Q/K/V (including the
@@ -83,9 +81,7 @@ use. Default tags shown are for depth 12, one loop, with no custom `--model-tag`
 | Experiment | Additional flags | Default checkpoint tag |
 | --- | --- | --- |
 | Baseline | none | `d12` |
-| xIPReLU only | `--mlp-activation=xiprelu` | `d12-xiprelu` |
 | Diff V2 only | `--diff-v2` | `d12-diff-v2` |
-| Both | `--diff-v2 --mlp-activation=xiprelu` | `d12-xiprelu-diff-v2` |
 
 Omit `--diff-v2` to turn it off; direct Python callers can set `diff_v2=False`.
 Toggling chooses the architecture for a run, not a conversion of trained weights.
@@ -112,7 +108,6 @@ checkout; no external runner was edited or launched.
 | `scripts/base_train.py` | CLI flag, config persistence and distinct default tag |
 | `scripts/chat_sft.py` | Preserve the flag in its manually assembled checkpoint config and default tag |
 | `scripts/chat_rl.py` | Preserve the flag and default tag when saving |
-| `tests/ablations/test_diff_v2.py` | Arithmetic, baseline/xIPReLU regression, dtype, training, cache, checkpoint, FLOPs and compile checks |
 | `tests/ablations/test_diff_v2_smoke.py` | Real trainer compilation, checkpoint saving and resume, reusing existing offline smoke data |
 | `docs/ablations/diff_v2/README.md` | Explanation, usage and verification report |
 
@@ -125,10 +120,7 @@ dependencies are needed. Pytest was installed in the local environment to run te
 On November 2, 2026, the revised initialization passed the following checks on
 CPU SDPA with PyTorch 2.9.1:
 
-- Diff V2 and Depth-Attention unit/integration checks: **87 passed, 6 skipped**
-  (`tests/ablations/test_diff_v2.py` and `tests/ablations/test_depth_attention.py`). Skips require CUDA.
 - All four real compiled trainer/checkpoint-resume smoke cases passed
-  (`tests/ablations/test_diff_v2_smoke.py` and `tests/ablations/test_depth_attention_smoke.py`).
   Compilation uses the CPU `aot_eager` backend, not GPU Inductor.
 - Shape/dtype coverage now includes one and six output heads of dimension 128,
   as well as tiny GQA heads, each in FP32, BF16 and FP16. Master projection
@@ -136,7 +128,6 @@ CPU SDPA with PyTorch 2.9.1:
 - Initialization checks verify reference bounds, random weights of both signs,
   and coefficient variation across tokens and heads. Disabled Diff V2 remains
   bitwise equivalent to the pre-Diff-V2 baseline.
-- Depth-Attention's historical comparison loads identical saved weights for
   Diff V2 cases, including the earlier zero-lambda weights. This tests checkpoint
   compatibility and disabled depth behavior independently of the intentional
   initialization change. Non-Diff-V2 cases still compare initial weights exactly.
@@ -155,11 +146,9 @@ Environment: macOS, Python 3.10.22, PyTorch 2.9.1, CPU SDPA. No CUDA GPU.
 
 | Focused checks | Cases | Result |
 | --- | ---: | --- |
-| Disabled baseline and xIPReLU against pre-change commit: initialization, shapes, parameter counts, FLOPs, logits, gradients, optimizer groups and one update | 2 | Exact equality |
 | PicoChat projection shapes and meta-to-CPU initialization, lambda starts at 0.5 | 2 | Passed |
 | Adjacent shared-K/V pairing and learned subtraction, including 12 query heads / 6 KV heads | 4 | Passed |
 | FP32, BF16 and FP16 attention: output dtype, FP32 master weights, finite/nonzero gradients | 3 | Passed on CPU |
-| Full GPT causality and two actual Muon/AdamW updates, with/without xIPReLU | 2 | Passed |
 | Full forward vs prefill plus decoding: full/short windows, one/two loops, both activations, FP32/BF16 | 16 | Passed on CPU |
 | Strict checkpoint reload, old config default, reject incompatible architecture | 4 | Passed |
 | FLOPs and parameter accounting, one/two loops; unchanged K/V storage | 2 | Passed |
@@ -171,7 +160,6 @@ Focused total: **39 passed, 4 skipped**. Full suite: **110 passed, 18 skipped,
 1 failed**. The unrelated failure is `tests/test_execution.py::test_memory_limit`:
 `nanochat/execution.py` explicitly bypasses resource limits on macOS, while the
 test expects a memory error. That module is identical to the pre-change commit.
-The existing baseline, xIPReLU and looped xIPReLU compiled trainer/resume tests
 all passed.
 
 Synthetic smoke results (two layers, width 32, 16-token sequences, 32 tokens per
@@ -180,7 +168,6 @@ update; these BPBs demonstrate execution, not model quality):
 | Model | Parameters | BPB at step 3 | BPB after resume to step 4 |
 | --- | ---: | ---: | ---: |
 | Diff V2 + ReLU² | 57,678 | 8.013004 | 7.999906 |
-| Diff V2 + xIPReLU | 57,682 | 8.012996 | 7.999894 |
 
 For depth 12, width 768 and six effective heads, Diff V2 adds **7,133,184**
 parameters regardless of tokenizer size. Structural matmul counting includes

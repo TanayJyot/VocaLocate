@@ -280,7 +280,7 @@ class MuonAdamW(torch.optim.Optimizer):
                 # Single rank: no communication, update the full param in place
                 param_infos[p] = dict(future=None, grad_slice=grad, is_small=True)
             elif p.numel() < 1024 or p.shape[0] % world_size != 0:
-                # Replicate small or unevenly shardable params (e.g. MGVR's W_z).
+                # Replicate small or unevenly shardable params.
                 future = dist.all_reduce(grad, op=dist.ReduceOp.AVG, async_op=True).get_future()
                 param_infos[p] = dict(future=future, grad_slice=grad, is_small=True)
             else:
