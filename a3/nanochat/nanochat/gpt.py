@@ -66,6 +66,9 @@ class GPTConfig:
     # Exclusive Self-Attention (arXiv 2603.09078), learnable form of modded-nanogpt record #82: each head removes
     # a fraction tanh(alpha) of its output's component along the token's own value vector (alpha zero-init).
     xsa: bool = False
+    # ssa: Selective Self-Attention as OpenNeuro ran it (after Zhang et al., arXiv 2411.12892): queries are scaled by a
+    # per-head position-dependent temperature T(pos) = 1 + exp(-exp(beta)) * log(pos + 1), beta init 1.5 (alpha ~ 0.011).
+    ssa: bool = False
     # MUDD-lite (modded-nanogpt record #81): token-dependent dense connections on the last two layers only.
     # Layer n-2 mixes {x0, mid-layer residual, itself} into the residual and into layer n-1's values;
     # layer n-1 mixes {x0, mid-layer residual, layer n-2's output} into the final residual. Zero-init = identity.
@@ -199,6 +202,7 @@ class CausalSelfAttention(nn.Module):
         self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
         self.mgvr = MGVR(self.n_embd, self.n_kv_head) if config.mgvr and layer_idx > 0 else None
         self.xsa_alpha = nn.Parameter(torch.zeros(self.n_head)) if config.xsa else None # fake init, real init in init_weights()
+        self.ssa_beta = nn.Parameter(torch.zeros(self.n_head)) if config.ssa else None # fake init, real init in init_weights()
 
     def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx, depth_kv=None, first_layer_v=None, v_extra=None):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
@@ -233,6 +237,13 @@ class CausalSelfAttention(nn.Module):
         q, k = norm(q), norm(k) # QK norm
         q = q * 1.2  # sharper attention (split scale between Q and K), TODO think through better
         k = k * 1.2
+
+        if self.ssa_beta is not None:
+            # After QK norm, which would otherwise erase the scale. Per-row positions, so decoding matches training.
+            offset = 0 if kv_cache is None else kv_cache.cache_seqlens.long()[:, None]
+            positions = offset + torch.arange(T, device=x.device)[None, :]
+            alpha = torch.exp(-torch.exp(self.ssa_beta)).to(q.dtype).view(1, 1, self.n_head, 1)
+            q = q * (1 + alpha * torch.log1p(positions.to(q.dtype))[:, :, None, None])
 
         if self.depth_attention:
             if kv_cache is None:
@@ -378,6 +389,7 @@ class GPT(nn.Module):
         assert not ((variable_loops or config.loop_embed) and (config.depth_attention or config.mgvr)), \
             "loop_embed / random loop counts are not supported together with depth_attention or mgvr"
         assert not (config.xsa and config.diff_v2), "xsa is not supported together with diff_v2"
+        assert not (config.ssa and (config.diff_v2 or config.depth_attention)), "ssa is not supported together with diff_v2 or depth_attention"
         assert not (config.mudd and (config.n_loops > 1 or config.depth_attention or config.mgvr or config.n_layer < 4)), \
             "mudd needs a plain (non-looped) model of depth >= 4 without depth_attention or mgvr"
         self.slot_windows = self._compute_window_sizes(config) # one per per-step scalar slot
@@ -471,6 +483,8 @@ class GPT(nn.Module):
                 block.mlp.act.reset_parameters()
             if block.attn.xsa_alpha is not None:
                 torch.nn.init.zeros_(block.attn.xsa_alpha) # tanh(0) = 0: starts as plain attention
+            if block.attn.ssa_beta is not None:
+                torch.nn.init.constant_(block.attn.ssa_beta, 1.5) # alpha ~ 0.011: T(2047) ~ 1.09, close to plain attention
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers

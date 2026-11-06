@@ -1,6 +1,6 @@
 # A3 Part 2: d12 picochat ablations
 
-Thirteen d12 configurations (twenty-one runs), each on one Modal H100 (80 GB, Flash Attention 3), trained 2026-11-02 to 11-05.
+Fourteen d12 configurations (twenty-two runs), each on one Modal H100 (80 GB, Flash Attention 3), trained 2026-11-02 to 11-05.
 Script: [train_d12.py](train_d12.py). Per-run logs and result JSONs are in `out/logs/` and `out/results/`.
 
 ## Setup (identical for every run)
@@ -13,7 +13,7 @@ Script: [train_d12.py](train_d12.py). Per-run logs and result JSONs are in `out/
 | Batch | 524,288 tokens/step (nanochat's d12 reference), device batch 32 × 2048 |
 | Seed | 42 (nanochat default), one run per config; the baseline, looped-l2 and looped-l2-embed were also run at seeds 1 and 2 (`NANOCHAT_SEED`, init only) |
 | Eval | val bpb on 42M held-out tokens every 250 steps; CORE (22 tasks, ≤500 examples each) at the end |
-| Code | VocaLocate PR #27 (`feat/a3-other-ablation-ideas`, `04ab375`); each run turns on one change with `--experiment=`. `--loop-embed`, `--n-loops-min/max` and the `xsa`/`mudd` experiments were added on this branch (PR #28) |
+| Code | VocaLocate PR #27 (`feat/a3-other-ablation-ideas`, `04ab375`); each run turns on one change with `--experiment=`. `--loop-embed`, `--n-loops-min/max` and the `xsa`/`ssa`/`mudd` experiments were added on this branch (PR #28) |
 
 The token budget and batch are **pinned to the baseline's values**. Otherwise nanochat's auto-sizing would give
 Diff V2, which adds parameters, a 6% longer schedule, and the comparison would no longer be controlled.
@@ -35,6 +35,7 @@ Diff V2, which adds parameters, a 6% longer schedule, and the comparison would n
 | looped-rand13 | looped-l2 trained with 1–3 loops per step (uniform), eval at 2 | 84.9M | 12.69e8 (+67%, mean) | 0.8464 | −0.0016 | 0.1723 | +0.0115 |
 | **XSA** | each head removes its output's component along its own value (learned gate, zero-init) | 84.9M (+72 scalars) | 7.60e8 | **0.8462** | **−0.0018** | 0.1595 | −0.0013 |
 | MUDD-lite | token-dependent mixing of earlier hidden states on the last 2 layers | 84.9M (+0.1M other) | 7.60e8 (+0.08%) | 0.8473 | −0.0007 | 0.1510 | −0.0098 |
+| SSA | queries scaled by a learned per-head temperature that grows with position | 84.9M (+72 scalars) | 7.60e8 | 0.8485 | +0.0005 | 0.1537 | −0.0071 |
 | baseline, seed 1 | — (different init) | 84.9M | 7.60e8 | 0.8479 | −0.0001 | 0.1565 | −0.0043 |
 | baseline, seed 2 | — (different init) | 84.9M | 7.60e8 | 0.8469 | −0.0011 | 0.1439 | −0.0169 |
 | looped-l2, seed 1 | — (different init) | 84.9M | 12.74e8 (+68%) | 0.8375 | −0.0105 | 0.1740 | +0.0132 |
@@ -129,6 +130,36 @@ Validation bpb during training:
 - **CORE cannot rank these runs.** The three baseline seeds alone span 0.017 CORE (sd 0.009), wider than every
   same-compute CORE gap in the table.
 
+## Same-compute candidate from another team: SSA
+
+**SSA (`--experiment=ssa`)**, Selective Self-Attention in the form OpenNeuro ran in their A3, after Zhang, Nguyen and
+Mitliagkas (NeurIPS 2024, arXiv 2411.12892). After QK norm, each head scales its queries by
+T(pos) = 1 + exp(−exp(β)) · log(pos + 1). β is one scalar per head and layer, initialised to 1.5, so T(2047) starts
+at 1.09 rather than at exactly plain attention. OpenNeuro reported val bpb 1.0582 → 1.0511 on their smaller model.
+
+| Run | Val bpb | Δ vs seed-42 baseline | Δ vs 3-seed baseline mean | CORE |
+|---|---|---|---|---|
+| baseline, seeds 42 / 1 / 2 | 0.8480 / 0.8479 / 0.8469 | — | mean **0.8476**, sd 0.0006 | 0.1608 / 0.1565 / 0.1439 (mean 0.1537, sd 0.009) |
+| SSA | 0.8485 | +0.0005 | +0.0009 | 0.1537 |
+
+| Step | baseline s42 | SSA |
+|---|---|---|
+| 500 | 1.0062 | 1.0096 |
+| 1000 | 0.9491 | 0.9499 |
+| 1500 | 0.9049 | 0.9056 |
+| 2000 | 0.8715 | 0.8719 |
+| 2520 | 0.8480 | 0.8485 |
+
+- **SSA shows no gain here.** Its bpb is above all three baseline seeds, by 0.0005 over the worst one, which is
+  still a tie under the 0.0012 noise bar. Its CORE equals the baseline mean. OpenNeuro's −0.0071 did not carry over
+  to d12 at 1.32B tokens.
+- **The temperature did train, so this is not a dead parameter.** In the final checkpoint, mean β moved from 1.5 to
+  1.33, mean α from 0.011 to 0.028 and mean T(2047) from 1.09 to 1.21. The largest head reached 1.60. Layers 3, 7
+  and 8 moved most.
+- **One attempt was lost to preemption.** Modal preempted the first GPU container at about step 1885 and the run
+  restarted from step 0. The numbers above are the completed attempt. The two attempts used the same seed and
+  differed by 0.0015 at step 500 and 0.0004 at step 1750.
+
 ## Looped extensions: per-loop embedding and random loop count
 
 Both start from looped-l2 (1 prelude + 10 core blocks + 1 coda, same tokens, same seed) and change one thing:
@@ -196,6 +227,7 @@ about 0.001 higher than the 42M-token training eval; CORE as in training):
   opposite directions by about 0.01, inside CORE's seed noise (sd 0.009).
 - **XSA is the strongest same-compute change** (−0.0014 vs the baseline mean, beyond the baseline's seed
   range), and MUDD-lite is a tie (see above). XSA's margin over Depth-Attention and MGVR is within seed noise.
+- **SSA is a tie with no sign of a gain** (+0.0009 vs the baseline mean), although its temperatures did train.
 - **xIPReLU is slightly worse** on both metrics.
 - **Of the looped extensions, only the random loop count changes anything**: it trades 0.008 bpb at the trained
   depth for a checkpoint that works from 1 to 6 loops. The per-loop embedding ties on bpb, and its CORE lead over three seeds is not conclusive (see above).
@@ -229,7 +261,8 @@ Container time includes startup, `torch.compile`, all validation evals and the f
 | looped-l2, seed 2 | 66.9 min | 84.4 min | 328k | 42.2% | 45.1 GB | $5.55 |
 | looped-l2-embed, seed 1 | 67.1 min | 84.2 min | 327k | 42.1% | 45.1 GB | $5.54 |
 | looped-l2-embed, seed 2 | 67.9 min | 85.9 min | 323k | 41.6% | 45.1 GB | $5.65 |
-| **Total** (21 runs) | | **≈23.8 H100-hours** | | | | **≈$94.00** |
+| SSA | 41.8 min | 55.0 min | 526k | 40.4% | 28.8 GB | $3.62 |
+| **Total** (22 runs) | | **≈24.7 H100-hours** | | | | **≈$97.60** |
 
 \* rand13's per-step MFU is computed against the *mean* FLOPs of 1–3 loops, so 1-loop steps read low and 3-loop
 steps high; the average is not comparable to the other rows. Its peak memory is set by the 3-loop steps.
@@ -242,6 +275,8 @@ parallel (about 1.5 hours wall-clock); looped-u9 and baseline-long ran later as 
 looped-l2-embed and looped-rand13 as a third (about 1.5 hours), and XSA, MUDD-lite and the two baseline seeds as
 a fourth (about 0.9 hours, after a $0.45 smoke test). XSA and MUDD-lite train about 4% slower per second than the
 baseline (elementwise work outside the matmuls); at a fixed step count that changes cost, not results.
+SSA ran on its own after a $0.12 smoke test and trains about 3% slower. Its preempted first attempt cost about
+$2.50 more (estimated from the container start times).
 
 The four seeded looped runs ran in parallel as their own batch (about 1.4 hours), with no smoke test and no
 preemption.
@@ -269,7 +304,7 @@ MGVR's unevenly shaped matrices instead of sharding it. That is a cost of the im
 
 ## W&B
 
-All 21 runs are uploaded to the W&B project
+The first 17 runs and the four seeded looped runs are uploaded to the W&B project
 [vocalocate-a3](https://forge.coreweave.com/wandb/tanayjyot-university-of-toronto/vocalocate-a3/workspace), tagged
 `baseline`, `pr27`, `looped`, `extension`, `speedrun`, `control`, `repeat` or `seed`. The figures in `figures/` are rebuilt from the committed logs
 with `python plots.py`.
@@ -298,3 +333,6 @@ seed 1, baseline seed 2, looped-l2 seeds 1 and 2, and looped-l2-embed seeds 1 an
 in `seeds_l2_results.json`; their run folders are not committed under `out/` yet. Only full runs are committed; the smoke-test runs
 and a stopped launch were left out. `out/logs` and `out/results` hold u9 (b) and baseline-long (a), since the
 repeat of each wrote to the same volume path; baseline-long (b)'s metrics are in `bc_results.json`.
+
+The SSA run is also uploaded, from its completed attempt `offline-run-20261106_015551-6pyk02c8`, which is on the
+`vocalocate-a3` Modal volume under `a3/wandb/wandb/`. Its preempted first attempt was left out.

@@ -1,0 +1,35 @@
+{
+  "d12-ssa": {
+    "tag": "smoke-d12-ssa",
+    "returncode": 0,
+    "container_s": 112.94094944000244,
+    "cmd": [
+      "python",
+      "-m",
+      "scripts.base_train",
+      "--depth=12",
+      "--num-iterations=2520",
+      "--total-batch-size=524288",
+      "--device-batch-size=32",
+      "--core-metric-every=999999",
+      "--sample-every=-1",
+      "--save-every=-1",
+      "--experiment=ssa",
+      "--run=smoke-d12-ssa",
+      "--model-tag=smoke-d12-ssa",
+      "--num-iterations=30",
+      "--eval-every=15",
+      "--eval-tokens=1048576",
+      "--core-metric-max-per-task=20"
+    ],
+    "val_bpb": 1.767174,
+    "min_val_bpb": 1.767174,
+    "core": -0.0478,
+    "train_minutes": 0.31,
+    "peak_mem_mib": 28819.35,
+    "flops_per_token": 759696000.0,
+    "tok_per_sec": 534006.3,
+    "mfu_pct": 41.01899999999999,
+    "fa3": true
+  }
+}

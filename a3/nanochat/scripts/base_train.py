@@ -67,6 +67,7 @@ parser.add_argument("--depth-attention", action="store_true", help="enable param
 parser.add_argument("--depth-attention-stride", type=int, default=None, help="depth source stride (default: max(1, depth // 2)); requires --depth-attention")
 parser.add_argument("--mgvr", action="store_true", help="enable baseline-initialized Multi-head Gated Value Residuals")
 parser.add_argument("--xsa", action="store_true", help="enable learnable Exclusive Self-Attention (zero-init per-head gate)")
+parser.add_argument("--ssa", action="store_true", help="enable Selective Self-Attention (position-dependent per-head query temperature)")
 parser.add_argument("--mudd", action="store_true", help="enable MUDD-lite dense connections on the last two layers")
 parser.add_argument("--gpu-hourly-cost", type=float, default=None, help="optional cost per GPU-hour for Depth-Attention/MGVR reporting")
 # Training horizon (only one used, in order of precedence)
@@ -180,6 +181,7 @@ def build_model_meta(depth, looped=True):
         depth_attention_stride=args.depth_attention_stride,
         mgvr=args.mgvr,
         xsa=args.xsa,
+        ssa=args.ssa,
         mudd=args.mudd,
     )
     with torch.device("meta"):
@@ -200,7 +202,7 @@ if not model_config.depth_attention:
     model_config_kwargs.pop("depth_attention_stride")
 if not model_config.mgvr:
     model_config_kwargs.pop("mgvr")
-for key in ("xsa", "mudd"):
+for key in ("xsa", "ssa", "mudd"):
     if not model_config_kwargs[key]:
         model_config_kwargs.pop(key)
 for key in ("loop_embed", "n_loops_min", "n_loops_max"):
@@ -225,6 +227,8 @@ if args.mgvr:
     default_tag += "-mgvr"
 if args.xsa:
     default_tag += "-xsa"
+if args.ssa:
+    default_tag += "-ssa"
 if args.mudd:
     default_tag += "-mudd"
 output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-l2-xiprelu

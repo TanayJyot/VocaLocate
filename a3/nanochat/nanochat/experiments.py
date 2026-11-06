@@ -1,6 +1,6 @@
 """Explicit architecture selection for controlled pretraining experiments."""
 
-EXPERIMENTS = ("baseline", "looped", "xiprelu", "diff-v2", "depth-attention", "mgvr", "xsa", "mudd", "combined")
+EXPERIMENTS = ("baseline", "looped", "xiprelu", "diff-v2", "depth-attention", "mgvr", "xsa", "ssa", "mudd", "combined")
 
 
 def select_experiment(args):
@@ -17,7 +17,7 @@ def select_experiment(args):
         active.add("looped")
     if args.mlp_activation != "relu2":
         active.add("xiprelu")
-    for name in ("diff-v2", "depth-attention", "mgvr", "xsa", "mudd"):
+    for name in ("diff-v2", "depth-attention", "mgvr", "xsa", "ssa", "mudd"):
         if getattr(args, name.replace("-", "_"), False):
             active.add(name)
     if selected == "combined":

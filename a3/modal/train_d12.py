@@ -73,6 +73,8 @@ CONFIGS = {
     # layers (#81). Both start as the baseline (zero init); MUDD adds ~0.1M weights and ~0.1% FLOPs/token.
     "d12-xsa": ["--experiment=xsa"],
     "d12-mudd": ["--experiment=mudd"],
+    # Selective Self-Attention in the form OpenNeuro ran it (their A3): one scalar per head and layer, no extra matmuls
+    "d12-ssa": ["--experiment=ssa"],
     # baseline at other init seeds (NANOCHAT_SEED; data order is unchanged) to measure seed-to-seed noise
     "d12-baseline-s1": ["--experiment=baseline"],
     "d12-baseline-s2": ["--experiment=baseline"],
