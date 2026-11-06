@@ -1,0 +1,189 @@
+{
+  "seed": 20261104,
+  "device": "cuda",
+  "chance": 0.25,
+  "trials_per_condition": 128,
+  "method": "Four distinct locker records and four distinct single-token codes in each prompt. Target key is randomized. Target distance is fixed by condition and record order is randomized. Both checkpoints score identical cases.",
+  "results": [
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 46,
+      "trials": 128,
+      "accuracy": 0.359375
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 11,
+      "trials": 128,
+      "accuracy": 0.0859375
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "extrapolation": true,
+      "correct": 44,
+      "trials": 128,
+      "accuracy": 0.34375
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "extrapolation": true,
+      "correct": 29,
+      "trials": 128,
+      "accuracy": 0.2265625
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "extrapolation": true,
+      "correct": 1,
+      "trials": 128,
+      "accuracy": 0.0078125
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "extrapolation": true,
+      "correct": 45,
+      "trials": 128,
+      "accuracy": 0.3515625
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "extrapolation": true,
+      "correct": 18,
+      "trials": 128,
+      "accuracy": 0.140625
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "extrapolation": true,
+      "correct": 8,
+      "trials": 128,
+      "accuracy": 0.0625
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "extrapolation": true,
+      "correct": 22,
+      "trials": 128,
+      "accuracy": 0.171875
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 44,
+      "trials": 128,
+      "accuracy": 0.34375
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 28,
+      "trials": 128,
+      "accuracy": 0.21875
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 63,
+      "trials": 128,
+      "accuracy": 0.4921875
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 30,
+      "trials": 128,
+      "accuracy": 0.234375
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "extrapolation": false,
+      "correct": 15,
+      "trials": 128,
+      "accuracy": 0.1171875
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 85,
+      "trials": 128,
+      "accuracy": 0.6640625
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 38,
+      "trials": 128,
+      "accuracy": 0.296875
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "extrapolation": false,
+      "correct": 20,
+      "trials": 128,
+      "accuracy": 0.15625
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "extrapolation": false,
+      "correct": 31,
+      "trials": 128,
+      "accuracy": 0.2421875
+    }
+  ]
+}

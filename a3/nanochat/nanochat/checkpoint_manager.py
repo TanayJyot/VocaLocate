@@ -73,7 +73,7 @@ def load_checkpoint(checkpoint_dir, step, device, load_optimizer=False, rank=0):
     return model_data, optimizer_data, meta_data
 
 
-def build_model(checkpoint_dir, step, device, phase):
+def build_model(checkpoint_dir, step, device, phase, *, eval_sequence_len=None):
     """
     A bunch of repetitive code to build a model from a given checkpoint.
     Returns:
@@ -93,6 +93,10 @@ def build_model(checkpoint_dir, step, device, phase):
     model_data = {k.removeprefix("_orig_mod."): v for k, v in model_data.items()}
     model_config_kwargs = meta_data["model_config"]
     _patch_missing_config_keys(model_config_kwargs)
+    if eval_sequence_len is not None:
+        if phase != "eval":
+            raise ValueError("eval_sequence_len requires phase='eval'")
+        model_config_kwargs = {**model_config_kwargs, "sequence_len": eval_sequence_len}
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
     _patch_missing_keys(model_data, model_config)

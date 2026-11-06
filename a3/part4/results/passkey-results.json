@@ -1,0 +1,187 @@
+{
+  "seed": 42,
+  "device": "cuda",
+  "chance": 0.25,
+  "results": [
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "extrapolation": true,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "extrapolation": true,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "extrapolation": true,
+      "correct": 100,
+      "trials": 128,
+      "accuracy": 0.78125
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "extrapolation": true,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "extrapolation": true,
+      "correct": 104,
+      "trials": 128,
+      "accuracy": 0.8125
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "extrapolation": true,
+      "correct": 45,
+      "trials": 128,
+      "accuracy": 0.3515625
+    },
+    {
+      "step": 1260,
+      "trained_length": 512,
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "extrapolation": true,
+      "correct": 68,
+      "trials": 128,
+      "accuracy": 0.53125
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    },
+    {
+      "step": 2520,
+      "trained_length": 2048,
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "extrapolation": false,
+      "correct": 128,
+      "trials": 128,
+      "accuracy": 1.0
+    }
+  ]
+}

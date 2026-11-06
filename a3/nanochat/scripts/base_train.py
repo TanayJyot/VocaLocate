@@ -61,6 +61,8 @@ parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding 
 parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
+parser.add_argument("--stop-at-step", type=int, default=None,
+                    help="save and stop at this step while keeping the full training schedule")
 parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
 parser.add_argument("--target-param-data-ratio", type=float, default=12, help="calculate num_iterations to maintain data:param ratio (Chinchilla=20, -1 = disable)")
 # Optimization
@@ -376,6 +378,12 @@ elif args.target_param_data_ratio > 0:
     print0(f"Calculated number of iterations from target data:param ratio: {num_iterations:,}")
 else:
     raise ValueError("No training horizon specified")
+end_step = num_iterations if args.stop_at_step is None else args.stop_at_step
+if args.stop_at_step is not None:
+    if not max(0, args.resume_from_step) < end_step <= num_iterations:
+        parser.error("--stop-at-step must be after the starting step and within the training horizon")
+    print0(f"Stopping at step {end_step:,} on the {num_iterations:,}-step schedule")
+
 total_tokens = total_batch_size * num_iterations # the actual number of tokens we will train for
 print0(f"Total number of training tokens: {total_tokens:,}")
 print0(f"Tokens : Scaling params ratio: {total_batch_size * num_iterations / num_scaling_params:.2f}") # e.g. Chinchilla was ~20
@@ -439,7 +447,7 @@ print0(f"Total batch size {total_batch_size:,} => gradient accumulation steps: {
 
 # Go!
 while True:
-    last_step = step == num_iterations # loop runs num_iterations+1 times so that we can eval/save at the end
+    last_step = step == end_step # evaluate and save after the final optimizer step of this invocation
     flops_so_far = num_flops_per_token * total_batch_size * step
 
     # once in a while: evaluate the val bpb (all ranks participate)
@@ -583,7 +591,7 @@ while True:
     steps_done = step - 10
     if steps_done > 0:
         avg_time_per_step = total_training_time / steps_done
-        remaining_steps = num_iterations - step
+        remaining_steps = end_step - step
         eta_seconds = remaining_steps * avg_time_per_step
         eta_str = f" | eta: {eta_seconds/60:.1f}m"
     else:
