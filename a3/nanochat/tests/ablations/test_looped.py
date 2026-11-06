@@ -108,7 +108,7 @@ def test_loops_change_output_and_grads_reach_shared_blocks():
 
 
 @pytest.mark.parametrize("kw", [dict(n_layer=3, n_loops=3), dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1),
-                                dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1, n_loops_min=1, n_loops_max=3, loop_embed=True)])
+                                dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1, loop_embed=True)])
 def test_kv_cache_decode_matches_full_forward(kw):
     """Each executed step needs its own KV slot: incremental decode must equal the full forward pass."""
     m = make(**kw).eval()
@@ -128,22 +128,7 @@ def test_kv_cache_decode_matches_full_forward(kw):
     assert cache.get_pos() == T
 
 
-# --- per-loop embeddings and random loop counts ---
-
-def test_step_slots_for_variable_loop_counts():
-    cfg = GPTConfig(n_layer=4, n_prelude=1, n_coda=1, n_loops=2, n_loops_min=1, n_loops_max=3)
-    assert cfg.loop_range == (1, 3) and cfg.n_passes == 3 and cfg.n_step_slots == 8
-    assert cfg.layer_plan(1) == [0, 1, 2, 3] and cfg.step_slots(1) == [0, 1, 2, 7]
-    assert cfg.step_slots(2) == [0, 1, 2, 3, 4, 7]
-    assert cfg.step_slots(3) == list(range(8))
-    # passes beyond n_passes reuse the last pass's slots; the coda keeps its own
-    assert cfg.step_slots(5) == [0, 1, 2, 3, 4, 5, 6, 5, 6, 5, 6, 7]
-    # fixed loop counts are unchanged: one slot per executed step
-    fixed = GPTConfig(n_layer=4, n_prelude=1, n_coda=1, n_loops=3)
-    assert fixed.step_slots() == list(range(fixed.effective_depth)) and fixed.n_step_slots == fixed.effective_depth
-    with pytest.raises(AssertionError):
-        GPTConfig(n_loops=2, n_loops_max=1).loop_range
-
+# --- per-loop embeddings ---
 
 def test_zero_init_loop_embed_matches_plain_looped_model():
     plain = make(n_layer=4, n_loops=3, n_prelude=1, n_coda=1)
@@ -164,32 +149,3 @@ def test_zero_init_loop_embed_matches_plain_looped_model():
     with torch.no_grad():
         embed.loop_embeds.normal_()
     assert not torch.allclose(embed(idx), plain(idx))
-
-
-def test_random_loop_model_runs_any_loop_count():
-    m = make(n_layer=4, n_loops=2, n_prelude=1, n_coda=1, n_loops_min=1, n_loops_max=3)
-    fixed3 = make(n_layer=4, n_loops=3, n_prelude=1, n_coda=1)
-    # sized for 3 passes, so at 3 loops it is exactly the fixed 3-loop model
-    fixed3.load_state_dict(m.state_dict())
-    idx = torch.randint(0, 300, (2, 16))
-    torch.testing.assert_close(m(idx, n_loops=3), fixed3(idx), rtol=0, atol=0)
-    outs = [m(idx, n_loops=n) for n in (1, 2, 3, 5)]
-    assert all(torch.isfinite(o).all() for o in outs)
-    assert not torch.allclose(outs[0], outs[1]) and not torch.allclose(outs[2], outs[3])
-    torch.testing.assert_close(m(idx), outs[1], rtol=0, atol=0) # default = n_loops
-    # training cost is the average over the sampled loop counts
-    expected = sum(m.estimate_flops(n) for n in (1, 2, 3)) / 3
-    assert m.estimate_flops() == pytest.approx(expected)
-    assert m.estimate_flops(3) == fixed3.estimate_flops()
-    # the KV cache only covers the default loop count
-    cache = KVCache(batch_size=2, num_heads=2, seq_len=32, head_dim=32, num_layers=m.config.effective_depth,
-                    device=DEVICE, dtype=COMPUTE_DTYPE)
-    with pytest.raises(AssertionError):
-        m(idx[:, :4], kv_cache=cache, n_loops=3)
-
-
-def test_loop_extensions_reject_depth_attention_and_mgvr():
-    for extra in (dict(depth_attention=True), dict(mgvr=True)):
-        for loops in (dict(loop_embed=True), dict(n_loops_min=1, n_loops_max=3)):
-            with pytest.raises(AssertionError):
-                make(n_layer=4, n_loops=2, n_prelude=1, n_coda=1, **extra, **loops)

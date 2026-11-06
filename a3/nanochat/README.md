@@ -109,8 +109,8 @@ The important thing to note is that nanochat is written and configured around on
 
 ## Architecture ablations
 
-See [docs/ablations/README.md](docs/ablations/README.md) for the looped-depth,
-xIPReLU, Differential Attention V2, Depth-Attention and MGVR documentation.
+See [docs/ablations/README.md](docs/ablations/README.md) for the looped-depth and
+Differential Attention V2 documentation.
 Their tests are centralized in `tests/ablations/` and can be run from the
 repository root:
 
@@ -166,13 +166,10 @@ I've published a number of guides that might contain helpful information, most r
 │       ├── README.md              # Index and test commands
 │       ├── looped
 │       │   └── README.md
-│       ├── xiprelu
 │       │   └── README.md
 │       ├── diff_v2
 │       │   └── README.md
-│       ├── depth_attention
 │       │   └── README.md
-│       └── mgvr
 │           └── README.md
 ├── nanochat
 │   ├── __init__.py                 # empty
@@ -213,14 +210,8 @@ I've published a number of guides that might contain helpful information, most r
 ├── tests
 │   ├── ablations
 │   │   ├── test_looped.py
-│   │   ├── test_xiprelu.py
-│   │   ├── test_xiprelu_smoke.py
 │   │   ├── test_diff_v2.py
-│   │   ├── test_diff_v2_smoke.py
-│   │   ├── test_depth_attention.py
-│   │   ├── test_depth_attention_smoke.py
-│   │   ├── test_mgvr.py
-│   │   └── test_mgvr_smoke.py
+│   │   └── test_diff_v2_smoke.py
 │   ├── test_attention_fallback.py  # FA3/SDPA attention fallback
 │   ├── test_engine.py              # Inference engine, KV cache
 │   ├── test_execution.py           # Sandboxed code execution

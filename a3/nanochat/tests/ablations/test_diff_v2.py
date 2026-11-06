@@ -25,7 +25,7 @@ def cpu_sdpa(monkeypatch):
 def make_model(diff_v2=True, activation="relu2", active=False, device="cpu", **kwargs):
     options = dict(sequence_len=16, vocab_size=256, n_layer=2, n_head=4,
                    n_kv_head=2, n_embd=32, window_pattern="L",
-                   mlp_activation=activation, diff_v2=diff_v2)
+                   diff_v2=diff_v2)
     options.update(kwargs)
     config = GPTConfig(**options)
     with torch.device("meta"):
@@ -43,7 +43,7 @@ def make_model(diff_v2=True, activation="relu2", active=False, device="cpu", **k
 
 @pytest.fixture
 def previous_gpt(monkeypatch):
-    # Pin the local baseline + xIPReLU implementation immediately before this change.
+    # Pin the local baseline implementation immediately before this change.
     result = subprocess.run(
         ["git", "show", "2aece7fd74449ead75399995bb8352beb53ffb95:./nanochat/gpt.py"],
         cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
@@ -56,10 +56,10 @@ def previous_gpt(monkeypatch):
     return module
 
 
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 def test_disabled_matches_previous_initialization_forward_gradients_and_update(previous_gpt, activation):
     config = dict(sequence_len=16, vocab_size=256, n_layer=2, n_head=4,
-                  n_kv_head=2, n_embd=32, window_pattern="L", mlp_activation=activation)
+                  n_kv_head=2, n_embd=32, window_pattern="L")
     models = []
     for module in (gpt, previous_gpt):
         with torch.device("meta"):
@@ -186,7 +186,7 @@ def test_projection_and_subtraction_dtype_finite_outputs_and_gradients(monkeypat
     assert torch.isfinite(x.grad).all()
 
 
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 def test_full_model_causality_and_two_real_optimizer_updates(activation):
     torch.manual_seed(42)
     model = make_model(activation=activation)
@@ -216,7 +216,7 @@ def test_full_model_causality_and_two_real_optimizer_updates(activation):
 
 
 @pytest.mark.parametrize("window", [-1, 2])
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 @pytest.mark.parametrize("n_loops", [1, 2])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_prefill_and_cached_decoding_match_full_sequence(monkeypatch, window, activation, n_loops, dtype):
@@ -236,7 +236,7 @@ def test_prefill_and_cached_decoding_match_full_sequence(monkeypatch, window, ac
 
 
 @pytest.mark.parametrize("enabled", [False, True])
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 def test_strict_checkpoint_roundtrip_and_old_config_default(tmp_path, monkeypatch, enabled, activation):
     model = make_model(diff_v2=enabled, activation=activation, active=True).eval()
     config = asdict(model.config)
@@ -269,7 +269,7 @@ def test_flops_count_extra_projections_once_and_double_attention_only(n_loops):
     assert diff.kv_read_bytes(8) == base.kv_read_bytes(8)
 
 
-@pytest.mark.parametrize("activation", ["relu2", "xiprelu"])
+@pytest.mark.parametrize("activation", ["relu2"])
 def test_fullgraph_compile_forward_and_backward(activation):
     model = make_model(activation=activation, active=True)
     compiled = torch.compile(model, backend="aot_eager", fullgraph=True)

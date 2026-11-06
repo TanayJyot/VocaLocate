@@ -6,10 +6,7 @@ and each ablation STANDALONE.** Improvements below are goals, not measured wins.
 | Ablation | What changes / intended improvement | Standalone selection |
 | --- | --- | --- |
 | [Looped depth](looped/README.md) | Repeats core blocks with shared weights: more computation per parameter, aiming for stronger iterative reasoning. `--depth` counts unique blocks. | `--experiment=looped --n-loops=2` |
-| [xIPReLU](xiprelu/README.md) | Replaces ReLU² with a quadratic activation whose positive/negative coefficients learn: more flexible activation and gradient flow. | `--experiment=xiprelu` |
 | [Diff V2](diff_v2/README.md) | Subtracts a learned fraction of a second attention retrieval: aims to cancel shared attention noise. | `--experiment=diff-v2` |
-| [Depth-Attention](depth_attention/README.md) | Mixes same-token values across selected earlier depths before causal attention: reuses earlier representations without new parameters. | `--experiment=depth-attention` |
-| [MGVR](mgvr/README.md) | Gates current values and adds a learned cross-head mixture of first-layer values: aims to preserve and selectively reuse early information. | `--experiment=mgvr` |
 
 ## Local setup and training
 
@@ -43,32 +40,26 @@ train() {
 ```sh
 train --experiment=baseline        --model-tag=handover-baseline
 train --experiment=looped --n-loops=2 --model-tag=handover-looped
-train --experiment=xiprelu         --model-tag=handover-xiprelu
 train --experiment=diff-v2         --model-tag=handover-diff-v2
-train --experiment=depth-attention --model-tag=handover-depth-attention
-train --experiment=mgvr            --model-tag=handover-mgvr
 ```
 
 Each named selection enables only its ablation and rejects conflicting flags
-before compute/data setup. Example: `--experiment=mgvr --diff-v2` is rejected.
+before compute/data setup. Example: `--experiment=baseline --diff-v2` is rejected.
 Without `--experiment`, legacy flags still work but have no standalone guard.
 The selector changes architecture only; keep data, seed, batch and training
 budget fixed for controlled comparisons. These tiny runs do not measure quality.
 
 **Combined runs are separate experiments**, requiring `--experiment=combined`
-and at least two explicit ablations. Raw flags are `--n-loops=2`,
-`--mlp-activation=xiprelu`, `--diff-v2`, `--depth-attention`, and `--mgvr`:
+and both ablations. Raw flags are `--n-loops=2`, `--loop-embed` and `--diff-v2`:
 
 ```sh
-train --experiment=combined --mgvr --depth-attention --model-tag=handover-combined
+train --experiment=combined --diff-v2 --n-loops=2 --n-prelude=1 --n-coda=1 --loop-embed --model-tag=handover-combined
 ```
 
 Checkpoints: `$NANOCHAT_BASE_DIR/base_checkpoints/<model-tag>/`. Use a new tag
 for each run and preserve the original architecture flags when resuming. For
 larger GPU runs, use `scripts.base_train` with these same selections and your
-GPU/budget arguments; omit `TORCHDYNAMO_DISABLE=1`. Known resume-layout,
-FP8-budget and naming limitations are in the
-[conflict review](../../dev/ablation_conflict_review.md).
+GPU/budget arguments; omit `TORCHDYNAMO_DISABLE=1`.
 
 ## Rerun implementation and smoke tests
 
@@ -81,7 +72,7 @@ OMP_NUM_THREADS=1 .venv/bin/python -m pytest -q -rs \
   tests/test_attention_fallback.py tests/test_engine.py tests/test_optim.py
 ```
 
-Smoke tests only (looping is exercised by the xIPReLU smoke cases too):
+Smoke tests only:
 
 ```sh
 OMP_NUM_THREADS=1 .venv/bin/python -m pytest -q -rs tests/ablations/test_*_smoke.py

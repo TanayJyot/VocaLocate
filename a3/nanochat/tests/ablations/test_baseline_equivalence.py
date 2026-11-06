@@ -39,8 +39,7 @@ def test_all_flags_disabled_matches_original(original_modules, monkeypatch, dtyp
         monkeypatch.setattr(module, "COMPUTE_DTYPE", dtype)
     shared = dict(sequence_len=16, vocab_size=256, n_layer=4, n_head=4,
                   n_kv_head=kv_heads, n_embd=32, window_pattern=pattern)
-    disabled = dict(n_loops=1, n_prelude=0, n_coda=0, mlp_activation="relu2",
-                    diff_v2=False, depth_attention=False, depth_attention_stride=None, mgvr=False)
+    disabled = dict(n_loops=1, n_prelude=0, n_coda=0, diff_v2=False)
     models = []
     for module, extra in ((original, {}), (gpt, disabled)):
         torch.manual_seed(71)
