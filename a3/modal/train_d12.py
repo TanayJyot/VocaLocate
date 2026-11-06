@@ -7,7 +7,7 @@ ablation runs standalone against the baseline.
 
 Setup (once):
     modal volume create vocalocate-a3
-    modal volume put vocalocate-a3 <local tokenizer dir> /a3/tokenizer
+    modal volume put vocalocate-a3 ../tokenizer/tokenizer.pkl /a3/tokenizer/tokenizer.pkl  # and token_bytes.pt, see ../tokenizer/README.md
     modal run train_d12.py::prep            # downloads the data shards into the volume
 Smoke test (a few steps of every config, checks CUDA/FA3/CORE paths):
     modal run train_d12.py --smoke
