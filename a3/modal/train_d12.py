@@ -80,8 +80,7 @@ CONFIGS["d20-combined"] = ["--experiment=combined", "--diff-v2", "--n-loops=2", 
 MAX_TRAIN_SHARDS = {"d20-baseline-long": 110}
 CONFIGS["d20-baseline-long"] = ["--experiment=baseline", "--depth=20", "--num-iterations=21328", "--device-batch-size=16",
                                 "--max-seq-len=2048", "--eval-every=500"]
-SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-s1": 1, "d12-looped-l2-s2": 2,
-         "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
+SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
 SMOKE = ["--num-iterations=30", "--eval-every=15", "--eval-tokens=1048576", "--core-metric-max-per-task=20"]
 
 
