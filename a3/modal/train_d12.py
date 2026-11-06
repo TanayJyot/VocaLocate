@@ -2,18 +2,21 @@
 A3 Parts 2, 3 and 5: d12 picochat ablations on Modal (one GPU per run) and the final d20 combined model (8 H100s). Tags ending in -a100, -rtx, -b200 or -l40s rerun an
 ablation on that hardware for Part 3, and save checkpoints so a preempted run resumes instead of restarting.
 
-Every run uses the same data, tokenizer, batch and token budget, and seed 42 unless SEEDS says otherwise; only the
-architecture changes, selected with nanochat's --experiment flag so that each
-ablation runs standalone against the baseline.
+Every run uses the same data, tokenizer and batch, and seed 42 unless SEEDS says otherwise.
+Architecture ablations use the same token budget; longer baseline controls match their total estimated FLOPs.
+Architectures are selected with nanochat's --experiment flag; combined presets explicitly enable multiple ablations.
 
 Setup (once):
     modal volume create vocalocate-a3
-    modal volume put vocalocate-a3 <local tokenizer dir> /a3/tokenizer
+    modal volume put vocalocate-a3 ../tokenizer/tokenizer.pkl /a3/tokenizer/tokenizer.pkl  # and token_bytes.pt, see ../tokenizer/README.md
     modal run train_d12.py::prep            # downloads the data shards into the volume
 Smoke test (a few steps of every config, checks CUDA/FA3/CORE paths):
     modal run train_d12.py --smoke
 Full runs (detached, results land in the volume under /a3/results):
     modal run --detach train_d12.py
+One baseline model distributed across four H100s, at the same global token budget:
+    modal run --detach train_d12.py --only=d12-baseline --gpus=4
+The --gpus option accepts 1 (default), 2, 4 or 8 H100s per selected model.
 """
 import json
 import os
@@ -201,7 +204,7 @@ def _train(tag: str, smoke: bool = False, extra=(), nproc=1, sdpa=False):
         p.wait()
     done.set()
     log = "".join(lines)
-    out = {"tag": run_tag, "returncode": p.returncode, "container_s": prior_s + time.time() - t0, "cmd": cmd, "gpu": gpu,
+    out = {"tag": run_tag, "returncode": p.returncode, "container_s": prior_s + time.time() - t0, "gpu_count": nproc, "cmd": cmd, "gpu": gpu,
            "attempts": attempts, "resumed_from": resume_step, **_metrics(log)}
     if p.returncode != 0:
         out["error_tail"] = log[-3000:]
@@ -213,8 +216,8 @@ def _train(tag: str, smoke: bool = False, extra=(), nproc=1, sdpa=False):
 
 
 @app.function(gpu="H100!", volumes={"/vol": vol}, timeout=4 * 3600)
-def train(tag: str, smoke: bool = False):
-    return _train(tag, smoke)
+def train(tag: str, smoke: bool = False, gpus: int = 1):
+    return _train(tag, smoke, nproc=gpus)
 
 
 # Modal fixes the GPU at decoration time, so one function per hardware. A100-80GB because looped-l2-embed peaks at 45 GB
@@ -354,12 +357,15 @@ def _spawn_once(launch_id, key, fn, *args):
 
 
 @app.function(volumes={"/vol": vol}, timeout=5 * 3600)
-def launch_all(smoke: bool = False, only: str = "", launch_id: str = ""):
+def launch_all(smoke: bool = False, only: str = "", launch_id: str = "", gpus: int = 1):
     """Spawns every run from inside Modal, so `modal run --detach` keeps them all alive (a detached app only
     keeps the last function the local client triggered) even if the laptop disconnects."""
     tags = [t for t in CONFIGS if not only or t in only.split(",")]
+    if gpus not in (1, 2, 4, 8):
+        raise ValueError("--gpus must be 1, 2, 4 or 8 (H100s per model)")
+    trainer = train if gpus == 1 else train.with_options(gpu=f"H100!:{gpus}")
     launch_id = launch_id or f"train-{time.time_ns()}"
-    calls = {t: _spawn_once(launch_id, t, _trainer(t), t, smoke) for t in tags}
+    calls = {t: _spawn_once(launch_id, t, _trainer(t), t, smoke) if gpus == 1 else _spawn_once(launch_id, t, trainer, t, smoke, gpus) for t in tags}
     print("spawned:", {t: c.hydrate().object_id for t, c in calls.items()}, flush=True)
     results = {}
     for t, c in calls.items():
@@ -371,8 +377,10 @@ def launch_all(smoke: bool = False, only: str = "", launch_id: str = ""):
 
 
 @app.local_entrypoint()
-def main(smoke: bool = False, only: str = "", out: str = ""):
-    results = launch_all.remote(smoke, only, f"train-{time.time_ns()}") # id fixed by the client, so a restarted launcher reattaches
+def main(smoke: bool = False, only: str = "", out: str = "", gpus: int = 1):
+    if gpus not in (1, 2, 4, 8):
+        raise ValueError("--gpus must be 1, 2, 4 or 8 (H100s per model)")
+    results = launch_all.remote(smoke, only, f"train-{time.time_ns()}", gpus) # id fixed by the client, so a restarted launcher reattaches
     for t, r in results.items():
         print(t, json.dumps({k: r.get(k) for k in ("returncode", "val_bpb", "core", "train_minutes", "tok_per_sec",
                                                    "mfu_pct", "peak_mem_mib", "fa3", "container_s", "error")}), flush=True)

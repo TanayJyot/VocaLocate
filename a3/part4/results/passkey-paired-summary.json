@@ -1,0 +1,141 @@
+{
+  "method": "Miller (2024), Section 4.2. Condition-wise paired mean difference B-A and normal 95% confidence interval: mean +/- 1.96 times the sample standard deviation of paired trial differences divided by sqrt(n).",
+  "source": "passkey-competing-paired.json",
+  "results": [
+    {
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "n": 128,
+      "both_correct": 24,
+      "a_only": 22,
+      "b_only": 20,
+      "both_wrong": 62,
+      "difference_pp": -1.5625,
+      "se_pp": 5.0810816271703905,
+      "ci95_pp": [
+        -11.521419989253966,
+        8.396419989253966
+      ]
+    },
+    {
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "n": 128,
+      "both_correct": 0,
+      "a_only": 11,
+      "b_only": 28,
+      "both_wrong": 89,
+      "difference_pp": 13.28125,
+      "se_pp": 4.754180421877133,
+      "ci95_pp": [
+        3.9630563731208186,
+        22.599443626879182
+      ]
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "n": 128,
+      "both_correct": 27,
+      "a_only": 17,
+      "b_only": 36,
+      "both_wrong": 48,
+      "difference_pp": 14.84375,
+      "se_pp": 5.555934676136151,
+      "ci95_pp": [
+        3.9541180347731437,
+        25.733381965226855
+      ]
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "n": 128,
+      "both_correct": 4,
+      "a_only": 25,
+      "b_only": 26,
+      "both_wrong": 73,
+      "difference_pp": 0.78125,
+      "se_pp": 5.600734378476453,
+      "ci95_pp": [
+        -10.196189381813848,
+        11.758689381813848
+      ]
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "n": 128,
+      "both_correct": 0,
+      "a_only": 1,
+      "b_only": 15,
+      "both_wrong": 112,
+      "difference_pp": 10.9375,
+      "se_pp": 2.9833805981314363,
+      "ci95_pp": [
+        5.090074027662385,
+        16.784925972337618
+      ]
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "n": 128,
+      "both_correct": 39,
+      "a_only": 6,
+      "b_only": 46,
+      "both_wrong": 37,
+      "difference_pp": 31.25,
+      "se_pp": 4.9293732332255935,
+      "ci95_pp": [
+        21.588428462877836,
+        40.911571537122164
+      ]
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "n": 128,
+      "both_correct": 12,
+      "a_only": 6,
+      "b_only": 26,
+      "both_wrong": 84,
+      "difference_pp": 15.625,
+      "se_pp": 4.214578536947021,
+      "ci95_pp": [
+        7.364426067583841,
+        23.88557393241616
+      ]
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "n": 128,
+      "both_correct": 2,
+      "a_only": 6,
+      "b_only": 18,
+      "both_wrong": 102,
+      "difference_pp": 9.375,
+      "se_pp": 3.7512301132034973,
+      "ci95_pp": [
+        2.0225889781211452,
+        16.727411021878854
+      ]
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "n": 128,
+      "both_correct": 6,
+      "a_only": 16,
+      "b_only": 25,
+      "both_wrong": 81,
+      "difference_pp": 7.03125,
+      "se_pp": 4.983189475617154,
+      "ci95_pp": [
+        -2.735801372209623,
+        16.79830137220962
+      ]
+    }
+  ]
+}

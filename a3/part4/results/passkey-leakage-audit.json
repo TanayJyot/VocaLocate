@@ -1,0 +1,82 @@
+{
+  "step": 2520,
+  "seed": 42,
+  "device": "cuda",
+  "chance": 0.25,
+  "no_answer_intervention": "Replace the sole candidate token in the prompt with the single token for ' unknown'. Keep the original target for scoring.",
+  "swapped_answer_intervention": "Replace the sole candidate token with the next candidate, cycling through the unchanged option order. Score the replacement as the target.",
+  "results": [
+    {
+      "input_tokens": 512,
+      "distance_tokens": 128,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 32,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 512,
+      "distance_tokens": 384,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 32,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 128,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 32,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 384,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 28,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 1024,
+      "distance_tokens": 768,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 35,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 128,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 34,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 384,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 32,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 768,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 34,
+      "swapped_answer_correct": 128
+    },
+    {
+      "input_tokens": 2048,
+      "distance_tokens": 1536,
+      "trials": 128,
+      "original_correct": 128,
+      "no_answer_correct": 33,
+      "swapped_answer_correct": 128
+    }
+  ]
+}
