@@ -1,0 +1,29 @@
+{
+  "tag": "d12-diff-v2",
+  "returncode": 0,
+  "container_s": 3848.7404630184174,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=diff-v2",
+    "--run=d12-diff-v2",
+    "--model-tag=d12-diff-v2"
+  ],
+  "val_bpb": 0.841475,
+  "min_val_bpb": 0.841475,
+  "core": 0.1727,
+  "train_minutes": 51.34,
+  "peak_mem_mib": 33569.75,
+  "flops_per_token": 901585600.0,
+  "tok_per_sec": 427387.2136,
+  "mfu_pct": 38.96120400000004,
+  "fa3": true
+}

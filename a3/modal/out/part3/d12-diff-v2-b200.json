@@ -1,0 +1,33 @@
+{
+  "tag": "d12-diff-v2-b200",
+  "returncode": 0,
+  "container_s": 5602.355063915253,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=diff-v2",
+    "--run=d12-diff-v2-b200",
+    "--model-tag=d12-diff-v2-b200",
+    "--save-every=500"
+  ],
+  "gpu": "NVIDIA B200",
+  "attempts": 1,
+  "resumed_from": null,
+  "val_bpb": 0.840873,
+  "min_val_bpb": 0.840873,
+  "core": 0.1799,
+  "train_minutes": 76.04,
+  "peak_mem_mib": 97575.66,
+  "flops_per_token": 901585600.0,
+  "tok_per_sec": 288318.3616,
+  "mfu_pct": 11.553004000000106,
+  "fa3": false
+}

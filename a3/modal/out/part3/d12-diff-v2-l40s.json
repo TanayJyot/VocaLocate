@@ -1,0 +1,33 @@
+{
+  "tag": "d12-diff-v2-l40s",
+  "returncode": 0,
+  "container_s": 12259.179443120956,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=diff-v2",
+    "--run=d12-diff-v2-l40s",
+    "--model-tag=d12-diff-v2-l40s",
+    "--save-every=500"
+  ],
+  "gpu": "NVIDIA L40S",
+  "attempts": 1,
+  "resumed_from": null,
+  "val_bpb": 0.8408,
+  "min_val_bpb": 0.8408,
+  "core": 0.1531,
+  "train_minutes": 177.0,
+  "peak_mem_mib": 33524.63,
+  "flops_per_token": 901585600.0,
+  "tok_per_sec": 123866.37,
+  "mfu_pct": 30.849819999999966,
+  "fa3": true
+}

@@ -1,0 +1,33 @@
+{
+  "tag": "d12-diff-v2-a100",
+  "returncode": 0,
+  "container_s": 9794.885590791702,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=diff-v2",
+    "--run=d12-diff-v2-a100",
+    "--model-tag=d12-diff-v2-a100",
+    "--save-every=500"
+  ],
+  "gpu": "NVIDIA A100 80GB PCIe",
+  "attempts": 1,
+  "resumed_from": null,
+  "val_bpb": 0.840773,
+  "min_val_bpb": 0.840773,
+  "core": 0.169,
+  "train_minutes": 138.21,
+  "peak_mem_mib": 33524.63,
+  "flops_per_token": 901585600.0,
+  "tok_per_sec": 158667.7996,
+  "mfu_pct": 45.85040800000014,
+  "fa3": true
+}

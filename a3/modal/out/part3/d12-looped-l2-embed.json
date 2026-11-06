@@ -1,0 +1,33 @@
+{
+  "tag": "d12-looped-l2-embed",
+  "returncode": 0,
+  "container_s": 5072.181315898895,
+  "cmd": [
+    "python",
+    "-m",
+    "scripts.base_train",
+    "--depth=12",
+    "--num-iterations=2520",
+    "--total-batch-size=524288",
+    "--device-batch-size=32",
+    "--core-metric-every=999999",
+    "--sample-every=-1",
+    "--save-every=-1",
+    "--experiment=looped",
+    "--n-loops=2",
+    "--n-prelude=1",
+    "--n-coda=1",
+    "--loop-embed",
+    "--run=d12-looped-l2-embed",
+    "--model-tag=d12-looped-l2-embed"
+  ],
+  "val_bpb": 0.837779,
+  "min_val_bpb": 0.837779,
+  "core": 0.1806,
+  "train_minutes": 67.82,
+  "peak_mem_mib": 46149.84,
+  "flops_per_token": 1274025000.0,
+  "tok_per_sec": 323298.6076,
+  "mfu_pct": 41.64724799999998,
+  "fa3": true
+}
