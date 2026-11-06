@@ -1,6 +1,6 @@
 """Explicit architecture selection for controlled pretraining experiments."""
 
-EXPERIMENTS = ("baseline", "looped", "xiprelu", "diff-v2", "depth-attention", "mgvr", "xsa", "ssa", "mudd", "combined")
+EXPERIMENTS = ("baseline", "looped", "diff-v2", "combined")
 
 
 def select_experiment(args):
@@ -13,13 +13,10 @@ def select_experiment(args):
     if selected is None:
         return
     active = set()
-    if args.n_loops != 1 or any(getattr(args, k, 0) for k in ("loop_embed", "n_loops_min", "n_loops_max")):
+    if args.n_loops != 1 or getattr(args, "loop_embed", False):
         active.add("looped")
-    if args.mlp_activation != "relu2":
-        active.add("xiprelu")
-    for name in ("diff-v2", "depth-attention", "mgvr", "xsa", "ssa", "mudd"):
-        if getattr(args, name.replace("-", "_"), False):
-            active.add(name)
+    if getattr(args, "diff_v2", False):
+        active.add("diff-v2")
     if selected == "combined":
         if len(active) < 2:
             raise ValueError("--experiment=combined requires at least two enabled ablations")

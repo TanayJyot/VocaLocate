@@ -46,46 +46,20 @@ COMMON = ["--depth=12", f"--num-iterations={STEPS}", "--total-batch-size=524288"
           "--core-metric-every=999999", "--sample-every=-1", "--save-every=-1"]
 CONFIGS = {
     "d12-baseline": ["--experiment=baseline"],
-    "d12-looped-l2": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1"],
-    # compute-matched looping: 7 unique blocks (1 prelude + 5 core x2 + 1 coda) = 12 effective layers, so the
-    # same FLOPs/token as the baseline with 42% fewer transformer weights. aspect 109 keeps width at 768
-    # (7*109=763, rounded up to a multiple of head_dim 128). Mirrors base-d10 vs looped-d6-l2 in the d6 study.
-    "d12-looped-u7": ["--experiment=looped", "--depth=7", "--aspect-ratio=109", "--n-loops=2", "--n-prelude=1",
-                      "--n-coda=1"],
-    # milder compute-matched sharing: 9 unique blocks (3 prelude + 3 core x2 + 3 coda) = 12 effective layers,
-    # 25% fewer weights. aspect 85 keeps width at 768 (9*85=765, rounded up to 768).
-    "d12-looped-u9": ["--experiment=looped", "--depth=9", "--aspect-ratio=85", "--n-loops=2", "--n-prelude=3",
-                      "--n-coda=3"],
     # compute-matched control for looped-l2: plain baseline trained for l2's FLOPs
     # (2520 steps * 12.74e8 / 7.60e8 FLOPs/token = 4224 steps). Later --num-iterations overrides COMMON's.
     "d12-baseline-long": ["--experiment=baseline", "--num-iterations=4224"],
     # looped-l2 plus a learned vector per core pass (2 x 768 extra params), so shared blocks know which pass they're in
     "d12-looped-l2-embed": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
-    # looped-l2 trained with a loop count drawn uniformly from {1,2,3} each step: same expected compute as l2,
-    # evaluated at 2 loops by default and swept over loop counts afterwards (loop_sweep)
-    "d12-looped-rand13": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--n-loops-min=1",
-                          "--n-loops-max=3"],
-    "d12-xiprelu": ["--experiment=xiprelu"],
     "d12-diff-v2": ["--experiment=diff-v2"],
-    "d12-depth-attention": ["--experiment=depth-attention"],
-    "d12-mgvr": ["--experiment=mgvr"],
-    # same-compute candidates from the 2026 modded-nanogpt records: learnable XSA (#82) and MUDD on the last two
-    # layers (#81). Both start as the baseline (zero init); MUDD adds ~0.1M weights and ~0.1% FLOPs/token.
-    "d12-xsa": ["--experiment=xsa"],
-    "d12-mudd": ["--experiment=mudd"],
-    # Selective Self-Attention in the form OpenNeuro ran it (their A3): one scalar per head and layer, no extra matmuls
-    "d12-ssa": ["--experiment=ssa"],
     # baseline at other init seeds (NANOCHAT_SEED; data order is unchanged) to measure seed-to-seed noise
     "d12-baseline-s1": ["--experiment=baseline"],
     "d12-baseline-s2": ["--experiment=baseline"],
-    # looped-l2 and looped-l2-embed at the same extra seeds, to compare all three models over seeds 42 / 1 / 2
-    "d12-looped-l2-s1": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1"],
-    "d12-looped-l2-s2": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1"],
+    # looped-l2-embed at the same extra seeds
     "d12-looped-l2-embed-s1": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
     "d12-looped-l2-embed-s2": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
 }
-SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-s1": 1, "d12-looped-l2-s2": 2,
-         "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
+SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
 SMOKE = ["--num-iterations=30", "--eval-every=15", "--eval-tokens=1048576", "--core-metric-max-per-task=20"]
 
 
@@ -187,22 +161,6 @@ def _spawn_once(launch_id, key, fn, *args):
         f.write(call.object_id)
     vol.commit()
     return call
-
-
-@app.function(volumes={"/vol": vol}, timeout=3 * 3600)
-def loop_sweep(tags: str = "d12-looped-rand13,d12-looped-l2", loops: str = "1,2,3,4,6", launch_id: str = ""):
-    """One container per (checkpoint, loop count), all in parallel."""
-    jobs = [(t, int(n)) for t in tags.split(",") for n in loops.split(",")]
-    launch_id = launch_id or f"sweep-{time.time_ns()}"
-    calls = [_spawn_once(launch_id, f"{t}-n{n}", eval_loops, t, n) for t, n in jobs]
-    print("spawned:", {f"{t}-n{n}": c.object_id for (t, n), c in zip(jobs, calls)}, flush=True)
-    results = []
-    for c in calls:
-        try:
-            results.append(c.get())
-        except Exception as e:
-            results.append({"error": repr(e)})
-    return results
 
 
 @app.function(volumes={"/vol": vol}, timeout=5 * 3600)
