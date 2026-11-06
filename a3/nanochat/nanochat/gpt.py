@@ -15,6 +15,7 @@ Notable features:
 
 from functools import partial
 from dataclasses import dataclass
+import math
 
 import torch
 import torch.nn as nn
@@ -47,6 +48,11 @@ class GPTConfig:
     n_loops: int = 1
     n_prelude: int = 0
     n_coda: int = 0
+    # loop_embed: a learned vector per core pass, added to the residual stream at the start of that pass so the
+    # shared blocks can tell which iteration they are in (zero init = starts as the plain looped model).
+    loop_embed: bool = False
+    # Differential Attention V2: two adjacent query heads per effective output head.
+    diff_v2: bool = False
 
     @property
     def n_core(self):
@@ -56,12 +62,31 @@ class GPTConfig:
     def effective_depth(self):
         return self.n_prelude + self.n_core * self.n_loops + self.n_coda
 
-    def layer_plan(self):
+    @property
+    def n_passes(self):
+        return self.n_loops
+
+    @property
+    def n_step_slots(self):
+        """Number of per-step scalar slots (== effective_depth at the trained loop count)."""
+        return self.n_prelude + self.n_core * self.n_passes + self.n_coda
+
+    def layer_plan(self, n_loops=None):
         """Block index used at each executed step, e.g. n_layer=4, prelude=1, coda=1, loops=3 -> [0,1,2,1,2,1,2,3]."""
-        assert self.n_loops >= 1 and self.n_prelude >= 0 and self.n_coda >= 0
+        n_loops = self.n_loops if n_loops is None else n_loops
+        assert n_loops >= 1 and self.n_prelude >= 0 and self.n_coda >= 0
         assert self.n_core >= 1, f"need at least one core block: n_layer={self.n_layer}, prelude={self.n_prelude}, coda={self.n_coda}"
         core = list(range(self.n_prelude, self.n_prelude + self.n_core))
-        return list(range(self.n_prelude)) + core * self.n_loops + list(range(self.n_layer - self.n_coda, self.n_layer))
+        return list(range(self.n_prelude)) + core * n_loops + list(range(self.n_layer - self.n_coda, self.n_layer))
+
+    def step_slots(self, n_loops=None):
+        """Per-step scalar slot used at each executed step. Equals range(effective_depth) for a fixed loop count;
+        core passes beyond n_passes reuse the last pass's slots, and the coda always keeps its own."""
+        n_loops = self.n_loops if n_loops is None else n_loops
+        last = self.n_passes - 1
+        core = [self.n_prelude + min(j, last) * self.n_core + k for j in range(n_loops) for k in range(self.n_core)]
+        coda_start = self.n_prelude + self.n_core * self.n_passes
+        return list(range(self.n_prelude)) + core + list(range(coda_start, coda_start + self.n_coda))
 
 
 def norm(x):
@@ -89,6 +114,7 @@ def apply_rotary_emb(x, cos, sin):
     y2 = x1 * (-sin) + x2 * cos
     return torch.cat([y1, y2], 3)
 
+
 class CausalSelfAttention(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -96,15 +122,18 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
+        self.diff_v2 = config.diff_v2
+        self.n_q_head = self.n_head * (2 if self.diff_v2 else 1)
         self.head_dim = self.n_embd // self.n_head
         assert self.n_embd % self.n_head == 0
         assert self.n_kv_head <= self.n_head and self.n_head % self.n_kv_head == 0
-        self.c_q = Linear(self.n_embd, self.n_head * self.head_dim, bias=False)
+        self.c_q = Linear(self.n_embd, self.n_q_head * self.head_dim, bias=False)
         self.c_k = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_v = Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_proj = Linear(self.n_embd, self.n_embd, bias=False)
         self.ve_gate_channels = 12
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
+        self.lambda_proj = Linear(self.n_embd, self.n_head, bias=False) if self.diff_v2 else None
 
     def forward(self, x, ve, cos_sin, window_size, kv_cache, cache_idx):
         # cache_idx = executed step (virtual layer) index. With looping, one block runs several times and
@@ -113,7 +142,7 @@ class CausalSelfAttention(nn.Module):
 
         # Project the input to get queries, keys, and values
         # Shape: (B, T, H, D) - FA3's native layout, no transpose needed!
-        q = self.c_q(x).view(B, T, self.n_head, self.head_dim)
+        q = self.c_q(x).view(B, T, self.n_q_head, self.head_dim)
         k = self.c_k(x).view(B, T, self.n_kv_head, self.head_dim)
         v = self.c_v(x).view(B, T, self.n_kv_head, self.head_dim)
 
@@ -148,6 +177,12 @@ class CausalSelfAttention(nn.Module):
             # Advance position after last layer processes
             if cache_idx == kv_cache.n_layers - 1:
                 kv_cache.advance(T)
+
+        if self.diff_v2:
+            # GQA groups are contiguous: adjacent partners always share the same K/V.
+            # Apply after either backend/path so training, prefill and decoding agree.
+            lam = torch.sigmoid(self.lambda_proj(x)).to(y).unsqueeze(-1)
+            y = y[:, :, 0::2] - lam * y[:, :, 1::2]
 
         # Re-assemble the heads and project back to residual stream
         y = y.contiguous().view(B, T, -1)
@@ -191,9 +226,11 @@ class GPT(nn.Module):
         self.config = config
         # Compute per-layer window sizes for sliding window attention
         # window_size is (left, right) tuple: (-1, 0) for full context, (N, 0) for sliding window
+        self.slot_windows = self._compute_window_sizes(config) # one per per-step scalar slot
+        self._plans = {config.n_loops: self._execution_plan(config.n_loops)}
         self.layer_plan = config.layer_plan() # block index executed at each step (length = effective depth)
         self.eff_depth = len(self.layer_plan)
-        self.window_sizes = self._compute_window_sizes(config) # one per executed step
+        self.window_sizes = self._plans[config.n_loops]["windows"] # one per executed step
         # Pad vocab for efficiency (DDP, tensor cores). This is just an optimization - outputs are cropped in forward().
         # https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.resize_token_embeddings
         padded_vocab_size = ((config.vocab_size + pad_vocab_size_to - 1) // pad_vocab_size_to) * pad_vocab_size_to
@@ -208,8 +245,10 @@ class GPT(nn.Module):
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
         # x0_lambdas: blends initial embedding back in at each layer (init 0.0 = disabled)
         # Separate parameters so they can have different optimizer treatment
-        self.resid_lambdas = nn.Parameter(torch.ones(self.eff_depth))   # (per executed step, not per unique block) fake init, real init in init_weights()
-        self.x0_lambdas = nn.Parameter(torch.zeros(self.eff_depth))     # (per executed step) fake init, real init in init_weights()
+        self.resid_lambdas = nn.Parameter(torch.ones(config.n_step_slots))   # (per executed step slot, not per unique block) fake init, real init in init_weights()
+        self.x0_lambdas = nn.Parameter(torch.zeros(config.n_step_slots))     # (per executed step slot) fake init, real init in init_weights()
+        # Per-loop embeddings: one vector per core pass (None unless loop_embed)
+        self.loop_embeds = nn.Parameter(torch.zeros(config.n_passes, config.n_embd)) if config.loop_embed else None
         # Smear: mix previous token's embedding into current token (cheap bigram-like info)
         self.smear_gate = Linear(24, 1, bias=False)
         self.smear_lambda = nn.Parameter(torch.zeros(1))
@@ -257,18 +296,23 @@ class GPT(nn.Module):
             torch.nn.init.uniform_(block.attn.c_k.weight, -s, s)
             torch.nn.init.uniform_(block.attn.c_v.weight, -s, s)
             torch.nn.init.zeros_(block.attn.c_proj.weight) # projections are zero
+            if block.attn.lambda_proj is not None:
+                # Match the default bias-free nn.Linear in Microsoft's Diff V2 reference.
+                torch.nn.init.kaiming_uniform_(block.attn.lambda_proj.weight, a=math.sqrt(5))
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s * 0.4, s * 0.4)  # 0.4x init scale for c_fc
             torch.nn.init.zeros_(block.mlp.c_proj.weight)
 
         # Per-layer scalars
         # Per-layer resid init: stronger residual at early layers, weaker at deep layers
-        n_layer = self.eff_depth # effective depth: schedules are over executed steps
+        n_layer = self.config.n_step_slots # schedules are over executed step slots (== effective depth for fixed loops)
         for i in range(n_layer):
             self.resid_lambdas.data[i] = 1.15 - (0.10 * i / max(n_layer - 1, 1))
         # Decaying x0 init: earlier layers get more input embedding blending
         # (with looping this doubles as "input injection" into every iteration, as in recurrent-depth models)
         for i in range(n_layer):
             self.x0_lambdas.data[i] = 0.20 - (0.15 * i / max(n_layer - 1, 1))
+        if self.loop_embeds is not None:
+            torch.nn.init.zeros_(self.loop_embeds)
 
         # Smear/backout scalars and smear gate must be explicitly initialized 
         torch.nn.init.zeros_(self.smear_lambda)
@@ -334,19 +378,36 @@ class GPT(nn.Module):
             "L": (long_window, 0),
             "S": (short_window, 0),
         }
-        # Tile pattern across layers
+        # Tile pattern across step slots (== executed layers for a fixed loop count)
         window_sizes = []
-        for layer_idx in range(self.eff_depth):
+        for layer_idx in range(config.n_step_slots):
             char = pattern[layer_idx % len(pattern)]
             window_sizes.append(char_to_window[char])
         # Final layer always gets full context
         window_sizes[-1] = (long_window, 0)
         return window_sizes
 
+    def _execution_plan(self, n_loops):
+        """What runs at each executed step for a given loop count: block index, scalar slot, window size, and
+        (at the first step of each core pass) which loop embedding to add."""
+        config = self.config
+        blocks, slots = config.layer_plan(n_loops), config.step_slots(n_loops)
+        windows = [self.slot_windows[s] for s in slots]
+        windows[-1] = (config.sequence_len, 0) # final executed layer always gets full context
+        pass_starts = {config.n_prelude + j * config.n_core: min(j, config.n_passes - 1) for j in range(n_loops)}
+        return dict(blocks=blocks, slots=slots, windows=windows, pass_starts=pass_starts)
+
+    def execution_plan(self, n_loops=None):
+        n_loops = self.config.n_loops if n_loops is None else n_loops
+        plan = self._plans[n_loops] if n_loops in self._plans else self._execution_plan(n_loops)
+        if n_loops == self.config.n_loops: # the default loop count follows self.window_sizes, which callers may override
+            plan = {**plan, "windows": self.window_sizes}
+        return plan
+
     def get_device(self):
         return self.transformer.wte.weight.device
 
-    def estimate_flops(self):
+    def estimate_flops(self, n_loops=None):
         """
         Return the estimated FLOPs per token for the model (forward + backward).
         Each matmul weight parameter contributes 2 FLOPs (multiply *, accumulate +) in forward, and 2X that in backward => 2+4=6.
@@ -359,16 +420,17 @@ class GPT(nn.Module):
         - Chinchilla counts exp/sum/divide in attention softmax as flops (a little sus and very tiny => we ignore)
         """
         h, q, t = self.config.n_head, self.config.n_embd // self.config.n_head, self.config.sequence_len
+        h *= 2 if self.config.diff_v2 else 1 # attention runs before differential pairs are reduced
         # Sum attention FLOPs per layer, accounting for sliding window
         attn_flops = 0
-        for window_size in self.window_sizes:
+        for window_size in self.execution_plan(n_loops)["windows"]:
             window = window_size[0]  # (left, right) tuple, we use left
             effective_seq = t if window < 0 else min(window, t)
             attn_flops += 12 * h * q * effective_seq
-        num_flops_per_token = 6 * self.num_matmul_params() + attn_flops
+        num_flops_per_token = 6 * self.num_matmul_params(n_loops) + attn_flops
         return num_flops_per_token
 
-    def num_matmul_params(self):
+    def num_matmul_params(self, n_loops=None):
         """
         The number of (execution-weighted) parameters that participate in matmuls with the token stream,
         i.e. contribute 2 FLOPs/param to the forward pass. Counted structurally: every
@@ -377,7 +439,7 @@ class GPT(nn.Module):
         """
         # With looping a shared block executes several times per token, so its params count once per execution.
         uses = {}
-        for b in self.layer_plan:
+        for b in self.execution_plan(n_loops)["blocks"]:
             uses[b] = uses.get(b, 0) + 1
         matmul_params = 0
         for b, block in enumerate(self.transformer.h):
@@ -393,6 +455,7 @@ class GPT(nn.Module):
         2 FLOPs per matmul param, plus attention over min(context, window) per layer.
         """
         h = self.config.n_head
+        h *= 2 if self.config.diff_v2 else 1
         q = self.config.n_embd // self.config.n_head
         attn_flops = sum(4 * h * q * min(context_len, window) for window, _ in self.window_sizes)
         decode_flops = 2 * self.num_matmul_params() + attn_flops
@@ -401,6 +464,7 @@ class GPT(nn.Module):
     def estimate_prefill_flops(self, num_tokens):
         """Forward FLOPs to prefill a prompt: causal, so token t attends to min(t, window)."""
         h = self.config.n_head
+        h *= 2 if self.config.diff_v2 else 1
         q = self.config.n_embd // self.config.n_head
         attn_flops = 0
         for window, _ in self.window_sizes:
@@ -442,8 +506,10 @@ class GPT(nn.Module):
         wte = sum(p.numel() for p in self.transformer.wte.parameters())
         value_embeds = sum(p.numel() for p in self.value_embeds.parameters())
         lm_head = sum(p.numel() for p in self.lm_head.parameters())
-        transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters())
+        transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters() if p.ndim == 2)
         scalars = self.resid_lambdas.numel() + self.x0_lambdas.numel() + self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel()
+        scalars += sum(p.numel() for p in self.transformer.h.parameters() if p.ndim < 2)
+        scalars += self.loop_embeds.numel() if self.loop_embeds is not None else 0
         total = wte + value_embeds + lm_head + transformer_matrices + scalars
         assert total == sum(p.numel() for p in self.parameters()), "Parameter count mismatch"
         return {
@@ -459,14 +525,16 @@ class GPT(nn.Module):
         model_dim = self.config.n_embd
 
         # Separate out all parameters into groups
-        matrix_params = list(self.transformer.h.parameters())
+        matrix_params = [p for p in self.transformer.h.parameters() if p.ndim == 2]
+        activation_params = [p for p in self.transformer.h.parameters() if p.ndim < 2]
         value_embeds_params = list(self.value_embeds.parameters())
         embedding_params = list(self.transformer.wte.parameters())
         lm_head_params = list(self.lm_head.parameters())
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
         smear_params = [self.smear_gate.weight, self.smear_lambda, self.backout_lambda]
-        assert len(list(self.parameters())) == len(matrix_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params)
+        loop_embed_params = [self.loop_embeds] if self.loop_embeds is not None else []
+        assert len(list(self.parameters())) == len(matrix_params) + len(activation_params) + len(embedding_params) + len(lm_head_params) + len(value_embeds_params) + len(resid_params) + len(x0_params) + len(smear_params) + len(loop_embed_params)
 
         # Scale the LR for the AdamW parameters by ∝1/√dmodel (tuned for 768 dim model)
         dmodel_lr_scale = (model_dim / 768) ** -0.5
@@ -482,6 +550,15 @@ class GPT(nn.Module):
             dict(kind='adamw', params=x0_params, lr=scalar_lr, betas=(0.96, 0.95), eps=1e-10, weight_decay=0.0),  # higher beta1 for x0
             dict(kind='adamw', params=smear_params, lr=0.2, betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0),
         ]
+        if activation_params:
+            # Use the residual-scalar LR scale, without weight decay on the
+            # unconstrained raw coefficients. Muon only accepts matrices.
+            param_groups.append(dict(kind='adamw', params=activation_params, lr=scalar_lr * 0.01,
+                                     betas=(0.8, 0.95), eps=1e-10, weight_decay=0.0))
+        if loop_embed_params:
+            # Added to the residual stream like an embedding: a tenth of the token-embedding LR, no weight decay
+            param_groups.append(dict(kind='adamw', params=loop_embed_params, lr=embedding_lr * dmodel_lr_scale * 0.1,
+                                     betas=(0.8, 0.995), eps=1e-10, weight_decay=0.0))
         # Muon groups (matrix params, grouped by shape for stacking)
         for shape in sorted({p.shape for p in matrix_params}):
             group_params = [p for p in matrix_params if p.shape == shape]
@@ -495,8 +572,11 @@ class GPT(nn.Module):
             group["initial_lr"] = group["lr"]
         return optimizer
 
-    def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
+    def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean', n_loops=None):
+        """n_loops overrides config.n_loops for this call (loop-count evaluation)."""
         B, T = idx.size()
+        plan = self.execution_plan(n_loops)
+        assert kv_cache is None or len(plan["blocks"]) == self.eff_depth, "the KV cache has one slot per step of the default loop count"
 
         # Grab the rotary embeddings for the current sequence length (they are of shape (1, seq_len, 1, head_dim/2))
         assert T <= self.cos.size(1), f"Sequence length grew beyond the rotary embeddings cache: {T} > {self.cos.size(1)}"
@@ -505,7 +585,6 @@ class GPT(nn.Module):
         # if kv cache exists, we need to offset the rotary embeddings to the current position in the cache
         T0 = 0 if kv_cache is None else kv_cache.get_pos()
         cos_sin = self.cos[:, T0:T0+T], self.sin[:, T0:T0+T] # truncate cache to current sequence length
-
         # Embed the tokens
         x = self.transformer.wte(idx) # embed current token
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
@@ -532,12 +611,15 @@ class GPT(nn.Module):
 
         # Forward the trunk of the Transformer
         x0 = x  # save initial normalized embedding for x0 residual
-        backout_layer = self.eff_depth // 2  # cache at halfway point of the executed steps
+        backout_layer = len(plan["blocks"]) // 2  # cache at halfway point of the executed steps
         x_backout = None
-        for i, b in enumerate(self.layer_plan): # i = executed step, b = which (possibly shared) block runs at this step
-            x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
+        # i = executed step (KV cache slot), b = which (possibly shared) block runs, s = per-step scalar slot
+        for i, (b, s, window) in enumerate(zip(plan["blocks"], plan["slots"], plan["windows"])):
+            x = self.resid_lambdas[s] * x + self.x0_lambdas[s] * x0
+            if self.loop_embeds is not None and i in plan["pass_starts"]:
+                x = x + self.loop_embeds[plan["pass_starts"][i]].to(x.dtype)
             ve = self.value_embeds[str(b)](idx).to(x.dtype) if str(b) in self.value_embeds else None
-            x = self.transformer.h[b](x, ve, cos_sin, self.window_sizes[i], kv_cache, i)
+            x = self.transformer.h[b](x, ve, cos_sin, window, kv_cache, i)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection

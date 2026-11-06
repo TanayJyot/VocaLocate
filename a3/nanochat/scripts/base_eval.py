@@ -24,6 +24,7 @@ import yaml
 import shutil
 import random
 import zipfile
+import functools
 import tempfile
 import argparse
 import torch
@@ -134,6 +135,7 @@ def main():
     parser.add_argument('--device-batch-size', type=int, default=32, help='Per-device batch size for BPB evaluation')
     parser.add_argument('--split-tokens', type=int, default=40*524288, help='Number of tokens to evaluate per split for BPB')
     parser.add_argument('--device-type', type=str, default='', help='cuda|cpu|mps (empty = autodetect)')
+    parser.add_argument('--n-loops', type=int, default=None, help='looped models: evaluate with this many core passes instead of the trained default (core,bpb only)')
     args = parser.parse_args()
 
     # Parse evaluation modes
@@ -148,6 +150,11 @@ def main():
     ddp, ddp_rank, ddp_local_rank, ddp_world_size, device = compute_init(device_type)
     # Load model and tokenizer
     model, tokenizer, meta = load_model("base", device, phase="eval", model_tag=args.model_tag, step=args.step)
+    if args.n_loops is not None:
+        if 'sample' in eval_modes:
+            parser.error("--n-loops supports --eval core,bpb only (the KV cache is sized for the trained loop count)")
+        model.forward = functools.partial(model.forward, n_loops=args.n_loops)
+        print0(f"Evaluating with n_loops={args.n_loops} (trained default: {model.config.n_loops})")
     sequence_len = meta["model_config"]["sequence_len"]
     token_bytes = get_token_bytes(device=device)
     model_name = f"base_model (step {meta['step']})"

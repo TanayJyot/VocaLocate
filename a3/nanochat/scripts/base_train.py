@@ -26,6 +26,7 @@ import torch
 import torch.distributed as dist
 
 from nanochat.gpt import GPT, GPTConfig, Linear
+from nanochat.experiments import EXPERIMENTS, select_experiment
 from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit, tokenizing_distributed_data_loader_with_state_bos_bestfit
 from nanochat.common import compute_init, compute_cleanup, print0, DummyWandb, print_banner, get_base_dir, autodetect_device_type, get_peak_flops, COMPUTE_DTYPE, COMPUTE_DTYPE_REASON, is_ddp_initialized
 from nanochat.tokenizer import get_tokenizer, get_token_bytes
@@ -47,6 +48,7 @@ parser.add_argument("--device-type", type=str, default="", help="cuda|cpu|mps (e
 parser.add_argument("--fp8", action="store_true", help="enable FP8 training (requires H100+ GPU)")
 parser.add_argument("--fp8-recipe", type=str, default="tensorwise", choices=["rowwise", "tensorwise"], help="FP8 scaling recipe: tensorwise (faster, recommended) or rowwise (more accurate but slower)")
 # Model architecture
+parser.add_argument("--experiment", choices=EXPERIMENTS, default=None, help="explicit architecture selection; rejects conflicting ablation flags (combined allows intentional mixtures)")
 parser.add_argument("--depth", type=int, default=20, help="depth of the Transformer model")
 parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = depth * aspect_ratio")
 parser.add_argument("--head-dim", type=int, default=128, help="target head dimension for attention")
@@ -54,7 +56,9 @@ parser.add_argument("--max-seq-len", type=int, default=2048, help="max context l
 parser.add_argument("--n-loops", type=int, default=1, help="looped model: times the core blocks are executed with shared weights (1 = ordinary GPT)")
 parser.add_argument("--n-prelude", type=int, default=0, help="looped model: unique blocks run once before the loop (counted inside --depth)")
 parser.add_argument("--n-coda", type=int, default=0, help="looped model: unique blocks run once after the loop (counted inside --depth)")
+parser.add_argument("--loop-embed", action="store_true", help="looped model: add a learned vector per core pass to the residual stream")
 parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
+parser.add_argument("--diff-v2", action="store_true", help="enable Differential Attention V2 (independent of MLP activation)")
 # Training horizon (only one used, in order of precedence)
 parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
 parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
@@ -81,6 +85,10 @@ parser.add_argument("--save-every", type=int, default=-1, help="save checkpoints
 # Output
 parser.add_argument("--model-tag", type=str, default=None, help="override model tag for checkpoint directory name")
 args = parser.parse_args()
+try:
+    select_experiment(args)
+except ValueError as error:
+    parser.error(str(error))
 user_config = vars(args).copy()  # for logging
 # -----------------------------------------------------------------------------
 # Compute init and wandb logging
@@ -144,6 +152,8 @@ def build_model_meta(depth, looped=True):
         n_loops=args.n_loops if looped else 1,
         n_prelude=args.n_prelude if looped else 0,
         n_coda=args.n_coda if looped else 0,
+        loop_embed=args.loop_embed if looped else False,
+        diff_v2=args.diff_v2,
     )
     with torch.device("meta"):
         model_meta = GPT(config)
@@ -153,13 +163,21 @@ def build_model_meta(depth, looped=True):
 model = build_model_meta(args.depth) # 1) Build on meta device (only shapes/dtypes, no data)
 model_config = model.config
 model_config_kwargs = asdict(model_config)
+# Keep baseline metadata readable by the pinned, unmodified nanochat loader.
+if not model_config.diff_v2:
+    model_config_kwargs.pop("diff_v2")
+if not model_config.loop_embed:
+    model_config_kwargs.pop("loop_embed")
 print0(f"Model config:\n{json.dumps(model_config_kwargs, indent=2)}")
 model.to_empty(device=device) # 2) All tensors get storage on target device but with uninitialized (garbage) data
 model.init_weights() # 3) All tensors get initialized
 
 # If we are resuming, overwrite the model parameters with those of the checkpoint
 base_dir = get_base_dir()
-output_dirname = args.model_tag if args.model_tag else f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "") # e.g. d12, or d12-l2 for a looped model
+default_tag = f"d{args.depth}" + (f"-l{args.n_loops}" if args.n_loops > 1 else "")
+if args.diff_v2:
+    default_tag += "-diff-v2"
+output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12, d12-l2, d12-diff-v2
 checkpoint_dir = os.path.join(base_dir, "base_checkpoints", output_dirname)
 resuming = args.resume_from_step != -1
 if resuming:

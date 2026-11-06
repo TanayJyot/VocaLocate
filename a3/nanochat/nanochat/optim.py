@@ -227,12 +227,12 @@ class MuonAdamW(torch.optim.Optimizer):
             - Copy updated params back to original tensors (Muon only)
 
     AdamW Communication (ZeRO-2 style):
-    - Small params (<1024 elements): all_reduce gradients, update full param on each rank.
-      Optimizer state is replicated but these params are tiny (scalars, biases).
-    - Large params: reduce_scatter gradients so each rank gets 1/N of the grad, update
-      only that slice, then all_gather the updated slices. Optimizer state (exp_avg,
-      exp_avg_sq) is sharded - each rank only stores state for its slice.
-      Requires param.shape[0] divisible by world_size.
+    - Small params (<1024 elements), or params whose leading dimension is not
+      divisible by world_size: all_reduce gradients and update the full param on
+      each rank. Optimizer state is replicated for these params.
+    - Large, evenly shardable params: reduce_scatter gradients so each rank gets
+      1/N of the grad, update only that slice, then all_gather the updated slices.
+      Optimizer state (exp_avg, exp_avg_sq) is sharded across ranks.
 
     Muon Communication (stacked + chunked):
     - All params in a Muon group must have the same shape (caller's responsibility).
@@ -279,8 +279,8 @@ class MuonAdamW(torch.optim.Optimizer):
             if world_size == 1:
                 # Single rank: no communication, update the full param in place
                 param_infos[p] = dict(future=None, grad_slice=grad, is_small=True)
-            elif p.numel() < 1024:
-                # Small params: all_reduce (no scatter/gather needed)
+            elif p.numel() < 1024 or p.shape[0] % world_size != 0:
+                # Replicate small or unevenly shardable params.
                 future = dist.all_reduce(grad, op=dist.ReduceOp.AVG, async_op=True).get_future()
                 param_infos[p] = dict(future=future, grad_slice=grad, is_small=True)
             else:
@@ -327,7 +327,7 @@ class MuonAdamW(torch.optim.Optimizer):
             grad_slice = pinfo['grad_slice']
             state = self.state[p]
 
-            # For small params, operate on full param; for large, operate on slice
+            # is_small also covers large params that cannot be evenly sharded.
             if pinfo['is_small']:
                 p_slice = p
             else:

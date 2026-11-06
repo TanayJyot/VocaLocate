@@ -1,11 +1,11 @@
 """
 Tests for the looped (weight-shared recurrent depth) GPT. Run with:
 
-python -m pytest tests/test_looped.py -v
+python -m pytest tests/ablations/test_looped.py -v
 """
 
 import importlib.util
-import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -19,9 +19,9 @@ from nanochat.common import COMPUTE_DTYPE
 DEVICE = torch.device("cpu")
 
 
-def make(n_layer=4, n_loops=1, n_prelude=0, n_coda=0, window_pattern="L", seed=0):
+def make(n_layer=4, n_loops=1, n_prelude=0, n_coda=0, window_pattern="L", seed=0, **extra):
     cfg = GPTConfig(sequence_len=64, vocab_size=300, n_layer=n_layer, n_head=2, n_kv_head=2, n_embd=64,
-                    window_pattern=window_pattern, n_loops=n_loops, n_prelude=n_prelude, n_coda=n_coda)
+                    window_pattern=window_pattern, n_loops=n_loops, n_prelude=n_prelude, n_coda=n_coda, **extra)
     torch.manual_seed(seed)
     with torch.device("meta"):
         model = GPT(cfg)
@@ -46,7 +46,7 @@ def test_layer_plan():
 def test_default_matches_original_gpt():
     """n_loops=1 must reproduce the pre-change model exactly (same params, same logits, same flops)."""
     # upstream karpathy/nanochat commit just before looping was added (the un-looped reference model)
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = Path(__file__).resolve().parents[2]
     git = lambda *a: subprocess.run(["git", *a], cwd=root, capture_output=True, text=True, encoding="utf-8")
     src = git("show", "92d63d4:./nanochat/gpt.py")
     if src.returncode != 0:
@@ -107,7 +107,8 @@ def test_loops_change_output_and_grads_reach_shared_blocks():
         assert block.attn.c_q.weight.grad is not None and block.attn.c_q.weight.grad.abs().sum() > 0, b
 
 
-@pytest.mark.parametrize("kw", [dict(n_layer=3, n_loops=3), dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1)])
+@pytest.mark.parametrize("kw", [dict(n_layer=3, n_loops=3), dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1),
+                                dict(n_layer=5, n_loops=2, n_prelude=1, n_coda=1, loop_embed=True)])
 def test_kv_cache_decode_matches_full_forward(kw):
     """Each executed step needs its own KV slot: incremental decode must equal the full forward pass."""
     m = make(**kw).eval()
@@ -125,3 +126,26 @@ def test_kv_cache_decode_matches_full_forward(kw):
     assert torch.allclose(full[:, 7], steps[0], atol=1e-3)
     assert torch.allclose(full[:, -1], steps[-1], atol=1e-3)
     assert cache.get_pos() == T
+
+
+# --- per-loop embeddings ---
+
+def test_zero_init_loop_embed_matches_plain_looped_model():
+    plain = make(n_layer=4, n_loops=3, n_prelude=1, n_coda=1)
+    embed = make(n_layer=4, n_loops=3, n_prelude=1, n_coda=1, loop_embed=True)
+    assert embed.loop_embeds.shape == (3, 64) and embed.loop_embeds.abs().sum() == 0
+    embed.load_state_dict({**plain.state_dict(), "loop_embeds": embed.loop_embeds.detach().clone()})
+    idx = torch.randint(0, 300, (2, 16))
+    torch.testing.assert_close(embed(idx), plain(idx), rtol=0, atol=0)
+    counts = embed.num_scaling_params()
+    assert counts["scalars"] - plain.num_scaling_params()["scalars"] == 3 * 64
+    assert embed.estimate_flops() == plain.estimate_flops()
+    # each pass gets its own vector, and it is trained by AdamW
+    loss = embed(idx, torch.randint(0, 300, (2, 16)))
+    loss.backward()
+    assert (embed.loop_embeds.grad.abs().sum(dim=1) > 0).all()
+    groups = embed.setup_optimizer().param_groups
+    assert any(g["kind"] == "adamw" and any(p is embed.loop_embeds for p in g["params"]) for g in groups)
+    with torch.no_grad():
+        embed.loop_embeds.normal_()
+    assert not torch.allclose(embed(idx), plain(idx))

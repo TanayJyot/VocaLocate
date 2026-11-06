@@ -308,9 +308,14 @@ for step in range(num_steps):
     if master_process and ((step > 0 and step % args.save_every == 0) or step == num_steps - 1):
         base_dir = get_base_dir()
         depth = model.config.n_layer
-        output_dirname = args.model_tag if args.model_tag else f"d{depth}" # base the model tag on the depth of the base model
+        default_tag = f"d{depth}"
+        if model.config.diff_v2:
+            default_tag += "-diff-v2"
+        output_dirname = args.model_tag if args.model_tag else default_tag # base the model tag on the depth and activation of the base model
         checkpoint_dir = os.path.join(base_dir, "chatrl_checkpoints", output_dirname)
-        model_config_kwargs = model.config.__dict__ # slightly naughty, abusing the simplicity of GPTConfig, TODO nicer
+        model_config_kwargs = dict(model.config.__dict__) # copy so filtering does not mutate the live config
+        if not model.config.diff_v2:
+            model_config_kwargs.pop("diff_v2")
         save_checkpoint(
             checkpoint_dir,
             step,
