@@ -100,6 +100,11 @@ CONFIGS["d12-looped-l2-embed-l40s"] = CONFIGS["d12-looped-l2-embed"] + ["--devic
 # fits 80 GB (d12 combined needs 55 GB at batch 32); the total batch is what sets the training.
 CONFIGS["d20-combined"] = ["--experiment=combined", "--diff-v2", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed",
                            "--depth=20", "--num-iterations=9960", "--device-batch-size=8", "--max-seq-len=2048", "--eval-every=500"]
+# Baseline at the combined model's total compute: 9,960 x 6.180e9 / 2.886e9 = 21,328 steps, 11.18B tokens. It trains on the
+# 110 shards the combined model saw, repeating them, so it gets more compute but no more unique data
+MAX_TRAIN_SHARDS = {"d20-baseline-long": 110}
+CONFIGS["d20-baseline-long"] = ["--experiment=baseline", "--depth=20", "--num-iterations=21328", "--device-batch-size=16",
+                                "--max-seq-len=2048", "--eval-every=500"]
 SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-s1": 1, "d12-looped-l2-s2": 2,
          "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
 SMOKE = ["--num-iterations=30", "--eval-every=15", "--eval-tokens=1048576", "--core-metric-max-per-task=20"]
@@ -169,6 +174,8 @@ def _train(tag: str, smoke: bool = False, extra=(), nproc=1, sdpa=False):
         # Blackwell: kernels-community/flash-attn3 has no build for it, but nanochat still loads it and crashes
         # ("no kernel image"); blocking the hub download makes it fall back to SDPA
         env["HF_HUB_OFFLINE"] = "1"
+    if tag in MAX_TRAIN_SHARDS:
+        env["NANOCHAT_MAX_TRAIN_SHARDS"] = str(MAX_TRAIN_SHARDS[tag])
     os.makedirs(f"{BASE}/wandb", exist_ok=True)
     os.makedirs(f"{BASE}/logs", exist_ok=True)
     os.makedirs(f"{BASE}/runstate", exist_ok=True)

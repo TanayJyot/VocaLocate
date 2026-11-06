@@ -1,0 +1,452 @@
+[
+ {
+  "question": "What is the capital of Australia?",
+  "d12-baseline": "The capital of Australia is Sydney. The capital of Australia is Sydney.",
+  "d12-looped-l2-embed": "The capital of Australia is Sydney, which is located in the Northern Territory. The capital is Sydney, which is located in the Northern Territory.",
+  "d20-combined": "Canberra",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the capital of Canada?",
+  "d12-baseline": "Canada is the capital of the United States of America. It is the capital of the United Kingdom, the United States of America, and the United Kingdom",
+  "d12-looped-l2-embed": "The capital of Canada is Ottawa, which is located in the province of Ontario. The capital of Canada is also known as the capital of the United States",
+  "d20-combined": "Ottawa",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the capital of Japan?",
+  "d12-baseline": "The capital of Japan is Kobe, which is the capital of the United States of America. The capital of Japan is Kobe, which is the",
+  "d12-looped-l2-embed": "The capital of Japan is Honshu. The capital of Japan is Honshu. The capital of Japan is Honshu. The capital of",
+  "d20-combined": "Tokyo",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the capital of Egypt?",
+  "d12-baseline": "Egypt is the capital of the United Kingdom. It is the capital of the United Kingdom of Great Britain. The capital of Egypt is the capital of the",
+  "d12-looped-l2-embed": "The capital of Egypt is Cairo. The capital of Egypt is Cairo, which is the capital of the country. The capital of Egypt",
+  "d20-combined": "Cairo",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the capital of Brazil?",
+  "d12-baseline": "The capital of Brazil is Rio de Janeiro. The capital is Rio de Janeiro, Brazil's capital city.",
+  "d12-looped-l2-embed": "The capital of Brazil is Rio de Janeiro, which is located in the state of Rio de Janeiro. The capital of Brazil is also known as",
+  "d20-combined": "São Paulo",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "What is the longest river in Africa?",
+  "d12-baseline": "The longest river in Africa is the Nile River. It is the longest river in the world, and it is the longest river in the world. The",
+  "d12-looped-l2-embed": "The longest river in Africa is the Nile River, which runs from the Nile River in Uganda to the Nile River in Sudan. The Nile River is the",
+  "d20-combined": "The Nile River is the longest river in Africa, flowing for 4,900 miles (6,500 km) from its source in the",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the largest ocean on Earth?",
+  "d12-baseline": "The largest ocean on Earth is the Pacific Ocean, which is 1,000,000,000,000,000,",
+  "d12-looped-l2-embed": "The largest ocean on Earth is the Pacific Ocean. The Pacific Ocean is the largest ocean on Earth, and it is home to a variety of marine life",
+  "d20-combined": "The Pacific Ocean is the largest ocean on Earth. It is located in the middle of the Earth's largest landmass, the North American continent.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the tallest mountain in the world?",
+  "d12-baseline": "Mount Everest is the tallest mountain in the world. It is 29,000 feet tall and is located in the Himalayas. The tallest mountain in",
+  "d12-looped-l2-embed": "The tallest mountain in the world is Mount Everest, which is 2,000 feet above sea level. The tallest mountain in the world is Mount",
+  "d20-combined": "The tallest mountain in the world is Mount Everest, which stands at an impressive height of 29,029 feet (8,848 meters).",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "On which continent is the Sahara Desert?",
+  "d12-baseline": "Africa",
+  "d12-looped-l2-embed": "The Sahara Desert is located in the southern part of the Sahara Desert, in the southern part of the Sahara Desert, and in the northern",
+  "d20-combined": "Africa",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Which country has the largest population in South America?",
+  "d12-baseline": "South America",
+  "d12-looped-l2-embed": "South America",
+  "d20-combined": "Brazil",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the chemical symbol for gold?",
+  "d12-baseline": "A chemical symbol for gold is Au. The chemical symbol for gold is Au. The chemical symbol for gold is Au. The chemical symbol for gold",
+  "d12-looped-l2-embed": "Gold is a chemical element with symbol Au and atomic number 79. It is a soft, malleable, and ductile metal. Gold is a",
+  "d20-combined": "The chemical symbol for gold is Au. The symbol Au is derived from the Latin word aurum, which means \"shining dawn.\" The word gold",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the chemical symbol for sodium?",
+  "d12-baseline": "Na",
+  "d12-looped-l2-embed": "Na",
+  "d20-combined": "Na",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What gas do plants absorb from the air?",
+  "d12-baseline": "The gas that plants absorb from the air is carbon dioxide. Carbon dioxide is a gas that is made up of two parts oxygen and one part carbon.",
+  "d12-looped-l2-embed": "Oxygen is the most abundant element in the atmosphere. It is the most abundant element in the atmosphere. It is the most abundant element in the atmosphere.",
+  "d20-combined": "Plants absorb carbon dioxide from the air through their leaves.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the chemical formula for water?",
+  "d12-baseline": "H2O",
+  "d12-looped-l2-embed": "H2O",
+  "d20-combined": "The chemical formula for water is H2O.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Which planet is known as the Red Planet?",
+  "d12-baseline": "The Red Planet is known as the Red Planet. It is the planet that is known as the Red Planet. It is the planet that is known as",
+  "d12-looped-l2-embed": "The planet Mercury is known as the Red Planet. Mercury is the planet that is the planet that is the planet that is the planet that is the planet",
+  "d20-combined": "Mars",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the largest planet in the solar system?",
+  "d12-baseline": "Jupiter",
+  "d12-looped-l2-embed": "The largest planet in the solar system is Jupiter, which is 4.5 times the size of Earth. Jupiter is 4.5 times the",
+  "d20-combined": "The largest planet in the solar system is Jupiter, which is the fifth planet from the sun.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What force keeps the planets in orbit around the Sun?",
+  "d12-baseline": "The Sun's gravity pulls the planets in orbit around the Sun. The Sun's gravity pulls the planets in orbit around the Sun. The Sun's gravity",
+  "d12-looped-l2-embed": "The Sun is a massive star, and its gravity is so strong that it pulls the planets in orbit around the Sun. The planets are in orbit around",
+  "d20-combined": "The force of gravity keeps the planets in orbit around the Sun. The force of gravity is the force that keeps the planets in orbit around the Sun.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What organ pumps blood through the human body?",
+  "d12-baseline": "The human body has a number of organs that work together to ensure that blood is pumped to the organs and tissues that need it. The heart, lungs",
+  "d12-looped-l2-embed": "The heart pumps blood through the human body. The heart is a muscular organ that pumps blood throughout the body. The heart is a muscular organ that pumps",
+  "d20-combined": "The heart is the organ that pumps blood through the body. The heart is a muscular organ that pumps blood through the body. The heart is a muscular",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What part of the cell contains DNA?",
+  "d12-baseline": "The nucleus contains DNA. The nucleus contains the chromosomes. The nucleus contains the chromosomes. The nucleus contains the chromosomes. The nucleus contains the chromosomes. The",
+  "d12-looped-l2-embed": "The cell nucleus contains DNA. The cell nucleus contains chromosomes, which are the genetic material of the cell. The cell nucleus contains the DNA of the cell",
+  "d20-combined": "The nucleus contains DNA.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the boiling point of water in degrees Celsius?",
+  "d12-baseline": "The boiling point of water in degrees Celsius is 100 degrees Fahrenheit. The boiling point of water in degrees Celsius is 100 degrees Fahrenheit.",
+  "d12-looped-l2-embed": "The boiling point of water is 100 degrees Celsius. The boiling point of water is 100 degrees Celsius. The boiling point of water is",
+  "d20-combined": "The boiling point of water is 100 degrees Celsius.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "How many bones are in the adult human body?",
+  "d12-baseline": "20",
+  "d12-looped-l2-embed": "The human body is made up of 200 bones. The human body is made up of 200 bones. The human body is made up",
+  "d20-combined": "The human body has 206 bones. The bones are arranged in 8 limbs, 12 cranial bones, 31 spinal bones, 27",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who developed the theory of general relativity?",
+  "d12-baseline": "The theory of general relativity was developed by Albert Einstein in 1915. It was based on the theory of general relativity, which was developed by Albert",
+  "d12-looped-l2-embed": "The theory of general relativity was developed by Albert Einstein in 1905. It was based on the idea that space and time are not interchangeable, and",
+  "d20-combined": "Albert Einstein",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who proposed the theory of evolution by natural selection?",
+  "d12-baseline": "The theory of evolution by natural selection is a theory that has been proposed by Charles Darwin and has been used to explain the diversity of life on Earth.",
+  "d12-looped-l2-embed": "Charles Darwin",
+  "d20-combined": "Charles Darwin",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who was the first president of the United States?",
+  "d12-baseline": "George Washington",
+  "d12-looped-l2-embed": "George Washington",
+  "d20-combined": "George Washington",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "In what year did World War II end?",
+  "d12-baseline": "1945",
+  "d12-looped-l2-embed": "1945",
+  "d20-combined": "1945",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "In what year did World War I begin?",
+  "d12-baseline": "1914",
+  "d12-looped-l2-embed": "1914",
+  "d20-combined": "1914",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "In what year did humans first land on the Moon?",
+  "d12-baseline": "1969",
+  "d12-looped-l2-embed": "1969",
+  "d20-combined": "1969",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who was the first person to walk on the Moon?",
+  "d12-baseline": "The first person to walk on the Moon was the American astronaut John F. Kennedy. He was the first person to walk on the Moon. He was",
+  "d12-looped-l2-embed": "The first person to walk on the Moon was Sir John F. Kennedy, who was born on 29 April 1963. He was the first",
+  "d20-combined": "Neil Armstrong",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Which empire built the Colosseum?",
+  "d12-baseline": "The Colosseum was built by the British Empire in 1789. It was a military fort built by the British Empire in 1789",
+  "d12-looped-l2-embed": "The Colosseum was built by the Colosseum of Colosseum in 1571. The Colosseum was the",
+  "d20-combined": "Rome",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who wrote the Declaration of Independence?",
+  "d12-baseline": "The Declaration of Independence was written by the British government in 1776. It was signed by the British Parliament and the British Council in 1776",
+  "d12-looped-l2-embed": "The Declaration of Independence was written by the American Revolutionary War (ARW) party, and was signed by the American Revolutionary War (ARW",
+  "d20-combined": "Thomas Jefferson",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who was the British prime minister for most of World War II?",
+  "d12-baseline": "Sir John Franklin",
+  "d12-looped-l2-embed": "The British prime minister for most of World War II was Sir John B. B. B. B. B. B. B. B. B",
+  "d20-combined": "The British prime minister for most of World War II was Lord Kitchener. He was the prime minister from 1940 to 1945.",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "Who wrote Romeo and Juliet?",
+  "d12-baseline": "The first two are the most important of the two. The first is the first of the two, and the second is the second of the two.",
+  "d12-looped-l2-embed": "The Roman Republic was a country in the Eastern Mediterranean, which was divided into two parts: the Eastern Mediterranean and the Western Mediterranean. The Eastern Mediterranean was",
+  "d20-combined": "William Shakespeare",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who wrote Pride and Prejudice?",
+  "d12-baseline": "The first Pride and Prejudice was published in 1913 by the American poet, poet, and playwright, John F. Kennedy",
+  "d12-looped-l2-embed": "The first book of the Pride and Prejudice series was written by the author of the book, William Shakespeare. The book was published in",
+  "d20-combined": "Jane Austen",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who wrote the novel 1984?",
+  "d12-baseline": "The novel was written by a group of young people who were all in the same boat. They were all in the same boat, and they were all",
+  "d12-looped-l2-embed": "The novel 1984 is written by the author of the novel, John W. W. W. W. W. W. W. W",
+  "d20-combined": "George Orwell",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who painted the Mona Lisa?",
+  "d12-baseline": "The Mona Lisa was painted by the artist Leonardo da Vinci. The Mona Lisa was a portrait of a woman named Leonardo da Vinc",
+  "d12-looped-l2-embed": "The Mona Lisa is a painting by the French painter, Jean-Michel Basquiat. It was painted by the French painter, Jean-M",
+  "d20-combined": "Leonardo da Vinci",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who painted The Starry Night?",
+  "d12-baseline": "The Starry Night was painted by the artist, who was a painter and sculptor. He was known for his use of color and his use of",
+  "d12-looped-l2-embed": "The Starry Night is a painting by the artist, John C. C. C. C. C. C. C. C. C.",
+  "d20-combined": "Vincent van Gogh",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who composed the Ninth Symphony known for the Ode to Joy?",
+  "d12-baseline": "The Ninth Symphony was composed by the Ode to Joy, a group of musicians who were known for their unique and innovative music. The",
+  "d12-looped-l2-embed": "The Ninth Symphony was composed by the Ode to Joy, a group of musicians who were known for their music and musical talents. The",
+  "d20-combined": "The Ninth Symphony was composed by Gustav Mahler, a German composer, in 1907. Mahler was a master",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "Who wrote The Great Gatsby?",
+  "d12-baseline": "The Great Gatsby was written by a group of young men who were trying to make a difference in the world. They were trying to make a",
+  "d12-looped-l2-embed": "The Great Gatsby is a novel by the author of The Great Gatsby. It is a novel by the author of The Great Gats",
+  "d20-combined": "F. Scott Fitzgerald",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "Who founded Microsoft with Paul Allen?",
+  "d12-baseline": "Paul Allen was born in 1926 in New York City. He was the founder of Microsoft, a company that was founded by Paul Allen and his",
+  "d12-looped-l2-embed": "Paul Allen was born in 1969 in New York City. He was the founder of Microsoft, a company that was founded in 1969 by",
+  "d20-combined": "Paul Allen founded Microsoft in 1975. He was the founder of the company, and he was the first person to use the term \"Microsoft\"",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "Who invented the telephone?",
+  "d12-baseline": "The telephone was invented by the inventor of the telephone. The telephone was invented by the inventor of the telephone. The telephone was invented by the inventor of",
+  "d12-looped-l2-embed": "The telephone was invented by the inventor of the telephone, John Bell. Bell was a British engineer who invented the telephone in 1876. He was",
+  "d20-combined": "Alexander Graham Bell",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What does DNA stand for?",
+  "d12-baseline": "Deoxyribonucleic Acid",
+  "d12-looped-l2-embed": "The DNA molecule is a long, double helix structure that is composed of two strands of sugar molecules. The sugar molecules are held together by hydrogen bonds,",
+  "d20-combined": "Deoxyribonucleic acid",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What does CPU stand for?",
+  "d12-baseline": "Central Processing Unit",
+  "d12-looped-l2-embed": "Central Processing Unit",
+  "d20-combined": "CPU stands for Central Processing Unit.",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": true,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What currency is used in Japan?",
+  "d12-baseline": "The currency of Japan is the Japanese yen (Jen), which is the Japanese currency of the United States. The yen is the currency of",
+  "d12-looped-l2-embed": "The Japanese currency is the Japanese U.S. dollar, which is the currency of the United States. The Japanese U.S. dollar is the currency of",
+  "d20-combined": "The Japanese yen is the official currency in Japan. The yen is divided into 100 shillings, which are called \"yen",
+  "d12-baseline_ok": true,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What language is mainly spoken in Brazil?",
+  "d12-baseline": "Brazil is a country with a population of 1.5 billion people. The country is located in the state of Pará, which is the capital",
+  "d12-looped-l2-embed": "English",
+  "d20-combined": "Portuguese is the official language of Brazil, but English is also spoken in some areas. The Portuguese language is the official language of Brazil, but English is",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the square root of 144?",
+  "d12-baseline": "144",
+  "d12-looped-l2-embed": "144.144.144.144.144.144.144.144.144.144",
+  "d20-combined": "144 is the square root of 144.",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "What is 7 times 8?",
+  "d12-baseline": "7 times 8 is a number that is equal to 7 times 8. 7 times 8 is 7 times 8.",
+  "d12-looped-l2-embed": "7 times 8 is a number that is 7 times 8. It is a number that is 7 times 8. It is",
+  "d20-combined": "7 times 8 is 148.",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "How many continents are there?",
+  "d12-baseline": "There are 100 million people in the world. There are 100 million people in the world. There are 100 million people in",
+  "d12-looped-l2-embed": "There are 110 continents on Earth. The continents are grouped into 110 major groups, with 110 minor groups. The major groups",
+  "d20-combined": "There are 7 continents in the world.",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "How many days are there in a leap year?",
+  "d12-baseline": "There are 24 days in a leap year. The leap year is the year that the Earth is in the middle of the year. The leap year",
+  "d12-looped-l2-embed": "There are 365 days in a leap year. The leap year is the longest day of the year. The longest day of the year is",
+  "d20-combined": "There are 365 days in a leap year.",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": false
+ },
+ {
+  "question": "What is the freezing point of water in degrees Fahrenheit?",
+  "d12-baseline": "The freezing point of water in degrees Fahrenheit is 0 degrees Celsius. The freezing point of water in degrees Fahrenheit is 0 degrees Celsius.",
+  "d12-looped-l2-embed": "The freezing point of water is 0 degrees Fahrenheit. The freezing point of water is 0 degrees Celsius. The freezing point of water is 0",
+  "d20-combined": "The freezing point of water is 32 degrees Fahrenheit. The freezing point of water is the temperature at which water turns into ice. The freezing point of",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ },
+ {
+  "question": "What is the opposite of hot?",
+  "d12-baseline": "Hot is a word that is used to describe a state of being hot. It is a state of being hot. It is a state of being hot",
+  "d12-looped-l2-embed": "Hot",
+  "d20-combined": "Cold",
+  "d12-baseline_ok": false,
+  "d12-looped-l2-embed_ok": false,
+  "d20-combined_ok": true
+ }
+]
