@@ -76,8 +76,14 @@ CONFIGS = {
     # baseline at other init seeds (NANOCHAT_SEED; data order is unchanged) to measure seed-to-seed noise
     "d12-baseline-s1": ["--experiment=baseline"],
     "d12-baseline-s2": ["--experiment=baseline"],
+    # looped-l2 and looped-l2-embed at the same extra seeds, to compare all three models over seeds 42 / 1 / 2
+    "d12-looped-l2-s1": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1"],
+    "d12-looped-l2-s2": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1"],
+    "d12-looped-l2-embed-s1": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
+    "d12-looped-l2-embed-s2": ["--experiment=looped", "--n-loops=2", "--n-prelude=1", "--n-coda=1", "--loop-embed"],
 }
-SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2}  # everything else uses nanochat's default seed 42
+SEEDS = {"d12-baseline-s1": 1, "d12-baseline-s2": 2, "d12-looped-l2-s1": 1, "d12-looped-l2-s2": 2,
+         "d12-looped-l2-embed-s1": 1, "d12-looped-l2-embed-s2": 2}  # everything else uses nanochat's default seed 42
 SMOKE = ["--num-iterations=30", "--eval-every=15", "--eval-tokens=1048576", "--core-metric-max-per-task=20"]
 
 
