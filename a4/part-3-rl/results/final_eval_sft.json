@@ -1,0 +1,11 @@
+{
+  "sft_step000932": {
+    "returncode": 0,
+    "ARC-Easy": 0.5875,
+    "ARC-Challenge": 0.465,
+    "MMLU": 0.3626,
+    "GSM8K": 0.0273,
+    "HumanEval": 0.1524,
+    "ChatCORE": 0.2133
+  }
+}

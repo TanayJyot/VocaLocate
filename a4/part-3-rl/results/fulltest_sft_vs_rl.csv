@@ -1,0 +1,1320 @@
+qidx,outcome,correct_sft,correct_rl,fail_sft,fail_rl,ref_steps,topic,q_words,pred_sft,pred_rl,ref_sft
+0,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,24,,73,109
+8,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,measurement,26,275,,120
+16,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,percent,26,,,17
+24,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,23,,38,18
+32,both wrong,0,0,#### other wrong,no ####: ended without marker,4,money,49,12.75,,4
+40,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,57,,,108
+48,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,57,480,3840,1920
+56,fixed by RL,0,1,no ####: ended without marker,correct,2,measurement,22,,623,623
+64,both wrong,0,0,#### = a reference intermediate,#### = a reference intermediate,3,fraction/ratio,37,140.0,280,560
+72,fixed by RL,0,1,no ####: ended without marker,correct,4,measurement,51,,410,410
+80,fixed by RL,0,1,no ####: ended without marker,correct,3,money,42,,64,64
+88,both wrong,0,0,#### other wrong,no ####: ended without marker,3,money,56,1,,150
+96,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,51,,,1080
+104,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,27,,67,67
+112,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,time/rate,78,,,4
+120,fixed by RL,0,1,"no ####: ended, right number last",correct,2,time/rate,43,,288,288
+128,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,29,,,8
+136,both wrong,0,0,#### other wrong,no ####: ended without marker,5,fraction/ratio,57,16,,40
+144,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,31,,68,68
+152,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,56,360,210,110
+160,fixed by RL,0,1,no ####: ended without marker,correct,2,money,39,,6250,6250
+168,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,percent,65,,35,41
+176,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,56,,260,20
+184,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,27,,45,50
+192,both wrong,0,0,truncated (hit the token limit),#### = a reference intermediate,3,fraction/ratio,78,,6,55
+200,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,90,,,4
+208,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,43,6400,12,1200
+216,both wrong,0,0,#### other wrong,no ####: ended without marker,4,percent,54,600,,43200
+224,fixed by RL,0,1,"no ####: ended, right number last",correct,4,money,26,,5,5
+232,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,31,,30,20
+240,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,47,,,180000
+248,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,36,,,13
+256,fixed by RL,0,1,#### other wrong,correct,2,fraction/ratio,32,36,3,3
+264,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,34,,100,40
+272,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,40,270,45,105
+280,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,52,,4,16
+288,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,33,,160,160
+296,fixed by RL,0,1,#### other wrong,correct,5,money,37,640,240,240
+304,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,41,,,10
+312,broken by RL,1,0,correct,#### = one of its own calc results,3,percent,42,1430,1170,1430
+320,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,5,other,33,,,10
+328,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,53,,1200,1400
+336,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,25,,18,18
+344,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,0,measurement,32,,60,20
+352,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,30,,130,803
+360,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,money,46,,20,60
+368,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,31,3600,,6400
+376,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,0,fraction/ratio,32,,18,6
+384,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,fraction/ratio,49,,40,50
+392,both wrong,0,0,no ####: ended without marker,#### other wrong,7,fraction/ratio,34,,34,45
+400,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,95,840,210,500
+408,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,104,5,,75
+416,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,time/rate,102,,,4
+424,fixed by RL,0,1,no ####: ended without marker,correct,2,other,33,,5,5
+432,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,fraction/ratio,58,0.556,270,315
+440,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,53,3,63,13
+448,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,51,100.025,102,160
+456,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,41,17,17,9
+464,fixed by RL,0,1,truncated (hit the token limit),correct,2,fraction/ratio,26,,1,1
+472,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,72,87,1600,2050
+480,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,percent,47,120,36,84
+488,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,57,,25,14
+496,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,33,90,30,45
+504,fixed by RL,0,1,#### = one of its own calc results,correct,3,time/rate,60,7.8,6,6
+512,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,43,,12,11
+520,fixed by RL,0,1,no ####: ended without marker,correct,3,money,40,,1375,1375
+528,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,measurement,29,,,6
+536,both wrong,0,0,#### other wrong,no ####: ended without marker,4,other,41,1350,,40
+544,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,73,,4,14
+552,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,1,other,40,,13,12
+560,fixed by RL,0,1,#### other wrong,correct,3,other,43,44,52,52
+568,broken by RL,1,0,correct,no ####: ended without marker,2,other,68,650,,650
+576,both wrong,0,0,#### other wrong,no ####: ended without marker,5,other,43,30,,120
+584,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,32,19,18,34
+592,fixed by RL,0,1,no ####: ended without marker,correct,2,other,25,,270,270
+600,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,31,,480,320
+608,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,88,,,826
+616,both wrong,0,0,"no ####: ended, right number last",#### = a reference intermediate,3,money,41,,5,3
+624,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,62,,50,450
+632,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,percent,47,1250,47025,25
+640,both wrong,0,0,#### other wrong,no ####: ended without marker,3,fraction/ratio,46,100,,90
+648,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,20,,250,70
+656,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,40,,5000,140000
+664,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,fraction/ratio,66,22500,,6600
+672,both wrong,0,0,#### other wrong,no ####: ended without marker,6,percent,62,60,,50
+680,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,20,,120,150
+688,both wrong,0,0,#### other wrong,no ####: ended without marker,4,money,40,17,,2
+696,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,fraction/ratio,31,,6,4
+704,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,time/rate,41,900,,770
+712,fixed by RL,0,1,no ####: ended without marker,correct,2,money,37,,3,3
+720,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,32,,60000,60000
+728,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,24,,18,60
+736,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,39,,844,3360
+744,fixed by RL,0,1,no ####: ended without marker,correct,2,other,21,,7,7
+752,both wrong,0,0,#### other wrong,#### = one of its own calc results,7,fraction/ratio,82,256,480,45
+760,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,percent,36,,,12
+768,fixed by RL,0,1,#### = one of its own calc results,correct,5,percent,40,78,81,81
+776,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,measurement,44,,94,6
+784,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,30,,,5
+792,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,27,,50,145
+800,both wrong,0,0,no ####: ended without marker,#### other wrong,3,money,34,,115,8
+808,both wrong,0,0,truncated (hit the token limit),#### = a reference intermediate,5,other,69,,6,1
+816,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,45,,41,50
+824,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,60,,68,98
+832,both wrong,0,0,#### other wrong,no ####: ended without marker,3,money,47,72,,5
+840,both wrong,0,0,#### other wrong,no ####: ended without marker,3,percent,50,20,,33
+848,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,85,,5,95
+856,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,67,,54,750
+864,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,percent,84,252,,36
+872,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,59,12,31,2
+880,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,money,34,,340,45
+888,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,time/rate,67,,,82
+896,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,3,fraction/ratio,67,115,120,50
+904,both wrong,0,0,#### other wrong,#### = one of its own calc results,8,fraction/ratio,95,8.522727272727273,21,5
+912,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,53,,67,90
+920,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,31,23,8,5
+928,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,fraction/ratio,39,,15,7
+936,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,measurement,109,450.4888888888889,,2
+944,fixed by RL,0,1,no ####: ended without marker,correct,2,other,42,,10,10
+952,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,49,,7380,36
+960,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,100,580,20,120
+968,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,2,money,48,12,,2
+976,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,fraction/ratio,37,,,20
+984,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,67,200,620,50
+992,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,35,,69,27
+1000,fixed by RL,0,1,truncated (hit the token limit),correct,3,fraction/ratio,31,,1,1
+1008,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,63,,19,40
+1016,both wrong,0,0,#### = one of its own calc results,"no ####: ended, right number last",4,other,50,360,,2
+1024,fixed by RL,0,1,no ####: ended without marker,correct,2,other,33,,70,70
+1032,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,fraction/ratio,128,26,,2
+1040,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,106,33,30,11
+1048,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,30,,,58
+1056,fixed by RL,0,1,#### = one of its own calc results,correct,3,percent,30,193.2,2304,2304
+1064,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,52,,22,34
+1072,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,38,,115,230
+1080,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,22,,8,9
+1088,both wrong,0,0,#### other wrong,no ####: ended without marker,6,fraction/ratio,51,300,,5600
+1096,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,4,fraction/ratio,48,,475,150
+1104,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,44,,,28
+1112,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",1,percent,48,,,10
+1120,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,5,time/rate,50,,7,48
+1128,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,fraction/ratio,55,,110,26
+1136,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,19,,,42
+1144,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,22,,,9
+1152,fixed by RL,0,1,#### = one of its own calc results,correct,4,percent,26,22.5,90,90
+1160,fixed by RL,0,1,#### = a reference intermediate,correct,4,money,44,14,70,70
+1168,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",3,percent,48,,,360
+1176,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,time/rate,48,,,12
+1184,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,other,58,39,,75
+1192,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,36,,48,49
+1200,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,46,,24,19
+1208,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,6,measurement,31,,360,72
+1216,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,26,,50,31
+1224,both wrong,0,0,#### other wrong,no ####: ended without marker,3,money,50,106.5,,34
+1232,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,48,,1200,1200
+1240,fixed by RL,0,1,no ####: ended without marker,correct,3,other,34,,32,32
+1248,fixed by RL,0,1,#### other wrong,correct,4,fraction/ratio,39,120,36,36
+1256,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,39,6,9,5
+1264,fixed by RL,0,1,no ####: ended without marker,correct,2,other,33,,30,30
+1272,fixed by RL,0,1,no ####: ended without marker,correct,2,money,27,,6,6
+1280,fixed by RL,0,1,no ####: ended without marker,correct,3,money,37,,2,2
+1288,broken by RL,1,0,correct,no ####: ended without marker,4,money,29,60,,60
+1296,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,27,,300,240
+1304,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,27,7,17,23
+1312,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,30,,,3
+1,both wrong,0,0,#### other wrong,no ####: ended without marker,6,percent,84,78,,89
+9,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,79,,,11
+17,fixed by RL,0,1,"no ####: ended, right number last",correct,2,money,18,,36,36
+25,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,51,13,26,33
+33,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,3,time/rate,46,144,234,54
+41,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,money,30,,,160
+49,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,58,,,6
+57,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,percent,49,,,40
+65,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,22,,20,24
+73,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",2,money,39,,,140
+81,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,62,,8400,5600
+89,both wrong,0,0,#### = one of its own calc results,#### other wrong,4,fraction/ratio,74,12.5,12,9
+97,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,money,53,,,291
+105,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,6,fraction/ratio,77,,3,32
+113,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,79,30,11,104
+121,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,money,78,,,40
+129,both wrong,0,0,no ####: ended without marker,#### other wrong,3,time/rate,30,,1,20
+137,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,5,fraction/ratio,43,14,5,8
+145,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,other,43,2.5411173885750156,,16
+153,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,other,31,,5,6
+161,fixed by RL,0,1,no ####: ended without marker,correct,2,other,26,,5,5
+169,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",3,other,36,,,15
+177,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,39,,6,42
+185,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,49,310000,45000,330000
+193,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,percent,18,,290,490
+201,fixed by RL,0,1,#### = one of its own calc results,correct,3,money,35,1000,250,250
+209,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,39,315,80,75
+217,both right,1,1,correct,correct,2,money,33,130,130,130
+225,both wrong,0,0,#### = one of its own calc results,#### other wrong,5,money,33,3,20,7
+233,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,other,62,2500,,2125
+241,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,5,fraction/ratio,71,,,20
+249,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,70,20,300,260
+257,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,77,880,480,440
+265,broken by RL,1,0,correct,#### = one of its own calc results,2,percent,33,42,24,42
+273,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,26,,40,100
+281,fixed by RL,0,1,#### = one of its own calc results,correct,2,fraction/ratio,28,5,15,15
+289,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,65,,27,27
+297,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,other,31,,,-3
+305,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,41,64,10,25
+313,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,34,,,2
+321,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,60,,33,104
+329,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,34,,,92
+337,fixed by RL,0,1,#### = one of its own calc results,correct,3,fraction/ratio,41,120,85,85
+345,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,measurement,39,,35,25
+353,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,24,,68,48
+361,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,0,fraction/ratio,23,,9680,8000
+369,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,52,,,5
+377,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,50,,8,16
+385,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,other,44,72,78,348
+393,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,percent,44,,120,10
+401,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,fraction/ratio,57,14,,6
+409,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,percent,69,70,,1198
+417,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,39,,35,200
+425,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,6,fraction/ratio,64,,12,16
+433,fixed by RL,0,1,no ####: ended without marker,correct,4,other,50,,276,276
+441,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,40,,,48
+449,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,6,money,48,,,2880000
+457,broken by RL,1,0,correct,#### = one of its own calc results,1,time/rate,76,5,45,5
+465,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,time/rate,68,16.8,,4
+473,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,percent,37,,,5
+481,both wrong,0,0,#### other wrong,#### = one of its own calc results,8,fraction/ratio,56,0,140,120
+489,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,6,fraction/ratio,50,36,,120
+497,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,money,49,,270,280
+505,both wrong,0,0,#### other wrong,#### = one of its own calc results,8,time/rate,106,15500,10500,6000
+513,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,39,,,20
+521,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,32,,195,105
+529,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,37,,100,100
+537,fixed by RL,0,1,"no ####: ended, right number last",correct,2,time/rate,25,,3,3
+545,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,other,42,84,10,24
+553,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,1,fraction/ratio,23,,45,9
+561,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,1,measurement,91,,,35
+569,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,percent,43,84000,140,40000
+577,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,money,68,690,,31800
+585,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,fraction/ratio,45,78,63,87
+593,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,51,,24,24
+601,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,time/rate,33,,60,240
+609,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,other,41,,4,6
+617,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,53,,16,26
+625,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,42,,,6
+633,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,3,fraction/ratio,87,16,,17
+641,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,fraction/ratio,78,1.75,,2
+649,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,4,time/rate,34,,,6
+657,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,time/rate,55,32,160,76
+665,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,other,28,150,,15
+673,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,30,,93000,93000
+681,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,3,money,53,,,10
+689,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,35,,2,6
+697,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,6,percent,124,,,2
+705,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,money,53,107.3333333333333333,1800,168000
+713,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,21,,30,16
+721,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",2,time/rate,47,,,1000
+729,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,53,,,1
+737,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,54,,6,5
+745,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,time/rate,70,24,,44
+753,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,measurement,62,,6800,2800
+761,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,43,,64800,1
+769,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,36,,24,20
+777,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,44,,2000,621
+785,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,24,,1460,187
+793,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,money,66,,420,11232
+801,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,percent,39,,,500
+809,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,percent,83,200,245,145
+817,fixed by RL,0,1,truncated (hit the token limit),correct,2,fraction/ratio,20,,3,3
+825,fixed by RL,0,1,#### = one of its own calc results,correct,2,money,41,18,6,6
+833,fixed by RL,0,1,"no ####: ended, right number last",correct,1,other,38,,130000,130000
+841,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,6,money,70,79,20,60
+849,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,51,,,5
+857,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,28,,48,48
+865,both right,1,1,correct,correct,2,time/rate,25,540,540,540
+873,fixed by RL,0,1,#### = a reference intermediate,correct,4,fraction/ratio,40,6,7,7
+881,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,30,,48,48
+889,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,time/rate,56,2,24,5
+897,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,30,,106,22
+905,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,time/rate,41,672.0,280,5760
+913,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,money,47,132,50,15
+921,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,3,measurement,56,12,24,4
+929,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,26,,,62
+937,fixed by RL,0,1,no ####: ended without marker,correct,2,other,27,,9,9
+945,both right,1,1,correct,correct,3,money,26,7,7,7
+953,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,48,,18,18
+961,both right,1,1,correct,correct,4,percent,63,21,21,21
+969,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,78,,220,220
+977,both right,1,1,correct,correct,2,fraction/ratio,40,10,10,10
+985,fixed by RL,0,1,#### = one of its own calc results,correct,3,percent,34,12.8,320,320
+993,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,28,,30,30
+1001,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,25,,125,50
+1009,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,33,,,36
+1017,fixed by RL,0,1,#### = one of its own calc results,correct,3,other,34,3.0,15,15
+1025,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,money,24,,,12
+1033,fixed by RL,0,1,#### = a reference intermediate,correct,5,other,61,300,30,30
+1041,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,5,time/rate,49,648,6,3
+1049,both wrong,0,0,#### other wrong,#### = a reference intermediate,3,percent,28,320,24,56
+1057,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,money,47,,30,4
+1065,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,percent,53,,,7300
+1073,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,41,,,6
+1081,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,fraction/ratio,64,40,,4
+1089,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,time/rate,50,24.5,336,1128
+1097,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,45,,7,3
+1105,fixed by RL,0,1,no ####: ended without marker,correct,2,money,32,,1000,1000
+1113,fixed by RL,0,1,no ####: ended without marker,correct,4,fraction/ratio,52,,12,12
+1121,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,percent,69,,,15
+1129,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,30,,12,27
+1137,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,fraction/ratio,46,14,,18
+1145,both wrong,0,0,#### other wrong,no ####: ended without marker,5,fraction/ratio,27,80,,16
+1153,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,percent,66,20,44,113
+1161,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,42,,,100
+1169,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,44,,62,74
+1177,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,fraction/ratio,71,,3000,2000
+1185,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,3,percent,54,7.6000000000000005,4,36
+1193,fixed by RL,0,1,#### other wrong,correct,2,fraction/ratio,35,150,53,53
+1201,both wrong,0,0,#### = a reference intermediate,#### = a reference intermediate,3,fraction/ratio,52,12.0,12,720
+1209,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,49,,,16
+1217,fixed by RL,0,1,no ####: ended without marker,correct,3,percent,24,,160,160
+1225,fixed by RL,0,1,#### = one of its own calc results,correct,4,money,42,59,157,157
+1233,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,money,27,2640,440,110
+1241,fixed by RL,0,1,#### other wrong,correct,2,other,27,7,14,14
+1249,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,34,,,2325
+1257,fixed by RL,0,1,no ####: ended without marker,correct,3,money,26,,66,66
+1265,fixed by RL,0,1,no ####: ended without marker,correct,2,other,65,,26,26
+1273,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,36,,360000,262500
+1281,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,41,,550,250
+1289,fixed by RL,0,1,#### = one of its own calc results,correct,3,fraction/ratio,44,1500,3000,3000
+1297,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,78,10,5,7
+1305,fixed by RL,0,1,no ####: ended without marker,correct,3,other,31,,30,30
+1313,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,23,,24,14
+2,fixed by RL,0,1,#### other wrong,correct,3,fraction/ratio,32,17,13,13
+10,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,percent,94,46.199999999999996,,34
+18,fixed by RL,0,1,#### other wrong,correct,2,time/rate,30,448,12,12
+26,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,percent,56,4800,480,1248
+34,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,83,,,250
+42,both right,1,1,correct,correct,1,money,34,90,90,90
+50,fixed by RL,0,1,truncated (hit the token limit),correct,2,fraction/ratio,19,,13,13
+58,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,7,percent,69,28.0,,17
+66,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,78,,22,22
+74,fixed by RL,0,1,#### = a reference intermediate,correct,2,money,21,48,720,720
+82,fixed by RL,0,1,#### other wrong,correct,4,percent,45,3080,720,720
+90,both wrong,0,0,no ####: ended without marker,#### other wrong,4,percent,37,,9,60
+98,fixed by RL,0,1,#### = one of its own calc results,correct,3,time/rate,39,900,70,70
+106,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,53,,,8
+114,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,other,90,-29,3,10
+122,fixed by RL,0,1,no ####: ended without marker,correct,2,other,34,,665,665
+130,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,18,,16,576
+138,both wrong,0,0,#### other wrong,no ####: ended without marker,3,fraction/ratio,61,25,,47
+146,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,46,,,736
+154,broken by RL,1,0,correct,#### = one of its own calc results,5,time/rate,71,93,45,93
+162,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,fraction/ratio,54,360,,200
+170,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,41,,50,48
+178,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,time/rate,60,62.5,,30
+186,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,other,65,12.5,,45
+194,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,64,,50,20
+202,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,51,,294,366
+210,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,50,340,235,335
+218,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,27,,170,110
+226,broken by RL,1,0,correct,#### = one of its own calc results,5,percent,52,250,229,250
+234,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,52,13500,,1100
+242,fixed by RL,0,1,#### = one of its own calc results,correct,2,other,37,880,88,88
+250,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,7,fraction/ratio,92,,76,56
+258,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,33,,,576
+266,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,31,300,1050,675
+274,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,75,92,120,19
+282,both wrong,0,0,truncated (hit the token limit),#### = a reference intermediate,3,time/rate,42,,8,3
+290,fixed by RL,0,1,no ####: ended without marker,correct,4,other,37,,12,12
+298,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,other,64,,,19
+306,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,6,percent,34,1260,1800,2400
+314,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,42,,22,-10
+322,fixed by RL,0,1,no ####: ended without marker,correct,2,other,43,,13,13
+330,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,money,44,,225,3
+338,both wrong,0,0,#### = one of its own calc results,#### other wrong,2,other,59,14.5,6,7
+346,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,money,76,,2000,1600
+354,broken by RL,1,0,correct,#### = one of its own calc results,2,money,53,180,36,180
+362,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,other,43,26,3,1
+370,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,45,,480,80
+378,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,36,,,56
+386,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,26,,100,80
+394,fixed by RL,0,1,no ####: ended without marker,correct,2,other,24,,50,50
+402,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,fraction/ratio,98,,56,7
+410,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,40,,45,78
+418,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,27,,112,38
+426,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,2,fraction/ratio,58,49,10,20
+434,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,52,,40,25
+442,fixed by RL,0,1,truncated (hit the token limit),correct,2,other,29,,14,14
+450,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,other,34,,,6277
+458,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,percent,33,44,200,9
+466,fixed by RL,0,1,truncated (hit the token limit),correct,3,other,30,,28,28
+474,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,percent,31,,,2
+482,both wrong,0,0,#### within 10%,#### = a reference intermediate,5,fraction/ratio,63,78,15,75
+490,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,fraction/ratio,24,,,90000
+498,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,29,,60,35
+506,both wrong,0,0,#### other wrong,no ####: ended without marker,2,fraction/ratio,60,73,,30
+514,both right,1,1,correct,correct,3,money,51,180,180,180
+522,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,other,38,105,115,298
+530,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,0,fraction/ratio,26,,40,25
+538,fixed by RL,0,1,"no ####: ended, right number last",correct,2,percent,32,,70,70
+546,fixed by RL,0,1,truncated (hit the token limit),correct,2,time/rate,23,,25,25
+554,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,other,36,,66,11
+562,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,fraction/ratio,43,,20,80
+570,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,69,,221,125
+578,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,33,220,,300
+586,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,29,,428,428
+594,both wrong,0,0,#### = a reference intermediate,#### = a reference intermediate,4,money,41,12,12,2
+602,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,percent,70,10,,90
+610,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,54,,,100
+618,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,money,54,,300,15
+626,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,53,,,114200
+634,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,50,,300,90
+642,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,55,132000,52000,95200
+650,fixed by RL,0,1,truncated (hit the token limit),correct,2,other,30,,15,15
+658,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,other,39,8,,120
+666,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,37,,36,40
+674,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,5,other,50,2,,4
+682,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,time/rate,67,90,,8
+690,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,time/rate,87,40,40,20
+698,fixed by RL,0,1,#### = one of its own calc results,correct,6,fraction/ratio,47,76,9,9
+706,both wrong,0,0,#### other wrong,no ####: ended without marker,4,money,48,60,,20
+714,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,32,562,168,336
+722,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,29,,,306
+730,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,time/rate,26,690,431,360
+738,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,27,,54,38
+746,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,40,,,2280
+754,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,20,,,32
+762,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,money,65,351,14,540
+770,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,0,time/rate,40,,30,50
+778,fixed by RL,0,1,no ####: ended without marker,correct,4,time/rate,44,,570,570
+786,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,time/rate,37,2.980132450331126,,5
+794,both wrong,0,0,truncated (hit the token limit),"no ####: ended, right number last",4,fraction/ratio,47,,,3
+802,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,32,,655,655
+810,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,26,,19,5
+818,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,measurement,42,,6,4
+826,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,percent,42,3.3333333333333335,,96
+834,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,57,,,50
+842,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,44,,491,1509
+850,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,measurement,44,320000,4260,3160
+858,both wrong,0,0,#### other wrong,no ####: ended without marker,4,time/rate,78,2000,,2350
+866,both right,1,1,correct,correct,4,money,42,34,34,34
+874,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,money,62,19,120,284
+882,fixed by RL,0,1,no ####: ended without marker,correct,4,money,45,,25,25
+890,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,72,250,250,225
+898,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,44,,590,60
+906,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,56,1440.0,288,18
+914,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,30,,75,30
+922,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,55,,41,57
+930,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,39,138,198,168
+938,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,percent,31,,24,92
+946,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,44,,120,20
+954,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,0,time/rate,42,,90,13
+962,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,5,percent,53,4.4,6,20
+970,fixed by RL,0,1,#### within 10%,correct,2,fraction/ratio,31,450,500,500
+978,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,money,40,225,,195
+986,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,55,,66,72
+994,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,3,percent,31,1380,270,1170
+1002,both wrong,0,0,#### other wrong,no ####: ended without marker,4,percent,48,20,,16
+1010,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,48,2320,29,132
+1018,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,8,time/rate,81,140,240,360
+1026,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,money,35,,,25
+1034,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,1,money,37,522.0,,50
+1042,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,fraction/ratio,50,,,70
+1050,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,percent,54,331.5,,31
+1058,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,40,,10,270
+1066,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,46,100,240,140
+1074,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,31,930,735,255
+1082,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,45,,,37
+1090,fixed by RL,0,1,#### = one of its own calc results,correct,4,money,52,20,38,38
+1098,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,29,,63,189
+1106,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,measurement,57,804,,21
+1114,broken by RL,1,0,correct,#### = one of its own calc results,3,money,24,4500,6000,4500
+1122,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,fraction/ratio,32,,90,15
+1130,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,6,percent,73,,8,25
+1138,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,5,fraction/ratio,59,280,24,112
+1146,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,29,,230,230
+1154,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,43,720,120,180
+1162,both wrong,0,0,#### other wrong,no ####: ended without marker,7,other,46,22,,32
+1170,both right,1,1,correct,correct,3,money,38,480,480,480
+1178,both wrong,0,0,no ####: ended without marker,#### other wrong,4,other,27,,12,40
+1186,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,58,64800,20,40
+1194,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,measurement,28,,1086,98
+1202,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,45,,60,84
+1210,fixed by RL,0,1,no ####: ended without marker,correct,2,other,24,,10,10
+1218,both wrong,0,0,#### = one of its own calc results,#### other wrong,3,money,40,16.5,20,13
+1226,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,38,54,59,87
+1234,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,time/rate,70,829,,22
+1242,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,fraction/ratio,24,,27,6
+1250,fixed by RL,0,1,no ####: ended without marker,correct,7,money,49,,144,144
+1258,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,45,,16,4
+1266,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,fraction/ratio,22,64,28,16
+1274,fixed by RL,0,1,no ####: ended without marker,correct,3,other,53,,390,390
+1282,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,68,,30,2
+1290,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,fraction/ratio,55,71.25,,170
+1298,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,35,6,48,12
+1306,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,time/rate,55,,6,26
+1314,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,29,,,7
+3,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,46,13,19,5
+11,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,25,,12,12
+19,both right,1,1,correct,correct,3,other,56,45,45,45
+27,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,percent,34,,,25
+35,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,51,816,,324
+43,fixed by RL,0,1,no ####: ended without marker,correct,2,other,39,,20,20
+51,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,31,,,420
+59,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,25,,500,940
+67,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,46,,588,4
+75,both wrong,0,0,truncated (hit the token limit),#### = a reference intermediate,3,fraction/ratio,36,,150,1050
+83,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,34,57.599999999999994,156,312
+91,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,other,57,20,11,24
+99,fixed by RL,0,1,#### = one of its own calc results,correct,2,time/rate,22,126.0,63,63
+107,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,33,,,20
+115,fixed by RL,0,1,no ####: ended without marker,correct,2,money,44,,75,75
+123,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,money,74,104,33,200
+131,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,107,,446,374
+139,fixed by RL,0,1,#### = one of its own calc results,correct,2,time/rate,60,7.0,4,4
+147,both wrong,0,0,#### within 10%,no ####: ended without marker,4,fraction/ratio,61,25,,27
+155,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,48,18.0,,10
+163,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,28,,25,85
+171,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,4,fraction/ratio,82,,,15
+179,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,48,,120,15
+187,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,29,,50,12
+195,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,42,,15,81
+203,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,39,,87,100
+211,fixed by RL,0,1,no ####: ended without marker,correct,2,money,24,,300,300
+219,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,54,,,6
+227,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,time/rate,22,1500,60,300
+235,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,other,84,28,,14
+243,both wrong,0,0,#### other wrong,#### = one of its own calc results,7,percent,60,4,8,75
+251,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,other,50,,45,48
+259,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,46,9.470588235294118,,2
+267,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,52,,,1218
+275,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,time/rate,31,,,40
+283,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,48,330,105,1800
+291,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,5,fraction/ratio,63,60,160,320
+299,fixed by RL,0,1,no ####: ended without marker,correct,4,money,45,,694,694
+307,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,other,38,2.5555555555555554,,16
+315,both right,1,1,correct,correct,5,money,45,17,17,17
+323,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,time/rate,50,0.43478260869565216,46,38
+331,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,time/rate,29,23328,108,12
+339,both wrong,0,0,#### within 10%,#### = one of its own calc results,5,fraction/ratio,67,132,85,140
+347,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,44,3.3333333333333335,360,240
+355,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,37,75,1470,2450
+363,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,38,25,25,54
+371,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,74,2.25,27500,5
+379,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,75,,126,50
+387,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,time/rate,46,29400,550,250
+395,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,25,,5,5
+403,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,fraction/ratio,34,700,50,10
+411,fixed by RL,0,1,no ####: ended without marker,correct,2,other,28,,15,15
+419,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,3,percent,36,1800,4410,3528
+427,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,56,14,,3
+435,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,37,,61,72
+443,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,24,,84,2
+451,broken by RL,1,0,correct,#### = a reference intermediate,4,fraction/ratio,53,12,2,12
+459,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,26,,10,10
+467,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,54,,,80
+475,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,59,,29,55
+483,fixed by RL,0,1,truncated (hit the token limit),correct,2,other,27,,15,15
+491,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,money,39,32,120,14
+499,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,37,,115,5
+507,fixed by RL,0,1,no ####: ended without marker,correct,1,percent,29,,44,44
+515,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,fraction/ratio,37,,5,50
+523,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,59,,72,52
+531,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,54,,3000,16
+539,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,7,fraction/ratio,164,,47,145
+547,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,62,,60,842
+555,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,94,,219,227
+563,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,28,,,600
+571,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,19,,,360
+579,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,28,,6,3
+587,fixed by RL,0,1,"no ####: ended, right number last",correct,2,fraction/ratio,28,,4,4
+595,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,51,,2,2
+603,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,fraction/ratio,52,2250,70875,50
+611,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,48,90,100,70
+619,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,53,104,126,60
+627,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,8,percent,83,142500,,131250
+635,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,time/rate,23,,20,120
+643,fixed by RL,0,1,no ####: ended without marker,correct,3,money,35,,221,221
+651,both wrong,0,0,no ####: ended without marker,"no ####: ended, right number last",2,time/rate,50,,,11
+659,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,57,75,,39
+667,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,37,252,,120
+675,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,37,,60,60
+683,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,88,12000,700,300
+691,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,money,53,178,,15
+699,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,26,,12,27
+707,fixed by RL,0,1,no ####: ended without marker,correct,3,money,43,,50,50
+715,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,measurement,40,,,3
+723,fixed by RL,0,1,#### other wrong,correct,2,fraction/ratio,31,4,8,8
+731,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,26,,10,6
+739,both wrong,0,0,#### other wrong,no ####: ended without marker,6,money,50,7.50,,21
+747,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,58,,,240
+755,both wrong,0,0,truncated (hit the token limit),#### = a reference intermediate,5,fraction/ratio,56,,20,30
+763,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,37,40,600,180
+771,fixed by RL,0,1,#### = one of its own calc results,correct,3,other,29,-8,8,8
+779,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,29,,2300,20
+787,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,129,9,21,29
+795,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,42,,120,1490
+803,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,40,,29,29
+811,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,measurement,45,,58,68
+819,fixed by RL,0,1,#### = one of its own calc results,correct,2,fraction/ratio,20,36,18,18
+827,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,53,,23,7
+835,fixed by RL,0,1,#### = one of its own calc results,correct,5,percent,45,24,29,29
+843,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,percent,73,,,9500
+851,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,time/rate,48,7.5,840,280
+859,both wrong,0,0,#### other wrong,#### = one of its own calc results,1,time/rate,45,8,12,7
+867,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,40,736,1120,480
+875,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,41,,,98
+883,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,31,,,4000
+891,fixed by RL,0,1,#### other wrong,correct,2,other,45,3,4,4
+899,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,28,24,110,36
+907,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,percent,61,,123,135
+915,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,29,,80,10
+923,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,16,,71,71
+931,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,39,,640,100
+939,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,time/rate,37,2,15,25
+947,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,4,fraction/ratio,78,6,14,36
+955,fixed by RL,0,1,#### other wrong,correct,4,other,29,140,122,122
+963,fixed by RL,0,1,no ####: ended without marker,correct,2,money,20,,168,168
+971,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,percent,66,,28,36
+979,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,fraction/ratio,72,91,,29
+987,broken by RL,1,0,correct,#### = one of its own calc results,3,time/rate,39,55,275,55
+995,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,time/rate,61,240,290,370
+1003,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,measurement,60,,,83
+1011,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,measurement,50,,,594
+1019,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,35,,,17
+1027,fixed by RL,0,1,"no ####: ended, right number last",correct,3,percent,37,,1000,1000
+1035,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,percent,28,,,5
+1043,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,40,,540,90
+1051,both right,1,1,correct,correct,3,fraction/ratio,43,23,23,23
+1059,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,money,72,,126,2
+1067,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,8,money,103,34,,1
+1075,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,measurement,45,2.25,,15
+1083,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,percent,38,,39,78
+1091,both wrong,0,0,#### = one of its own calc results,#### other wrong,4,money,67,15.25,18,9
+1099,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,time/rate,43,,800,4000
+1107,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,money,46,,52,123
+1115,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,3,money,45,5.0,100,20
+1123,broken by RL,1,0,correct,no ####: ended without marker,2,money,88,77,,77
+1131,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,49,5,220,2
+1139,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,25,,,4
+1147,fixed by RL,0,1,#### = one of its own calc results,correct,5,percent,50,1350,1110,1110
+1155,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,percent,44,,10,16
+1163,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,46,240,62,34
+1171,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,59,,,98
+1179,fixed by RL,0,1,#### = one of its own calc results,correct,2,time/rate,41,31,4,4
+1187,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,46,,,12
+1195,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,30,,160,5
+1203,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,36,,63,91
+1211,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,34,,1000,300
+1219,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,6,fraction/ratio,65,,84,18
+1227,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,5,percent,41,,8,64
+1235,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,68,,112,8
+1243,fixed by RL,0,1,no ####: ended without marker,correct,4,time/rate,38,,4,4
+1251,both wrong,0,0,#### = one of its own calc results,"no ####: ended, right number last",3,money,65,7.25,,3
+1259,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,other,63,75,105,35
+1267,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,money,65,100,100,50
+1275,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,44,,,5
+1283,both wrong,0,0,no ####: ended without marker,#### other wrong,3,money,29,,2,12
+1291,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,5,other,32,,40,8
+1299,fixed by RL,0,1,"no ####: ended, right number last",correct,3,money,31,,100,100
+1307,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,time/rate,33,,,13
+1315,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,2,other,32,,,16
+4,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,fraction/ratio,84,,21,25
+12,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,measurement,49,,,15
+20,fixed by RL,0,1,#### = one of its own calc results,correct,3,fraction/ratio,57,50,45,45
+28,both wrong,0,0,#### other wrong,#### = a reference intermediate,4,percent,43,1500,36,1
+36,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,percent,37,1928000,5320,129200
+44,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,62,264,568,296
+52,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,4,measurement,26,24000,14,10
+60,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,26,,,10
+68,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,fraction/ratio,48,,,22
+76,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,fraction/ratio,62,11,12,8
+84,fixed by RL,0,1,"no ####: ended, right number last",correct,2,money,40,,60,60
+92,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,50,371,,539
+100,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,21,,,26
+108,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,44,,,76
+116,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,36,,12,6
+124,fixed by RL,0,1,no ####: ended without marker,correct,2,percent,27,,20,20
+132,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,6,time/rate,82,,,80
+140,fixed by RL,0,1,no ####: ended without marker,correct,2,other,17,,140,140
+148,both wrong,0,0,#### other wrong,no ####: ended without marker,3,fraction/ratio,66,25,,68
+156,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,other,41,20,28,14
+164,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,38,,,100
+172,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,percent,29,200,102,106
+180,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,percent,40,,12,16
+188,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,money,34,,3,18
+196,fixed by RL,0,1,#### other wrong,correct,3,fraction/ratio,46,500,250,250
+204,fixed by RL,0,1,#### = one of its own calc results,correct,3,money,37,33,7,7
+212,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,35,33,38,1
+220,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,33,,30,30
+228,fixed by RL,0,1,#### = one of its own calc results,correct,2,other,37,5.5,22,22
+236,both wrong,0,0,"no ####: ended, right number last",#### = a reference intermediate,4,money,36,,5,3
+244,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,36,,180,5
+252,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,fraction/ratio,37,50,,70
+260,fixed by RL,0,1,#### = one of its own calc results,correct,2,money,52,24,18,18
+268,fixed by RL,0,1,#### = one of its own calc results,correct,3,money,32,5040,1260,1260
+276,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,55,4050,6000,18000
+284,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,54,,140,140
+292,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,time/rate,61,,24,36
+300,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,41,,180,215
+308,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,53,,,31
+316,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,35,62,52,73
+324,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,35,,,70000
+332,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,other,73,6,,63
+340,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,38,,32,28
+348,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,31,,,10
+356,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,31,,8,80
+364,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,112,17,190,210
+372,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,time/rate,34,,110,55
+380,fixed by RL,0,1,"no ####: ended, right number last",correct,1,other,27,,8,8
+388,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,42,,150,48
+396,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,fraction/ratio,52,,96,7
+404,both wrong,0,0,#### other wrong,no ####: ended without marker,5,percent,36,400,,91
+412,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,time/rate,49,,46,1240
+420,fixed by RL,0,1,no ####: ended without marker,correct,5,money,30,,31,31
+428,fixed by RL,0,1,no ####: ended without marker,correct,2,percent,31,,60,60
+436,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,39,135,50,120
+444,both wrong,0,0,#### other wrong,no ####: ended without marker,2,time/rate,27,11,,21
+452,fixed by RL,0,1,no ####: ended without marker,correct,2,other,35,,82,82
+460,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,17,,80,120
+468,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,23,,32,32
+476,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,43,,64,128
+484,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,33,,30,30
+492,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,36,21,9,12
+500,fixed by RL,0,1,#### = a reference intermediate,correct,3,percent,27,8,13,13
+508,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,39,,,72
+516,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,29,,30,35
+524,both wrong,0,0,#### other wrong,no ####: ended without marker,5,time/rate,50,12000,,81
+532,fixed by RL,0,1,no ####: ended without marker,correct,2,other,46,,5,5
+540,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,69,,,280
+548,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,55,,359,52
+556,both wrong,0,0,"no ####: ended, right number last",#### = a reference intermediate,3,fraction/ratio,53,,8,4
+564,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,68,,120,144
+572,fixed by RL,0,1,#### other wrong,correct,3,fraction/ratio,32,320,260,260
+580,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,fraction/ratio,33,2.5,,40
+588,fixed by RL,0,1,truncated (hit the token limit),correct,5,other,50,,9,9
+596,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,percent,49,,20,80
+604,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,measurement,57,,180,260
+612,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,7,time/rate,45,160,144,272
+620,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,39,325000,257500,17500
+628,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,41,204,135,159
+636,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,52,2.6666666666666665,,2
+644,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,62,,,31
+652,broken by RL,1,0,correct,#### other wrong,1,money,29,8,3,8
+660,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,55,,,84
+668,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,82,,12,12
+676,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,36,,,500
+684,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,29,,79,79
+692,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,54,43.8,,6
+700,both wrong,0,0,no ####: ended without marker,#### other wrong,2,percent,46,,380000,25000
+708,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,18,,24,8
+716,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,53,,9,9
+724,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,other,52,,400,80
+732,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,72,,182,319
+740,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,54,,105,15
+748,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,43,,3,15
+756,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,62,177,,500
+764,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,percent,36,1780.0,,220
+772,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,time/rate,21,,84,7
+780,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,39,320,19,10
+788,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,47,18,,54
+796,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,measurement,52,14,120,40
+804,fixed by RL,0,1,truncated (hit the token limit),correct,3,other,39,,74,74
+812,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,28,,3,3
+820,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,29,,30,5
+828,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,51,16,26,9
+836,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,27,,,50
+844,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,34,,,14
+852,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,36,,120,123
+860,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,money,61,21,21,23
+868,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,5,fraction/ratio,23,20,,50
+876,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,40,,1328,153
+884,both wrong,0,0,#### other wrong,no ####: ended without marker,3,other,52,2,,15
+892,both wrong,0,0,#### other wrong,no ####: ended without marker,5,time/rate,77,3,,48
+900,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,26,,,45
+908,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,fraction/ratio,63,10.5,,9
+916,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,time/rate,43,56,105,147
+924,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,other,44,,72,18
+932,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,0,percent,101,35700,,94
+940,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,67,2.0,200,2
+948,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,32,,105,77
+956,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,22,,,375
+964,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,percent,36,,,8
+972,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,55,,,16
+980,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,88,,,4
+988,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,percent,52,15,18,12
+996,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,7,money,77,,24,28
+1004,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,26,,120,120
+1012,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,19,,,360
+1020,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,1,fraction/ratio,65,16,,10
+1028,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,36,,30,8
+1036,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,money,60,832000,80400,224000
+1044,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,95,,121,25
+1052,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,25,,,220
+1060,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,50,,,10
+1068,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,38,,245,175
+1076,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,5,fraction/ratio,59,,1125,1875
+1084,fixed by RL,0,1,no ####: ended without marker,correct,2,money,43,,38,38
+1092,both wrong,0,0,#### other wrong,no ####: ended without marker,2,money,55,640,,32
+1100,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,35,,,24
+1108,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,48,2354,336,112
+1116,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,23,,11,17
+1124,both right,1,1,correct,correct,3,other,41,112,112,112
+1132,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,56,,,26
+1140,fixed by RL,0,1,no ####: ended without marker,correct,4,other,29,,40,40
+1148,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,time/rate,52,1300,9,156
+1156,fixed by RL,0,1,no ####: ended without marker,correct,4,fraction/ratio,31,,15,15
+1164,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,40,4200,2000,2600
+1172,fixed by RL,0,1,#### other wrong,correct,2,measurement,40,82666666666666,310,310
+1180,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,percent,46,300,,200
+1188,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,47,,,16
+1196,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,money,45,15150,15182,10800
+1204,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,money,32,,,12
+1212,fixed by RL,0,1,#### = one of its own calc results,correct,2,time/rate,33,8.0,8,8
+1220,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,30,,720,160
+1228,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,time/rate,58,174,368,49
+1236,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,48,340,,235
+1244,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,52,,,90
+1252,both wrong,0,0,#### = one of its own calc results,#### other wrong,4,money,25,14.8,14,7
+1260,fixed by RL,0,1,truncated (hit the token limit),correct,2,other,33,,132,132
+1268,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,time/rate,30,1140,120,5
+1276,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,fraction/ratio,52,115.0,,255
+1284,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,29,,390,195
+1292,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,47,,,11050
+1300,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,fraction/ratio,28,42,18,23
+1308,fixed by RL,0,1,truncated (hit the token limit),correct,2,measurement,95,,200,200
+1316,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,fraction/ratio,32,,2800,400
+5,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,time/rate,81,,17,452
+13,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,35,624,48,24
+21,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,measurement,31,,24,8
+29,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,measurement,38,,160,32
+37,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,8,percent,72,1360,,4400
+45,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,fraction/ratio,50,8400,5200,4800
+53,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,fraction/ratio,35,,,12
+61,fixed by RL,0,1,#### = one of its own calc results,correct,2,fraction/ratio,40,435.0,540,540
+69,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,43,,,64
+77,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,fraction/ratio,52,,32,20
+85,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,fraction/ratio,36,,,450
+93,both wrong,0,0,no ####: ended without marker,#### other wrong,8,time/rate,77,,20,18
+101,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,92,,,750
+109,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,money,51,,11,21
+117,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,35,,20000,20000
+125,both right,1,1,correct,correct,3,percent,46,20,20,20
+133,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,49,43000,3300,15400
+141,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,3,time/rate,51,,,8
+149,fixed by RL,0,1,#### = one of its own calc results,correct,3,time/rate,41,16,32,32
+157,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,39,,60,10
+165,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,50,,20,20
+173,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,5,money,76,,37,14
+181,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,money,62,,,251
+189,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,26,600,1200,75
+197,fixed by RL,0,1,no ####: ended without marker,correct,2,percent,20,,800,800
+205,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,other,59,,,54
+213,fixed by RL,0,1,no ####: ended without marker,correct,4,percent,26,,300,300
+221,both wrong,0,0,#### = one of its own calc results,"no ####: ended, right number last",4,fraction/ratio,47,20,,40
+229,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,other,36,8,18,20
+237,fixed by RL,0,1,no ####: ended without marker,correct,1,other,24,,33,33
+245,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,58,180,35,25
+253,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,time/rate,34,19,25,14
+261,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,55,,196,188
+269,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,money,32,,,13
+277,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,money,40,,28,7
+285,both right,1,1,correct,correct,2,fraction/ratio,40,17000,17000,17000
+293,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,25,,,24
+301,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,6,fraction/ratio,54,80,96,32
+309,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,money,48,32,,25
+317,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,68,,92000,14000
+325,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,other,28,,5,3
+333,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,money,28,,,69
+341,fixed by RL,0,1,truncated (hit the token limit),correct,2,measurement,56,,10,10
+349,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,7,percent,77,,,8400
+357,broken by RL,1,0,correct,#### = one of its own calc results,3,measurement,28,15,4,15
+365,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,37,,,14
+373,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,1,fraction/ratio,42,,512,8
+381,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,36,6000,15800,5600
+389,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,54,,256,168
+397,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,40,107,278,43
+405,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,money,31,27,45,6
+413,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,71,7.5,180,50
+421,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,58,7.984,1520,230
+429,fixed by RL,0,1,#### = one of its own calc results,correct,3,time/rate,60,80,2,2
+437,both wrong,0,0,#### other wrong,#### = one of its own calc results,1,fraction/ratio,40,12,13,3
+445,fixed by RL,0,1,#### = one of its own calc results,correct,2,money,42,16,12,12
+453,fixed by RL,0,1,no ####: ended without marker,correct,2,other,30,,18,18
+461,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,31,42,69,67
+469,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,percent,43,,540,17
+477,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,38,,60,5
+485,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,money,87,,,225
+493,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,29,,15,15
+501,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,other,25,20,26,14
+509,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,49,,,6
+517,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,money,41,3600,3600,16
+525,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,percent,63,25,272,91
+533,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,80,,13,150
+541,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,34,,5832,8
+549,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,50,,105,245
+557,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,44,880,,460
+565,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,percent,40,,,25
+573,fixed by RL,0,1,no ####: ended without marker,correct,2,measurement,39,,350,350
+581,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,fraction/ratio,60,,350,2100
+589,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,38,,,205
+597,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,58,,60,15
+605,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,59,,24,2
+613,fixed by RL,0,1,no ####: ended without marker,correct,2,money,67,,60,60
+621,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,4,other,56,9,13,8
+629,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,time/rate,86,48,7,3
+637,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,time/rate,57,26,16,23
+645,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,50,5.333333333333333,,12
+653,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,money,44,38.75,35,16
+661,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,6,money,66,,,4
+669,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,2,money,52,,,21
+677,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,43,,,15
+685,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,38,1440,360,144
+693,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,38,,270,350
+701,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,money,49,2.0,590,4
+709,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,5,fraction/ratio,85,6,,48
+717,fixed by RL,0,1,no ####: ended without marker,correct,3,other,38,,160,160
+725,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,fraction/ratio,34,,44,42
+733,fixed by RL,0,1,#### other wrong,correct,4,other,47,110,98,98
+741,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,other,33,,,100
+749,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,money,29,,,294
+757,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,7,percent,48,50,16,45
+765,both wrong,0,0,#### = one of its own calc results,#### other wrong,5,money,52,13.5,13,42
+773,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,63,23250,675000,1300
+781,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,72,,,40
+789,fixed by RL,0,1,no ####: ended without marker,correct,1,money,51,,26,26
+797,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,44,,1550,450
+805,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,percent,69,1400,,142
+813,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,42,600,30,200
+821,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,31,,7,12
+829,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,7,money,110,,,20
+837,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,percent,65,28,135,35
+845,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,36,2925,195,7425
+853,fixed by RL,0,1,no ####: ended without marker,correct,3,other,29,,3,3
+861,both right,1,1,correct,correct,2,money,38,85,85,85
+869,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,5,measurement,30,,6,3
+877,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,percent,89,,50,24
+885,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,3,time/rate,50,,,2
+893,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,other,53,,,80
+901,broken by RL,1,0,correct,no ####: ended without marker,3,fraction/ratio,69,2000,,2000
+909,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,74,,495,255
+917,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,percent,34,36,,6
+925,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,28,,120,60
+933,broken by RL,1,0,correct,#### = one of its own calc results,4,money,53,14,12,14
+941,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,measurement,29,,23,17
+949,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,38,,9211,1125
+957,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,other,37,102,,155
+965,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,7,other,92,44,101,79
+973,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,62,,1,64
+981,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,money,60,,12,2
+989,fixed by RL,0,1,no ####: ended without marker,correct,2,other,23,,21,21
+997,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,50,,550,385000
+1005,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,38,,8,44
+1013,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,24,,45,95
+1021,fixed by RL,0,1,no ####: ended without marker,correct,2,money,26,,500,500
+1029,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,5,percent,69,30000,4500,27000
+1037,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,41,,,84
+1045,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,measurement,43,126666666666666,11,3
+1053,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,fraction/ratio,71,,2,7
+1061,fixed by RL,0,1,no ####: ended without marker,correct,3,money,46,,101,101
+1069,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,51,1024,,84
+1077,fixed by RL,0,1,no ####: ended without marker,correct,4,fraction/ratio,28,,5,5
+1085,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,percent,35,,100,1
+1093,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,29,37500,12500,45000
+1101,fixed by RL,0,1,#### = one of its own calc results,correct,5,percent,72,6.2,44,44
+1109,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,38,,38,80
+1117,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,49,,7,7
+1125,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,47,,,15
+1133,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,39,,,60
+1141,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,4,time/rate,53,,,11
+1149,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,49,80,,156
+1157,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,60,,42,12
+1165,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,34,,,26
+1173,both wrong,0,0,"no ####: ended, right number last",#### other wrong,2,percent,28,,68,35
+1181,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,other,45,13,15,5
+1189,both wrong,0,0,#### other wrong,#### = one of its own calc results,0,fraction/ratio,52,250,250,100
+1197,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,31,,76,56
+1205,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,money,70,,8,4
+1213,fixed by RL,0,1,#### = one of its own calc results,correct,2,fraction/ratio,24,50,20,20
+1221,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,56,223,295,225
+1229,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,51,3,,30
+1237,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,48,,36,2
+1245,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,47,4060,580,2640
+1253,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,fraction/ratio,66,2150,2150,350
+1261,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,percent,59,,924,1596
+1269,both wrong,0,0,#### other wrong,no ####: ended without marker,3,fraction/ratio,48,19500,,120000
+1277,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,26,,1800,700
+1285,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,25,,6,16
+1293,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,57,,,2
+1301,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,money,24,,,90
+1309,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,fraction/ratio,77,61.2,90,138
+1317,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,48,,,9
+6,fixed by RL,0,1,#### other wrong,correct,4,fraction/ratio,74,86,43,43
+14,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,time/rate,59,,181,105
+22,fixed by RL,0,1,no ####: ended without marker,correct,5,fraction/ratio,51,,36,36
+30,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,27,,4,2
+38,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,measurement,46,,,70
+46,both wrong,0,0,no ####: ended without marker,#### within 10%,4,percent,30,,31,30
+54,fixed by RL,0,1,#### other wrong,correct,2,other,45,12,50,50
+62,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,money,29,,,110
+70,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,56,,,525
+78,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,52,,300,138
+86,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,money,45,,,10000
+94,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,29,,,14
+102,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,41,,56,54
+110,fixed by RL,0,1,no ####: ended without marker,correct,2,other,22,,600,600
+118,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,percent,36,110,240,800
+126,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,percent,37,,48,24
+134,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,50,,,60
+142,fixed by RL,0,1,no ####: ended without marker,correct,3,other,41,,142,142
+150,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,2,money,50,7,,30
+158,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,fraction/ratio,36,,45,40
+166,both wrong,0,0,#### other wrong,no ####: ended without marker,5,fraction/ratio,43,73,,48
+174,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,41,,,34
+182,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,71,890,115,175
+190,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,2,money,34,,,21
+198,both wrong,0,0,#### other wrong,no ####: ended without marker,4,time/rate,53,4.8,,4
+206,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,other,31,,56,70
+214,fixed by RL,0,1,no ####: ended without marker,correct,2,other,42,,398,398
+222,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,time/rate,46,1,160,80
+230,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,27,,57,3
+238,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,41,,40000,2400
+246,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,97,,36,36
+254,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,percent,25,,,9
+262,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,percent,58,,,8
+270,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,32,,30,22
+278,both right,1,1,correct,correct,1,fraction/ratio,34,75,75,75
+286,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,fraction/ratio,29,27,15,45
+294,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,time/rate,70,,,1
+302,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,41,,32,12
+310,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,percent,57,,230,80
+318,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,money,59,470,630,880
+326,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,money,41,,2350,57500
+334,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,56,,9,9
+342,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,3,time/rate,54,660,60,110
+350,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,58,,72,6
+358,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,39,,10,10
+366,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,57,285,291,21
+374,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,30,,750,750
+382,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,2,fraction/ratio,22,,6,3
+390,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,time/rate,25,,20,72000
+398,both wrong,0,0,#### other wrong,no ####: ended without marker,5,money,46,144006,,482
+406,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,fraction/ratio,31,104,94,168
+414,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,time/rate,42,0.0625,,800
+422,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,30,,67500,75
+430,fixed by RL,0,1,no ####: ended without marker,correct,2,money,32,,60,60
+438,both wrong,0,0,#### other wrong,no ####: ended without marker,4,fraction/ratio,38,120,,1
+446,both wrong,0,0,#### other wrong,no ####: ended without marker,3,time/rate,50,104,,9
+454,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,34,17,74,50
+462,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,5,money,31,0,20,60
+470,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,percent,40,36,32,1520
+478,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,58,30,96,15
+486,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,30,,6,17
+494,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,25,,72,8
+502,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,34,,100,60
+510,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,money,53,17,3,1
+518,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,54,,,23
+526,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,43,24,28,21
+534,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,53,100,53,31
+542,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,22,,15,21
+550,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,90,,18,24
+558,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,3,money,42,,12,2
+566,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,fraction/ratio,44,,,32
+574,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,percent,70,,13,16
+582,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,measurement,40,,24,216
+590,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,other,30,,10,20
+598,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,money,59,16,20,50
+606,both wrong,0,0,#### other wrong,#### = a reference intermediate,4,fraction/ratio,60,26,36,39
+614,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,fraction/ratio,55,30,8,60
+622,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,27,,,48
+630,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,43,90,90,120
+638,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,59,,48,66
+646,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,43,,,2
+654,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,51,,,10
+662,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,29,12,36,21
+670,both right,1,1,correct,correct,3,money,61,3200,3200,3200
+678,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,31,49,260,20
+686,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,2,time/rate,38,,11,4
+694,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,41,,10,7
+702,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,38,,,192
+710,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,69,2600,540,3140
+718,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,30,6,14,4
+726,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,other,61,4500000,105000,6
+734,fixed by RL,0,1,no ####: ended without marker,correct,4,time/rate,46,,1000,1000
+742,fixed by RL,0,1,no ####: ended without marker,correct,4,money,39,,14,14
+750,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,percent,46,,,240000
+758,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,fraction/ratio,57,,65,100
+766,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,measurement,39,,,12
+774,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,measurement,102,,,2
+782,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,35,,,100
+790,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,34,,50,15
+798,fixed by RL,0,1,no ####: ended without marker,correct,2,percent,19,,133,133
+806,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,95,260,270,320
+814,fixed by RL,0,1,no ####: ended without marker,correct,1,money,45,,243,243
+822,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,28,,28,30
+830,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,48,133333334,24000,162000
+838,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,money,27,,1188,132
+846,both wrong,0,0,no ####: ended without marker,#### other wrong,3,fraction/ratio,25,,12,48
+854,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,time/rate,86,,,2
+862,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,time/rate,46,11.6,23,4
+870,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,53,,19,1
+878,fixed by RL,0,1,#### = one of its own calc results,correct,2,time/rate,37,796,4,4
+886,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,measurement,49,2,84,10
+894,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,fraction/ratio,64,145,,2
+902,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,time/rate,33,22500,4,120
+910,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,other,43,,,8
+918,both wrong,0,0,#### = one of its own calc results,#### other wrong,6,percent,52,500250,750000,1450000
+926,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,53,33,16,72
+934,fixed by RL,0,1,no ####: ended without marker,correct,4,fraction/ratio,32,,180,180
+942,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,44,192,7,520
+950,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,64,,75,83
+958,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,39,,385,595
+966,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,18,,14,15
+974,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,39,,,45
+982,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,1,measurement,45,,,16
+990,both right,1,1,correct,correct,2,other,34,18,18,18
+998,both wrong,0,0,#### other wrong,no ####: ended without marker,6,money,87,18,,8
+1006,both wrong,0,0,truncated (hit the token limit),#### other wrong,2,fraction/ratio,52,,12,2
+1014,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,fraction/ratio,51,,,8
+1022,fixed by RL,0,1,"no ####: ended, right number last",correct,2,other,44,,48,48
+1030,both wrong,0,0,#### = one of its own calc results,#### other wrong,2,time/rate,30,3.5,3,5
+1038,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,30,,,78
+1046,both wrong,0,0,#### other wrong,no ####: ended without marker,4,money,33,12,,160
+1054,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,7,percent,60,,,59
+1062,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,38,,250,100
+1070,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,time/rate,37,,400,3000
+1078,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,money,34,,,5
+1086,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,fraction/ratio,61,45,55,120
+1094,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,51,56,192,64
+1102,fixed by RL,0,1,#### other wrong,correct,2,time/rate,69,108,5,5
+1110,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,money,83,1,,20
+1118,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,2,fraction/ratio,73,,,160
+1126,fixed by RL,0,1,no ####: ended without marker,correct,3,money,32,,14400,14400
+1134,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,25,,125,10
+1142,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,percent,46,,100,10
+1150,fixed by RL,0,1,no ####: ended without marker,correct,2,other,27,,70,70
+1158,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,54,462,768,762
+1166,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,29,190,220,2
+1174,both wrong,0,0,#### other wrong,no ####: ended without marker,5,time/rate,70,2,,5
+1182,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,other,33,,33,45
+1190,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,time/rate,44,3.33,155,240
+1198,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,32,,45,50
+1206,fixed by RL,0,1,no ####: ended without marker,correct,4,money,27,,162,162
+1214,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,percent,59,,,118000
+1222,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,other,53,,30,150
+1230,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,35,,7,5
+1238,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,64,27.5,35,50
+1246,fixed by RL,0,1,#### = one of its own calc results,correct,4,measurement,69,61,101,101
+1254,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,fraction/ratio,84,,360,300
+1262,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,percent,44,,,50
+1270,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,36,,42,3
+1278,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,35,,3,5
+1286,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,measurement,47,,,160
+1294,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,43,78,80,172
+1302,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,fraction/ratio,45,,,30
+1310,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,fraction/ratio,89,25,27,33
+1318,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,23,,8,79
+7,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,34,36,14,34
+15,fixed by RL,0,1,no ####: ended without marker,correct,2,other,27,,120,120
+23,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,fraction/ratio,47,,2,1
+31,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,42,36,60,30
+39,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,39,76000,265100,276000
+47,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,27,,,8
+55,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,61,,22,92
+63,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,1,fraction/ratio,33,,105,20
+71,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,42,,10,10
+79,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,time/rate,39,700,675,175
+87,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,97,,10000,43500
+95,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,32,,60,60
+103,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,0,other,50,6.8,,96
+111,both wrong,0,0,#### other wrong,no ####: ended without marker,4,measurement,59,28000000000000003,,16
+119,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,money,62,125,125,45
+127,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,100,37,,2
+135,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,97,,2,11
+143,both wrong,0,0,#### other wrong,#### = one of its own calc results,4,money,38,800,800,575
+151,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,money,50,,1125,480
+159,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,3,money,31,6,36,4
+167,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,measurement,80,,2000,3000
+175,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,42,,90,66
+183,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,32,,34,32
+191,fixed by RL,0,1,#### = one of its own calc results,correct,2,money,43,2400,240,240
+199,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,57,,3000,14000
+207,fixed by RL,0,1,#### within 10%,correct,1,other,42,270,273,273
+215,fixed by RL,0,1,no ####: ended without marker,correct,1,money,23,,27,27
+223,broken by RL,1,0,correct,#### = one of its own calc results,3,time/rate,87,18,20,18
+231,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,30,,94866,65960
+239,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,1,other,31,,23,28
+247,fixed by RL,0,1,no ####: ended without marker,correct,4,other,38,,1210,1210
+255,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,4,fraction/ratio,76,330,,20
+263,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,3,measurement,42,30,6,90
+271,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,6,time/rate,57,,30,310
+279,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,1,other,50,,,14
+287,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,money,46,4500,1700,3200
+295,both wrong,0,0,#### = a reference intermediate,no ####: ended without marker,5,percent,74,3,,27
+303,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,3,money,37,54,,34
+311,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,other,38,,122,9
+319,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,4,time/rate,81,17,14,31
+327,fixed by RL,0,1,"no ####: ended, right number last",correct,2,percent,15,,4,4
+335,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,5,money,25,62.6,,8
+343,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,76,,,30
+351,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,percent,64,,,9360
+359,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,time/rate,25,,16,19
+367,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,84,113,76,104
+375,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,4,money,46,70000,1400,350
+383,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,31,,525,975
+391,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,48,,840,840
+399,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,fraction/ratio,42,,65,130
+407,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,other,42,,,20
+415,fixed by RL,0,1,#### other wrong,correct,2,fraction/ratio,41,5,8,8
+423,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,fraction/ratio,43,,,54
+431,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,other,96,,,5
+439,both wrong,0,0,no ####: ended without marker,#### other wrong,0,percent,26,,14,26
+447,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,26,,16,16
+455,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,8,fraction/ratio,65,416.6666666666667,,11
+463,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,24,,8,8
+471,fixed by RL,0,1,no ####: ended without marker,correct,2,money,26,,12,12
+479,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,28,,32,32
+487,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,money,32,122,13,19
+495,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,54,24,23,17
+503,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,other,30,,178,5
+511,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,40,,7,7
+519,fixed by RL,0,1,no ####: ended without marker,correct,2,other,23,,70,70
+527,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,money,59,,225000,64800
+535,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,time/rate,21,,2160,3430
+543,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,50,3,14,11
+551,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,measurement,79,,,300
+559,fixed by RL,0,1,no ####: ended without marker,correct,3,percent,28,,36,36
+567,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,5,fraction/ratio,37,600,450,1800
+575,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,5,fraction/ratio,64,,2005,7500
+583,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,time/rate,33,,,193
+591,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,measurement,58,1,18,12
+599,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,5,time/rate,60,,1500,860
+607,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,percent,59,59.2,45,11
+615,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,time/rate,36,4,2,5
+623,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,percent,43,,,50
+631,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,money,25,108,9,93
+639,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,time/rate,41,1.0,300,34
+647,fixed by RL,0,1,no ####: ended without marker,correct,2,measurement,33,,120,120
+655,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,45,,280,280
+663,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,fraction/ratio,39,,52,27
+671,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,51,,17,12
+679,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,3,money,41,,40,38
+687,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,fraction/ratio,60,,,60
+695,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,34,108,648,308
+703,both wrong,0,0,#### other wrong,#### = a reference intermediate,3,fraction/ratio,45,2,6,3
+711,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,57,,14,90
+719,fixed by RL,0,1,no ####: ended without marker,correct,4,percent,36,,25,25
+727,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,55,997.5,1250,240
+735,both wrong,0,0,#### other wrong,no ####: ended without marker,3,money,25,6000000000000001,,1800
+743,fixed by RL,0,1,no ####: ended without marker,correct,3,fraction/ratio,52,,247,247
+751,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,money,63,268.5,36,342
+759,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,money,28,-16,150,10
+767,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,fraction/ratio,31,,,25
+775,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,6,fraction/ratio,36,46,16,75
+783,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,2,fraction/ratio,54,,80,10
+791,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,1,fraction/ratio,47,,,147
+799,both wrong,0,0,"no ####: ended, right number last",no ####: ended without marker,3,fraction/ratio,42,,,10
+807,both wrong,0,0,#### other wrong,no ####: ended without marker,1,other,70,432,,163
+815,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,7,fraction/ratio,91,125,90,350
+823,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,5,fraction/ratio,51,,,51
+831,both wrong,0,0,#### other wrong,no ####: ended without marker,3,fraction/ratio,36,2,,6
+839,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,percent,44,,,50
+847,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,fraction/ratio,56,180,2940,10
+855,both wrong,0,0,#### other wrong,#### = one of its own calc results,5,money,46,180,59,120
+863,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,money,30,,240,7200
+871,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,4,other,34,,15,27
+879,fixed by RL,0,1,no ####: ended without marker,correct,3,other,24,,310,310
+887,fixed by RL,0,1,no ####: ended without marker,correct,2,fraction/ratio,25,,6,6
+895,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,6,percent,37,180,220,2
+903,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,other,48,255000,255000,85000
+911,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,32,,35,75
+919,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,measurement,58,25600,800,25
+927,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,other,41,,160,10
+935,fixed by RL,0,1,no ####: ended without marker,correct,3,money,82,,36,36
+943,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,fraction/ratio,36,,10,18
+951,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,41,260,39,31
+959,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,2,fraction/ratio,52,,93,9
+967,both wrong,0,0,no ####: ended without marker,#### other wrong,4,measurement,26,,52,16
+975,both wrong,0,0,#### other wrong,no ####: ended without marker,4,fraction/ratio,47,100,,4
+983,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,4,money,77,,,88
+991,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,percent,30,,140,5600
+999,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,3,time/rate,59,,,4
+1007,fixed by RL,0,1,no ####: ended without marker,correct,2,money,36,,11,11
+1015,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,3,money,57,,9000,7000
+1023,both wrong,0,0,#### = one of its own calc results,#### = a reference intermediate,4,other,63,15,80,58
+1031,fixed by RL,0,1,no ####: ended without marker,correct,3,money,24,,400,400
+1039,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,1,other,73,391,83,14
+1047,fixed by RL,0,1,no ####: ended without marker,correct,3,time/rate,32,,42,42
+1055,both wrong,0,0,#### = one of its own calc results,no ####: ended without marker,6,money,77,12.5,,10
+1063,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,4,percent,32,,,7400
+1071,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,51,,3,6
+1079,fixed by RL,0,1,no ####: ended without marker,correct,3,percent,52,,20,20
+1087,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,27,,15,15
+1095,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,4,percent,42,0.0,12000,40
+1103,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,3,other,38,408,504,9
+1111,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,0,time/rate,23,,44,280
+1119,both wrong,0,0,truncated (hit the token limit),#### = one of its own calc results,5,percent,73,,1,30
+1127,fixed by RL,0,1,truncated (hit the token limit),correct,2,fraction/ratio,35,,16,16
+1135,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,2,money,52,320,30,110
+1143,both wrong,0,0,#### = one of its own calc results,#### other wrong,4,fraction/ratio,44,8,8,4
+1151,fixed by RL,0,1,truncated (hit the token limit),correct,3,other,42,,34,34
+1159,both wrong,0,0,#### = a reference intermediate,#### = one of its own calc results,4,money,45,18,68,10
+1167,both wrong,0,0,truncated (hit the token limit),#### other wrong,5,fraction/ratio,62,,16,3
+1175,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,measurement,61,5.25,37,23
+1183,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,0,money,86,,,10
+1191,fixed by RL,0,1,no ####: ended without marker,correct,2,time/rate,33,,35,35
+1199,both wrong,0,0,#### other wrong,#### = one of its own calc results,2,other,46,4,7,17
+1207,both wrong,0,0,#### = one of its own calc results,#### = one of its own calc results,5,time/rate,96,1660,100,2450
+1215,fixed by RL,0,1,truncated (hit the token limit),correct,2,fraction/ratio,30,,5,5
+1223,both wrong,0,0,no ####: ended without marker,no ####: ended without marker,2,other,63,,,12
+1231,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,4,time/rate,47,,210,700
+1239,both wrong,0,0,"no ####: ended, right number last",#### = one of its own calc results,3,other,41,,96,2
+1247,fixed by RL,0,1,truncated (hit the token limit),correct,4,other,32,,448,448
+1255,fixed by RL,0,1,#### = one of its own calc results,correct,2,money,21,120,360,360
+1263,fixed by RL,0,1,truncated (hit the token limit),correct,2,measurement,45,,300,300
+1271,fixed by RL,0,1,"no ####: ended, right number last",correct,2,money,42,,4,4
+1279,both wrong,0,0,no ####: ended without marker,#### = a reference intermediate,6,fraction/ratio,40,,43,50
+1287,both wrong,0,0,#### other wrong,#### = one of its own calc results,3,fraction/ratio,67,120,10,30
+1295,both wrong,0,0,#### = a reference intermediate,"no ####: ended, right number last",2,fraction/ratio,47,39,,78
+1303,both wrong,0,0,truncated (hit the token limit),no ####: ended without marker,3,money,53,,,100
+1311,both wrong,0,0,no ####: ended without marker,#### = one of its own calc results,4,measurement,67,,35,68

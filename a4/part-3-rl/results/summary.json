@@ -1,0 +1,64 @@
+{
+  "train_rollouts": 119552,
+  "eval_samples": 25600,
+  "train_steps": 467,
+  "zero_signal_share_overall": 0.5016059957173448,
+  "marker_rate_first_last_10_steps": [
+    0.744921875,
+    0.714453125
+  ],
+  "solve_by_ref_steps": {
+    "0": 0.1013,
+    "1": 0.1969,
+    "2": 0.4229,
+    "3": 0.2989,
+    "4": 0.1999,
+    "5": 0.1084,
+    "6+": 0.0321
+  },
+  "eval_paired_bootstrap": {
+    "from": 0,
+    "to": 420,
+    "mean_acc_change": 0.1390625,
+    "ci95": [
+      0.1115625,
+      0.1665625
+    ]
+  },
+  "eval_questions_solved_in_n_evals": {
+    "never": 160,
+    "1-2 evals": 95,
+    "3-5 evals": 62,
+    "6+ evals": 83
+  },
+  "fulltest": {
+    "n": 1319,
+    "sft_acc": 0.027293404094010616,
+    "rl_acc": 0.20090978013646701,
+    "outcomes": {
+      "both wrong": 1037,
+      "fixed by RL": 246,
+      "both right": 19,
+      "broken by RL": 17
+    },
+    "marker_rate": [
+      0.4048521607278241,
+      0.7179681576952237
+    ],
+    "mean_tokens": [
+      172.9158453373768,
+      82.28885519332827
+    ],
+    "mcnemar_exact_p": 3.3091377887349146e-53
+  },
+  "failure_mix_overall_train": {
+    "no ####: ended without marker": 0.4163,
+    "#### = one of its own calc results": 0.4099,
+    "#### = a reference intermediate": 0.0848,
+    "#### other wrong": 0.0559,
+    "truncated (hit the token limit)": 0.0158,
+    "no ####: ended, right number last": 0.0118,
+    "#### off by x10/x100/x60": 0.0028,
+    "#### within 10%": 0.0027
+  }
+}

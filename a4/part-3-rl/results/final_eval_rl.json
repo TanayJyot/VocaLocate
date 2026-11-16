@@ -1,0 +1,11 @@
+{
+  "rl_step000466": {
+    "returncode": 0,
+    "ARC-Easy": 0.5779,
+    "ARC-Challenge": 0.4642,
+    "MMLU": 0.3544,
+    "GSM8K": 0.2009,
+    "HumanEval": 0.1159,
+    "ChatCORE": 0.2357
+  }
+}
