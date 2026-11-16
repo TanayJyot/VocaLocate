@@ -390,10 +390,16 @@ while True:
 
     # save checkpoint at the end of the run (all ranks participate so each saves its optimizer shard)
     if last_step:
-        default_tag = f"d{depth}"
+        default_tag = f"d{depth}" + (f"-{model.config.mlp_activation}" if model.config.mlp_activation != "relu2" else "")
         if model.config.diff_v2:
             default_tag += "-diff-v2"
-        output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12 or d12-diff-v2
+        if model.config.depth_attention:
+            default_tag += "-depth-attention"
+            if model.config.depth_attention_stride is not None:
+                default_tag += f"-s{model.config.depth_attention_stride}"
+        if model.config.mgvr:
+            default_tag += "-mgvr"
+        output_dirname = args.model_tag if args.model_tag else default_tag # e.g. d12 or d12-xiprelu
         checkpoint_dir = os.path.join(base_dir, "chatsft_checkpoints", output_dirname)
         save_checkpoint(
             checkpoint_dir,
@@ -414,7 +420,14 @@ while True:
                     "n_loops": model.config.n_loops,
                     "n_prelude": model.config.n_prelude,
                     "n_coda": model.config.n_coda,
+                    **({"mlp_activation": model.config.mlp_activation} if model.config.mlp_activation != "relu2" else {}),
                     **({"diff_v2": True} if model.config.diff_v2 else {}),
+                    **({"mgvr": True} if model.config.mgvr else {}),
+                    **({"depth_attention": True, "depth_attention_stride": model.config.depth_attention_stride}
+                       if model.config.depth_attention else {}),
+                    # remaining opt-in architecture flags: written only when enabled, so baseline metadata is unchanged
+                    **{key: getattr(model.config, key) for key in ("loop_embed", "n_loops_min", "n_loops_max", "xsa", "ssa", "mudd")
+                       if getattr(model.config, key)},
                 },
                 "user_config": user_config, # inputs to the training script
             },
