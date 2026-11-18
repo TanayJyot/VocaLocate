@@ -1,0 +1,99 @@
+Checkpoint: vocalocate-a3:/a3/base_checkpoints/d20-baseline-long, step 21328
+Using cached SFT test data: allenai--ai2_arc/ARC-Easy/test
+Using cached SFT test data: allenai--ai2_arc/ARC-Challenge/test
+Using cached SFT test data: cais--mmlu/all/test
+Using cached SFT test data: openai--gsm8k/main/test
+Using cached SFT test data: openai--openai_humaneval/openai_humaneval/test
+Launching: torchrun --standalone --nproc_per_node=8 -m scripts.chat_eval -- --source base --model-tag d20-baseline-long --step 21328 --device-type cuda --batch-size 16 --num-samples 1 --temperature 0 --max-new-tokens 512 --top-k 50 --task-name 'ARC-Easy|ARC-Challenge|MMLU'
+2026-11-14 18:22:33,436 - nanochat.common - [32m[1mINFO[0m - Distributed world size: 8
+2026-11-14 18:22:33,438 - nanochat.checkpoint_manager - [32m[1mINFO[0m - Loading model from /tmp/tmpaj98kina/base_checkpoints/d20-baseline-long with step 21328
+2026-11-14 18:22:35,649 - nanochat.checkpoint_manager - [32m[1mINFO[0m - Building model with config: {'sequence_len': 2048, 'vocab_size': 32768, 'n_layer': 20, 'n_head': 10, 'n_kv_head': 10, 'n_embd': 1280, 'window_pattern': 'SSSL', 'n_loops': 1, 'n_prelude': 0, 'n_coda': 0}
+Final: 594/2376 (25.00%)
+ARC-Easy accuracy: 25.00%
+Final: 267/1172 (22.78%)
+ARC-Challenge accuracy: 22.78%
+Final: 3226/14042 (22.97%)
+MMLU accuracy: 22.97%
+Launching: torchrun --standalone --nproc_per_node=8 -m scripts.chat_eval -- --source base --model-tag d20-baseline-long --step 21328 --device-type cuda --batch-size 16 --num-samples 1 --temperature 0 --max-new-tokens 512 --top-k 50 --task-name 'GSM8K|HumanEval' --max-problems 24
+2026-11-14 18:22:59,349 - nanochat.common - [32m[1mINFO[0m - Distributed world size: 8
+2026-11-14 18:22:59,350 - nanochat.checkpoint_manager - [32m[1mINFO[0m - Loading model from /tmp/tmpaj98kina/base_checkpoints/d20-baseline-long with step 21328
+2026-11-14 18:23:00,758 - nanochat.checkpoint_manager - [32m[1mINFO[0m - Building model with config: {'sequence_len': 2048, 'vocab_size': 32768, 'n_layer': 20, 'n_head': 10, 'n_kv_head': 10, 'n_embd': 1280, 'window_pattern': 'SSSL', 'n_loops': 1, 'n_prelude': 0, 'n_coda': 0}
+
+[KRank 3 | 0/1 (0.00%)
+[KRank 1 | 0/1 (0.00%)
+[KRank 4 | 0/1 (0.00%)
+[KRank 5 | 0/1 (0.00%)
+[KRank 7 | 0/1 (0.00%)
+[KRank 0 | 0/1 (0.00%)
+[KRank 2 | 0/1 (0.00%)
+[KRank 6 | 0/1 (0.00%)
+[KRank 3 | 0/2 (0.00%)
+[KRank 5 | 0/2 (0.00%)
+[KRank 7 | 0/2 (0.00%)
+[KRank 4 | 0/2 (0.00%)
+[KRank 1 | 0/2 (0.00%)
+[KRank 0 | 0/2 (0.00%)
+[KRank 2 | 0/2 (0.00%)
+[KRank 6 | 0/2 (0.00%)
+[KRank 3 | 0/3 (0.00%)
+
+[KRank 5 | 0/3 (0.00%)
+
+[KRank 4 | 0/3 (0.00%)
+
+[KRank 7 | 0/3 (0.00%)
+
+[KRank 1 | 0/3 (0.00%)
+
+[KRank 2 | 0/3 (0.00%)
+
+[KRank 0 | 0/3 (0.00%)
+
+[KRank 6 | 0/3 (0.00%)
+==================================================
+Final: 0/24 (0.00%)
+GSM8K accuracy: 0.00%
+
+[KRank 7 | 0/1 (0.00%)
+[KRank 3 | 0/1 (0.00%)
+[KRank 0 | 0/1 (0.00%)
+[KRank 4 | 0/1 (0.00%)
+[KRank 1 | 0/1 (0.00%)
+[KRank 5 | 0/1 (0.00%)
+[KRank 6 | 0/1 (0.00%)
+[KRank 2 | 0/1 (0.00%)
+[KRank 3 | 0/2 (0.00%)
+[KRank 0 | 0/2 (0.00%)
+[KRank 7 | 0/2 (0.00%)
+[KRank 1 | 0/2 (0.00%)
+[KRank 6 | 0/2 (0.00%)
+[KRank 4 | 0/2 (0.00%)
+[KRank 5 | 0/2 (0.00%)
+[KRank 2 | 0/2 (0.00%)
+[KRank 6 | 0/3 (0.00%)
+
+[KRank 3 | 0/3 (0.00%)
+
+[KRank 0 | 0/3 (0.00%)
+
+[KRank 7 | 0/3 (0.00%)
+
+[KRank 1 | 0/3 (0.00%)
+
+[KRank 5 | 0/3 (0.00%)
+
+[KRank 4 | 0/3 (0.00%)
+
+[KRank 2 | 0/3 (0.00%)
+==================================================
+Final: 0/24 (0.00%)
+HumanEval accuracy: 0.00%
+
+Pretrained chat evaluation summary
+ARC-Easy: 594/2376 (25.00%)
+ARC-Challenge: 267/1172 (22.78%)
+MMLU: 3226/14042 (22.97%)
+GSM8K: 0/24 (0.00%)
+HumanEval: 0/24 (0.00%)
+ChatCORE (5 tasks): -0.0113
+Categorical ChatCORE: -0.0189

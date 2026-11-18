@@ -1,0 +1,25 @@
+{
+  "command": [
+    "torchrun",
+    "--standalone",
+    "--nproc_per_node=8",
+    "-m",
+    "scripts.chat_sft",
+    "--",
+    "--model-tag=d20-baseline-long",
+    "--model-step=21328",
+    "--load-optimizer=1",
+    "--run=d20-baseline-long-sft"
+  ],
+  "input_checkpoint": "/vol/a3/base_checkpoints/d20-baseline-long",
+  "input_step": 21328,
+  "output_checkpoint": "/vol/a3/sft_runs/d20-baseline-long-sft/chatsft_checkpoints/d20-baseline-long",
+  "gpus": 8,
+  "load_optimizer": true,
+  "wandb_mode": "offline",
+  "wandb_project": "a4-sft",
+  "wandb_entity": "",
+  "returncode": 0,
+  "elapsed_seconds": 922.1013178825378,
+  "log_path": "/vol/a3/logs/d20-baseline-long-sft.log"
+}

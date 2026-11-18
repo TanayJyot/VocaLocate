@@ -1,0 +1,38 @@
+{
+  "command": [
+    "torchrun",
+    "--standalone",
+    "--nproc_per_node=8",
+    "-m",
+    "scripts.chat_sft",
+    "--",
+    "--model-tag=d20-baseline-long",
+    "--model-step=21328",
+    "--load-optimizer=1",
+    "--run=a4-part2b-long-g8-v1-metamath",
+    "--max-optimizer-steps=932",
+    "--max-seq-len=2048",
+    "--device-batch-size=16",
+    "--total-batch-size=524288",
+    "--metamath-jsonl=/vol/a4/sft_data/metamath_train.jsonl",
+    "--allow-unapproved-data"
+  ],
+  "input_checkpoint": "/vol/a4/base_checkpoints/d20-baseline-long",
+  "input_step": 21328,
+  "output_checkpoint": "/vol/a4/sft_runs/a4-part2b-long-g8-v1-metamath/chatsft_checkpoints/d20-baseline-long",
+  "gpus": 8,
+  "load_optimizer": true,
+  "optimizer_policy": "restore",
+  "wandb_mode": "online",
+  "wandb_project": "a4-nanochat-rl",
+  "wandb_entity": "carmen-chau-0912",
+  "returncode": 0,
+  "elapsed_seconds": 853.5134880542755,
+  "log_path": "/vol/a4/logs/a4-part2b-long-g8-v1-metamath.log",
+  "datasets": {
+    "metamath": {
+      "path": "/vol/a4/sft_data/metamath_train.jsonl",
+      "sha256": "5f4c0d9eb77e94042f9e534749b276effbba4ae978ddb0e9de3ef9843680e09c"
+    }
+  }
+}

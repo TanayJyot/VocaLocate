@@ -1,0 +1,72 @@
+{
+  "status": "UNAPPROVED: original-SFT near retrieval is approximate; solution quality needs review",
+  "seed": "a4-kodcode-fifteen-shards-40k-v2",
+  "source": "KodCode/KodCode-V1 shards 0-14; source revision recorded separately if available",
+  "inputs": {
+    "/private/tmp/kodcode_shard0_humaneval_audit.parquet": "4f572ead849ffed59012afa9a4aabf67add1538792bf49a268c486a75de68724",
+    "/private/tmp/kodcode_shard1_humaneval_audit.parquet": "62a45303582e2f4c8684dd7df184862adce037651c564d66e527cb7e99f87b07",
+    "/private/tmp/kodcode_shard2_humaneval_audit.parquet": "f9e60b3cc8e45b8b5cfad72800eadb3d79fa58425b72dc4caa5d80563e57390d",
+    "/private/tmp/kodcode_shard3_humaneval_audit.parquet": "aadbbf5182fd77ca9256d778c368f801eabf9ab093935101362808a28c5a6a45",
+    "/private/tmp/kodcode_shard4_humaneval_audit.parquet": "ffef5bb1949c1481d5e6f7fd7339b99610f8e459153a6824c37c9a23d2eeae3f",
+    "/private/tmp/kodcode_shard5_humaneval_audit.parquet": "d0ac58440bab5cd0f2f6cb289f198160430c9beb65fe1a2279603a2da3e02f58",
+    "/private/tmp/kodcode_shard6_humaneval_audit.parquet": "826c783de127514660a712bd5d71f53387a05b73d72968cb17a34e1b4cee4ab5",
+    "/private/tmp/kodcode_shard7_humaneval_audit.parquet": "91f409e0ff16a442c53d44afda2e70efee0dc9d6b81488abd1f5f58d33a2d8fc",
+    "/private/tmp/kodcode_shard8_humaneval_audit.parquet": "dc1d104ad4805f787e8e86efcdae8e8244036463ba1b4e15b3e152fa7f7b8f70",
+    "/private/tmp/kodcode_shard9_humaneval_audit.parquet": "b57e9d45f0e97fa96cd1caabc5e472bba379d7f88f08f7e0d822cdd5d816d4a3",
+    "/private/tmp/kodcode_shard10_humaneval_audit.parquet": "32ae629d2c29116bdd187fb88c1af7343a2dd41809af337e3818b71f37cec10f",
+    "/private/tmp/kodcode_shard11_humaneval_audit.parquet": "1eca0b968b4ce285d40da86dd4e7ccb0ac4c8bb92f8a9e1019ea1b36804a78a0",
+    "/private/tmp/kodcode_shard12_humaneval_audit.parquet": "3dc3a7f5f118ff6082722582822ed7608c677926cbf6421af287d280b87ced16",
+    "/private/tmp/kodcode_shard13_humaneval_audit.parquet": "07a6a8a2b4eff953beb674d65c7d2e061f937f78ffb3c29288123051a5b022e5",
+    "/private/tmp/kodcode_shard14_humaneval_audit.parquet": "3f71cb4eebef1e0c7a4bbea99760b57c79c77c35de6561de2e047225f3b34966"
+  },
+  "tokenizer_sha256": "46a1a55e1154ec68b217dde7deffbfeb1f754e911982d9d7f53a7523b356ab89",
+  "counts": {
+    "raw": 484097,
+    "usable": 484097,
+    "explicit_request": 113637,
+    "benchmark_similarity_hold": 137212,
+    "named_function_only": 68334,
+    "exact_original_overlap": 8,
+    "duplicate_prompt": 10,
+    "original_sft_fts_candidates_checked": 44741,
+    "original_sft_fts_cosine_holds": 2177,
+    "token_reject": 75,
+    "preserved_train_rows": 20000,
+    "preserved_val_rows": 1000,
+    "new_train_rows": 20000,
+    "final_train": 40000,
+    "final_val": 1000
+  },
+  "automatically_screened": 42243,
+  "selection_extension": "In expanded mode, accept an explicit function-writing request OR a prompt naming exactly the one top-level solution function. Original 20K train and 1K validation rows are preserved.",
+  "near_original_sft_similarity": {
+    "method": "FTS5 fts5vocab: AND of 3 lowest-document-frequency terms; up to 50 matches; char_wb 3-5 cosine threshold 0.60",
+    "checked": 44741,
+    "held": 2177,
+    "limitation": "Approximate retrieval can miss paraphrases or low-token-overlap matches; not proof of full decontamination."
+  },
+  "outputs": {
+    "kodcode_train.jsonl": {
+      "rows": 40000,
+      "sha256": "995d6109713b127becc06fe01e8561408c36e0e49c42734744e193f1262493e3"
+    },
+    "kodcode_val.jsonl": {
+      "rows": 1000,
+      "sha256": "41712de071823a0eff747889c65350f7ab52966bc7a1e3b27f0702ad2c3f52a0"
+    }
+  },
+  "source_revision": "97d81f0695ddd7c5c02bfe16436db9a17a4a21e5",
+  "preserved_splits": {
+    "kodcode_train.jsonl": "f7659a727b4eab57a8fa63b126ef981bd145ae49fd5213afa12064c3521c646d",
+    "kodcode_val.jsonl": "41712de071823a0eff747889c65350f7ab52966bc7a1e3b27f0702ad2c3f52a0"
+  },
+  "automatically_screened_after_quality_filter": 41314,
+  "incremental_quality_repair": {
+    "draft_train_sha256": "3854c758090ef26e85615953b44a672fadee4fc85b636b6a9ae7e6f25506bb16",
+    "excluded_selected_named_prompts_with_solution_body": 644,
+    "all_source_named_prompts_with_solution_body": 2165,
+    "audited_unselected_replacements_checked": 958,
+    "final_new_candidate_pool": 20314,
+    "method": "Reuse full-audit overlap holds; rescan source rows and tokenizer-check unselected candidates"
+  }
+}

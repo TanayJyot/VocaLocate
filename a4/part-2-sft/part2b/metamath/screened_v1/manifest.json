@@ -1,0 +1,54 @@
+{
+  "status": "UNAPPROVED: solution quality and test-similarity flags require review",
+  "revisions": {
+    "metamath": "aa4f34d3d2d3231299b5b03d9b3e5a20da45aa18",
+    "humaneval": "7dce6050a7d6d172f3cc5c32aa97f52fa1a2e544"
+  },
+  "inputs": {
+    "metamath/raw/MetaMathQA-395K.json": "fb39a5d8c05c042ece92eae37dfd5ea414a5979df2bf3ad3b86411bef8205725",
+    "shared/reference_raw/gsm8k_test/00000.parquet": "ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59",
+    "metamath/raw/openai_humaneval/test-00000-of-00001.parquet": "2f2871a15fbc95b6c683043359f4ed8e144c5a1c4f24f25f66bc51f598dfcfb6"
+  },
+  "tokenizer_sha256": "46a1a55e1154ec68b217dde7deffbfeb1f754e911982d9d7f53a7523b356ab89",
+  "reference_index": "/Users/carmenchau/Documents/ChatGPT/CSC490(A4)/part2b/shared/audit_v1/reference_index.sqlite",
+  "counts": {
+    "metamath": {
+      "candidate_overdraw": 130000,
+      "exact_original_reference:gsm_train": 7063,
+      "original_question_reference:gsm_train": 71737,
+      "test_similarity_hold": 4330,
+      "screened": 67407,
+      "exact_original_reference:smoltalk": 1077,
+      "exact_original_overlap_reject": 1077,
+      "empty_or_duplicate": 57186
+    }
+  },
+  "test_similarity_flags": 4330,
+  "outputs": {
+    "metamath_train.jsonl": {
+      "rows": 60000,
+      "sha256": "5f4c0d9eb77e94042f9e534749b276effbba4ae978ddb0e9de3ef9843680e09c",
+      "rendered_tokens": 14400485,
+      "assistant_loss_tokens": 10361106,
+      "categories": {
+        "GSM_SV": 15591,
+        "GSM_Rephrased": 28333,
+        "GSM_FOBAR": 10286,
+        "GSM_AnsAug": 5790
+      }
+    },
+    "metamath_val.jsonl": {
+      "rows": 3000,
+      "sha256": "ec1f6c3e929bb4785f20bc2bfd04bf1bfecad02c076a2b889bf93ea326e36781",
+      "rendered_tokens": 713542,
+      "assistant_loss_tokens": 512347,
+      "categories": {
+        "GSM_Rephrased": 1415,
+        "GSM_AnsAug": 310,
+        "GSM_SV": 758,
+        "GSM_FOBAR": 517
+      }
+    }
+  },
+  "selection_seed_sha256": "1d69742a4892efa9b78f750d9879762c21c1614ba41e88a80aa807393be2fdcc"
+}

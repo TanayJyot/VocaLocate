@@ -1,0 +1,172 @@
+--- a/scripts/chat_sft.py
++++ b/scripts/chat_sft.py
+@@ -29,6 +29,7 @@
+ from tasks.gsm8k import GSM8K
+ from tasks.mmlu import MMLU
+ from tasks.smoltalk import SmolTalk
++from tasks.screened_jsonl import ScreenedJSONL
+ 
+ # -----------------------------------------------------------------------------
+ # CLI arguments
+@@ -43,6 +44,7 @@
+ parser.add_argument("--load-optimizer", type=int, default=1, help="warm-start optimizer from pretrained checkpoint (0=no, 1=yes)")
+ # Training horizon
+ parser.add_argument("--num-iterations", type=int, default=-1, help="number of optimization steps (-1 = full epoch)")
++parser.add_argument("--max-optimizer-steps", type=int, default=-1, help="exact optimizer-update horizon (-1 = original dataset stopping)")
+ # Batch sizes (default: inherit from pretrained checkpoint)
+ parser.add_argument("--max-seq-len", type=int, default=None, help="max context length (default: inherit from pretrain)")
+ parser.add_argument("--device-batch-size", type=int, default=None, help="per-device batch size (default: inherit from pretrain)")
+@@ -64,7 +66,14 @@
+ # Data mixture
+ parser.add_argument("--mmlu-epochs", type=int, default=3, help="number of epochs of MMLU in training mixture (teaches Multiple Choice)")
+ parser.add_argument("--gsm8k-epochs", type=int, default=4, help="number of epochs of GSM8K in training mixture (teaches Math and Tool Use)")
++parser.add_argument("--metamath-jsonl", type=str, default=None, help="audited MetaMathQA SFT train JSONL")
++parser.add_argument("--kodcode-jsonl", type=str, default=None, help="audited KodCode SFT train JSONL")
++parser.add_argument("--allow-unapproved-data", action="store_true", help="explicitly permit data marked UNAPPROVED; for development only")
+ args = parser.parse_args()
++if args.max_optimizer_steps == 0 or args.max_optimizer_steps < -1:
++    parser.error("--max-optimizer-steps must be positive or -1")
++if args.max_optimizer_steps > 0 and args.num_iterations > 0:
++    parser.error("Use either --max-optimizer-steps or --num-iterations")
+ user_config = vars(args).copy()
+ # -----------------------------------------------------------------------------
+ 
+@@ -164,8 +173,18 @@
+     *[MMLU(subset="all", split="auxiliary_train") for _ in range(args.mmlu_epochs)], # 100K rows per epoch
+     *[GSM8K(subset="main", split="train") for _ in range(args.gsm8k_epochs)], # 8K rows per epoch
+ ]
++if args.metamath_jsonl:
++    train_tasks.append(ScreenedJSONL(args.metamath_jsonl, "metamath", args.allow_unapproved_data))
++if args.kodcode_jsonl:
++    train_tasks.append(ScreenedJSONL(args.kodcode_jsonl, "kodcode", args.allow_unapproved_data))
+ train_dataset = TaskMixture(train_tasks)
++train_source_names = [getattr(task, "source", type(task).__name__.lower()) for task in train_tasks]
++train_source_totals = {name: {"rows": 0, "rendered_tokens": 0, "loss_tokens": 0} for name in train_source_names}
++generated_source_counts = None
+ print0(f"Training mixture: {len(train_dataset):,} rows (MMLU x{args.mmlu_epochs}, GSM8K x{args.gsm8k_epochs})")
++for task in train_tasks:
++    if isinstance(task, ScreenedJSONL):
++        print0(f"Added {task.source}: {len(task):,} rows, SHA-256 {task.sha256}")
+ val_dataset = TaskMixture([
+     SmolTalk(split="test"), # 24K rows in test set
+     MMLU(subset="all", split="test", stop=5200), # 14K rows in test set, use only 5.2K to match the train ratios
+@@ -186,7 +205,7 @@
+     the row is padded (instead of cropping) to ensure no tokens are ever discarded.
+     Padding positions have targets masked with -1 (ignore_index for cross-entropy).
+     """
+-    global last_step, approx_progress, current_epoch
++    global last_step, approx_progress, current_epoch, generated_source_counts
+     assert split in {"train", "val"}, "split must be 'train' or 'val'"
+     dataset = train_dataset if split == "train" else val_dataset
+     dataset_size = len(dataset)
+@@ -206,7 +225,8 @@
+         while len(conv_buffer) < buffer_size:
+             conversation = dataset[cursor]
+             ids, mask = tokenizer.render_conversation(conversation)
+-            conv_buffer.append((ids, mask))
++            source = train_source_names[dataset.index_map[cursor][0]] if split == "train" else None
++            conv_buffer.append((ids, mask, source))
+             cursor += ddp_world_size
+             if cursor >= dataset_size:
+                 cursor = cursor % dataset_size
+@@ -214,6 +234,7 @@
+                 # Note: last_step is now triggered based on consumption, not fetching
+ 
+     while True:
++        batch_source_counts = {name: {"rows": 0, "rendered_tokens": 0, "loss_tokens": 0} for name in train_source_names} if split == "train" else None
+         rows = []
+         mask_rows = []
+         row_lengths = []  # Track actual content length (excluding padding) for each row
+@@ -231,7 +252,7 @@
+                 # Find largest conversation that fits entirely
+                 best_idx = -1
+                 best_len = 0
+-                for i, (conv, _) in enumerate(conv_buffer):
++                for i, (conv, _, _) in enumerate(conv_buffer):
+                     conv_len = len(conv)
+                     if conv_len <= remaining and conv_len > best_len:
+                         best_idx = i
+@@ -239,9 +260,13 @@
+ 
+                 if best_idx >= 0:
+                     # Found a conversation that fits - use it entirely
+-                    conv, conv_mask = conv_buffer.pop(best_idx)
++                    conv, conv_mask, source = conv_buffer.pop(best_idx)
+                     row.extend(conv)
+                     mask_row.extend(conv_mask)
++                    if split == "train":
++                        batch_source_counts[source]["rows"] += 1
++                        batch_source_counts[source]["rendered_tokens"] += len(conv)
++                        batch_source_counts[source]["loss_tokens"] += sum(conv_mask)
+                     consumed += ddp_world_size  # Track actual consumption
+                 else:
+                     # No conversation fits - pad the remainder instead of cropping
+@@ -262,18 +287,20 @@
+ 
+         # Stopping condition to respect num_iterations, if given
+         it += 1
+-        if 0 < args.num_iterations <= it and split == "train":
++        if args.max_optimizer_steps < 0 and 0 < args.num_iterations <= it and split == "train":
+             last_step = True
+ 
+         # Update progress tracking (based on consumed, not cursor, to account for buffering)
+         if split == "train":
+             current_epoch = epoch
+-            if args.num_iterations > 0:
++            if args.max_optimizer_steps > 0:
++                approx_progress = min(1.0, it / (args.max_optimizer_steps * grad_accum_steps))
++            elif args.num_iterations > 0:
+                 approx_progress = it / args.num_iterations
+             else:
+                 approx_progress = consumed / dataset_size
+             # Trigger last_step when we've consumed enough (instead of when cursor wraps)
+-            if consumed >= dataset_size:
++            if args.max_optimizer_steps < 0 and consumed >= dataset_size:
+                 last_step = True
+ 
+         # Build tensors
+@@ -295,6 +322,8 @@
+             if content_len < row_capacity:
+                 targets[i, content_len-1:] = -1
+ 
++        if split == "train":
++            generated_source_counts = batch_source_counts
+         yield inputs, targets
+ 
+ train_loader = sft_data_generator_bos_bestfit("train")
+@@ -328,6 +357,8 @@
+ total_training_time = 0 # total wall-clock time of training
+ step = 0
+ while True:
++    if args.max_optimizer_steps > 0 and step >= args.max_optimizer_steps:
++        last_step = True
+     flops_so_far = num_flops_per_token * args.total_batch_size * step
+ 
+     # Synchronize last_step across all ranks to avoid hangs in the distributed setting
+@@ -422,6 +453,15 @@
+         )
+ 
+     if last_step:
++        if any(isinstance(task, ScreenedJSONL) for task in train_tasks):
++            for source, counts in train_source_totals.items():
++                values = torch.tensor([counts["rows"], counts["rendered_tokens"], counts["loss_tokens"]], dtype=torch.int64, device=device)
++                if ddp:
++                    dist.all_reduce(values, op=dist.ReduceOp.SUM)
++                if master_process:
++                    rows, rendered, loss_tokens = values.tolist()
++                    print0(f"Source exposure {source}: rows={rows:,}, rendered_tokens={rendered:,}, loss_tokens={loss_tokens:,}")
++                    wandb_run.log({"step": step, f"source/{source}/rows": rows, f"source/{source}/rendered_tokens": rendered, f"source/{source}/loss_tokens": loss_tokens})
+         break
+ 
+     # -------------------------------------------------------------------------
+@@ -430,6 +470,10 @@
+     synchronize()
+     t0 = time.time()
+     for micro_step in range(grad_accum_steps):
++        if any(isinstance(task, ScreenedJSONL) for task in train_tasks):
++            for source, counts in generated_source_counts.items():
++                for key, value in counts.items():
++                    train_source_totals[source][key] += value
+         loss = model(x, y)
+         train_loss = loss.detach() # for logging
+         loss = loss / grad_accum_steps # each .backward() is a grad sum => normalize loss here
