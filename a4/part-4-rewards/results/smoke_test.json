@@ -1,0 +1,26 @@
+{
+  "output_tag": "a4-p4-smoke-v1",
+  "workspace": "justinzhaoovo",
+  "returncode": 0,
+  "elapsed_seconds": 320.1582820415497,
+  "optimizer_updates": 10,
+  "training_responses": 2560,
+  "evaluation_responses": 3200,
+  "incorrect_format_credit": 1433,
+  "incorrect_calculation_credit": 945,
+  "reward_min": 0.0,
+  "reward_max": 1.0,
+  "all_reward_bound_checks_passed": true,
+  "final_checkpoint_step": 9,
+  "initialized_from": "/vol/a3/sft_runs/d20-baseline-long-sft/chatsft_checkpoints/d20-baseline-long/model_000932.pt",
+  "rollout_sha256": {
+    "rank0.jsonl": "e30a5fafd6ad68076fe7352cbe3b65d37ac9baac841eb2dac76e2ef33ba21e4b",
+    "rank1.jsonl": "0a777fd3662adaccdebdbd28bd13a911b27c5dc8fee2ec63ab10293ad39b1a0d",
+    "rank2.jsonl": "6fab139aa1378ab567db10f9f5fe4f193b46fd5f153c11618de1bed04f3d0dd5",
+    "rank3.jsonl": "83923643f459d9e92f8f58f6e20772851879a4ab8c2cd665909058c1aea0c355",
+    "rank4.jsonl": "c30a7989ad801707b324ac5ce1bd5310a57d7258a56f2af7ab6725be667ac09b",
+    "rank5.jsonl": "925ba5f4e355b9180be7e4840b7f8e7ce8afc0d0ee4e418fa3ffe3c6f36b7871",
+    "rank6.jsonl": "b727742954b0a4ea07ed20c7d7862c61f6a2e6758b0ea94ae227bbbd86604cc8",
+    "rank7.jsonl": "6ab73b593b6d8ee894c3e03e5eddf3e239996714de4b64db99df2b3d74c851cc"
+  }
+}

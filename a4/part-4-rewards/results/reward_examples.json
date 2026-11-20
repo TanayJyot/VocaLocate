@@ -1,0 +1,66 @@
+{
+  "formatted_wrong_with_reference_calculations": {
+    "qidx": 0,
+    "step": 0,
+    "rank": 0,
+    "question": "Mimi picked up 2 dozen seashells on the beach.  Kyle found twice as many shells as Mimi and put them in his pocket. Leigh grabbed one-third of the shells that Kyle found.  How many seashells did Leigh have?",
+    "reference_solution": "Mimi has 2 x 12 = <<2*12=24>>24 sea shells.\nKyle has 24 x 2 = <<24*2=48>>48 sea shells.\nLeigh has 48 / 3 = <<48/3=16>>16 sea shells.\n#### 16",
+    "completion": "He found 2 x 12 = <|python_start|>2*12<|python_end|><|output_start|>24<|output_end|>24 sea shells\nMimi has 24 x 2 = <|python_start|>24*2<|python_end|><|output_start|>48<|output_end|>48 sea shells\nKyle has 48 x 2 = <|python_start|>48*2<|python_end|><|output_start|>96<|output_end|>96 sea shells\nLeigh has 96 / 3 = <|python_start|>96/3<|python_end|><|output_start|>32.0<|output_end|>32.0 sea shells\nHe has a total of 48 + 96 + 32 = <|python_start|>48+96+32<|python_end|><|output_start|>176<|output_end|>176 sea shells\n#### 176",
+    "strict_correct": 0,
+    "format_score": 1.0,
+    "reference_score": 1.0,
+    "training_rewards": {
+      "format": 0.1,
+      "reference": 0.1,
+      "combined": 0.2
+    }
+  },
+  "formatted_wrong_without_reference_calculations": {
+    "qidx": 16,
+    "step": 1,
+    "rank": 0,
+    "question": "The number of short students in a class is 2/5 of the total number of students. If there are 90 tall students, and the class has 400 students, calculate the total number of students with average height.",
+    "reference_solution": "The number of short students in the class is 2/5*400 = <<2/5*400=160>>160\nThe total number of short and tall students is 160+90 = <<160+90=250>>250\nSince there are 400 students in the class, the number of students with average height is 400-250 = <<400-250=150>>150\n#### 150",
+    "completion": "The total number of students is 90 tall + 400 short = <|python_start|>90+400<|python_end|><|output_start|>490<|output_end|>490\nThe number of short students is 2/5 * 490 total students which totals 2/5 * 490 = <|python_start|>2/5*490<|python_end|><|output_start|>196.0<|output_end|>196.0\nThe average height of the short students is the same as the average height of the tall students, since they are equally and have the same number of students.\nSince the number of short students is half the number of tall students, the average height of a short student is (1/2) * 196.0 = <|python_start|>(1/2)*196<|python_end|><|output_start|>98.0<|output_end|>98.0\nThe average height of the entire class is 98.0 + 980. = <|python_start|>98.0+980<|python_end|><|output_start|>1078.0<|output_end|>1078.0\n#### 1078",
+    "strict_correct": 0,
+    "format_score": 1.0,
+    "reference_score": 0.0,
+    "training_rewards": {
+      "format": 0.1,
+      "reference": 0.0,
+      "combined": 0.1
+    }
+  },
+  "partial_calculation_without_answer": {
+    "qidx": 184,
+    "step": 11,
+    "rank": 0,
+    "question": "The United States flag has 50 stars, one for every state in the union, and 13 stripes, which represent the original 13 colonies.  Pete, inspired by history, decided to make his own flag.  He used circles, to represent how many scoops of ice cream he can consume in one sitting, and squares, to represent the number of brownies he has hidden beneath his bed.  For circles, he used 3 less than half the number of stars on the US flag, and for squares, he used six more than twice the number of stripes on the US flag.  What is the combined total number of circles and squares on Pete's flag?",
+    "reference_solution": "Half the number of stars on the US flag is 50/2=<<50/2=25>>25\nThree less than half the number of stars on the US flag is 25-3=<<25-3=22>>22 circles.\nTwice the number of stripes on the US flag is 13*2=<<13*2=26>>26.\nSix more than twice the number of stripes on the US flag is 26+6=32 squares.\nIn total, Pete's flag has 22+32=<<22+32=54>>54 circles and squares.\n#### 54",
+    "completion": "First, we find half the number of stars on the US flag by dividing 50 stars by 2, 50 stars / 2 = <|python_start|>50/2<|python_end|><|output_start|>25.0<|output_end|>25.0 stars.\nThen we find the number of stripes on the flag by dividing 13 stripes by 3, 13 stripes / 3 = <|python_start|>13/3<|python_end|><|output_start|>4.333333333333333<|output_end|>4.333333333333333.\nNext, we find the number of circles, which is the number of stars minus 2, 25.0 stars - 2 = <|python_start|>25.0-2<|python_end|><|output_start|>23.0<|output_end|>23.0 circles.\nThen we find the number of squares, which is 4.333333333333333 + 6, 4.333333333333333 + 6 = <|python_start|>4.333333333333333+4.333333333333333+6<|python_end|><|output_start|>14.666666666666666<|output_end|>14.666666666666666.\nWe add the two number of circles and squares to find 23.0 + 14.6666",
+    "strict_correct": 0,
+    "format_score": 0.0,
+    "reference_score": 0.3333333333333333,
+    "training_rewards": {
+      "format": 0.0,
+      "reference": 0.03333333333333333,
+      "combined": 0.03333333333333333
+    }
+  },
+  "correct_without_matched_reference_calculations": {
+    "qidx": 288,
+    "step": 18,
+    "rank": 0,
+    "question": "Milly is making croissants. She needs to fold the dough 4 times, which takes 5 minutes each time, then let it rest for 75 minutes each time. If mixing the ingredients takes 10 minutes and baking the croissants takes 30 minutes, how many hours does the whole process take?",
+    "reference_solution": "First finding the time to fold the dough and let it rest one time: 5 minutes + 75 minutes = <<5+75=80>>80 minutes\nThen find the total time spent folding and resting the dough: 80 minutes/time * 4 times = <<80*4=320>>320 minutes\nThen add the mixing and baking time: 320 minutes + 30 minutes + 10 minutes = <<320+30+10=360>>360 minutes\nThen divide that number by the number of minutes per hour to find the total time in hours: 360 minutes / 60 minutes/hour = <<360/60=6>>6 hours\n#### 6",
+    "completion": "First finding the time the croissants spend folded and resting: 75 minutes per time * 4 folds = <|python_start|>75*4<|python_end|><|output_start|>300<|output_end|>300 minutes\nThen find the total time she spends mixing the ingredients: 10 minutes per ingredient * 4 mixes = <|python_start|>10*4<|python_end|><|output_start|>40<|output_end|>40 minutes\nThen add the time it takes to make the croissants to find the total time: 40 minutes + 300 minutes + 75 minutes = <|python_start|>40+300+75<|python_end|><|output_start|>415<|output_end|>415 minutes\nFinally, divide the total time by the number of minutes per hour to find the hours spent on the process: 415 minutes / 60 minutes/hour = <|python_start|>415/60<|python_end|><|output_start|>6.916666666666667<|output_end|>6.916666666666667 hours\n#### 6",
+    "strict_correct": 1,
+    "format_score": 1.0,
+    "reference_score": 0.0,
+    "training_rewards": {
+      "format": 1.0,
+      "reference": 1.0,
+      "combined": 1.0
+    }
+  }
+}

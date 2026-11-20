@@ -1,0 +1,49 @@
+{
+  "starting_code_revision": "ba463b9",
+  "workspace": "justinzhaoovo",
+  "destination_volume": "vocalocate-a4-part4",
+  "source_workspace": "tjsinghchawla",
+  "source_volume": "vocalocate-a3",
+  "base_path": "a3",
+  "sft_tag": "d20-baseline-long-sft",
+  "model_tag": "d20-baseline-long",
+  "model_step": 932,
+  "baseline_tag": "d20-baseline-long-rl",
+  "baseline_final_step": 466,
+  "training": {
+    "optimizer_updates": 467,
+    "questions_per_update": 16,
+    "samples_per_question": 16,
+    "temperature": 1.0,
+    "top_k": 50,
+    "max_new_tokens": 256,
+    "gpus": 8,
+    "learning_rates": "unchanged chat_rl.py defaults"
+  },
+  "evaluation": {
+    "scorer": "unchanged GSM8K.evaluate",
+    "periodic_questions": 400,
+    "periodic_temperature": 1.0,
+    "final_questions": 1319,
+    "final_temperature": 0.0,
+    "final_max_new_tokens": 512
+  },
+  "runs": [
+    {
+      "name": "format",
+      "output_tag": "a4-p4-format-v1",
+      "reward": "strict,answer_format:0.1"
+    },
+    {
+      "name": "reference",
+      "output_tag": "a4-p4-reference-v1",
+      "reward": "strict,reference_calculation:0.1"
+    },
+    {
+      "name": "combined",
+      "output_tag": "a4-p4-combined-v1",
+      "reward": "strict,answer_format:0.1,reference_calculation:0.1"
+    }
+  ],
+  "smoke_output_tag": "a4-p4-smoke-v1"
+}

@@ -1,0 +1,20 @@
+{
+  "run": "a4-p4-format-v1",
+  "reason": "launcher timeout of 5400 seconds",
+  "last_saved_model_step": 360,
+  "completed_updates_saved": 361,
+  "planned_updates": 467,
+  "next_resume_step": 361,
+  "optimizer_state_saved": false,
+  "retained_training_steps": {
+    "original": [
+      0,
+      360
+    ],
+    "continuation": [
+      361,
+      466
+    ]
+  },
+  "duplicate_steps_in_analysis": false
+}

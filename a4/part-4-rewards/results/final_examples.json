@@ -1,0 +1,58 @@
+{
+  "format_without_correctness": {
+    "name": "format",
+    "qidx": 8,
+    "ref": "120",
+    "pred": "600",
+    "correct": 0,
+    "completion": "First find Martha's cat's speed by multiplying her turtle's speed by 5: 15 feet/second * 5 = <|python_start|>15*5<|python_end|><|output_start|>75<|output_end|>75 feet/second\nThen find Martha's turtle's speed by multiplying her turtle's speed by 40: 15 feet/second * 40 seconds = <|python_start|>15*40<|python_end|><|output_start|>600<|output_end|>600 feet\n#### 600",
+    "format": 1.0,
+    "coverage": 0.0,
+    "eligible": true,
+    "question": "Martha's cat is 5 times faster than her turtle. If the cat can run 15 feet/second, how many feet can her turtle crawl in 40 seconds?",
+    "reference_solution": "First find the speed of the turtle by dividing the cat's speed by 5: 15 feet/second / 5 = <<15/5=3>>3 feet/second\nThen multiply the turtle's speed by the number of seconds it spends crawling to find how far it crawls: 40 seconds * 3 feet/second = <<40*3=120>>120 feet\n#### 120",
+    "baseline_pred": null
+  },
+  "reference_gain": {
+    "name": "reference",
+    "qidx": 59,
+    "ref": "940",
+    "pred": "940",
+    "correct": 1,
+    "completion": "In June, his expenditure was $500 - $60 = $<|python_start|>500-60<|python_end|><|output_start|>440<|output_end|>440.\nSo, his total expenditure for those two months is $500 + $440 = $<|python_start|>500+440<|python_end|><|output_start|>940<|output_end|>940.\n#### 940",
+    "format": 1.0,
+    "coverage": 1.0,
+    "eligible": true,
+    "question": "The expenditure of Joseph in May was $500. In June, his expenditure was $60 less. How much was his total expenditure for those two months?",
+    "reference_solution": "His expenditure in June was $500 - $60 = $<<500-60=440>>440.\nHis total expenditure for May and June was $500 + $440 = $<<500+440=940>>940.\n#### 940",
+    "baseline_pred": "500"
+  },
+  "reference_loss_despite_coverage": {
+    "name": "reference",
+    "qidx": 42,
+    "ref": "90",
+    "pred": null,
+    "correct": 0,
+    "completion": "The extra $10 is $20 + $10 = $<|python_start|>20+10<|python_end|><|output_start|>30<|output_end|>30.\nThe sum of money after the investment is $30 * 3 = $<|python_start|>30*3<|python_end|><|output_start|>90<|output_end|>90.\nSo, Johnny had $90",
+    "format": 0.0,
+    "coverage": 1.0,
+    "eligible": true,
+    "question": "Johnny took his allowance of $20 and added an extra $10 to it.  He then invested this sum of money, which tripled in a year.  How much money did he have after a year?",
+    "reference_solution": "Johnny invested twenty and ten dollars for a total of 20+10=<<20+10=30>>30 dollars invested\nJohnny tripled this amount of money over the year, for a total of 30*=90 dollars\n#### 90",
+    "baseline_pred": "90"
+  },
+  "combined_full_coverage_wrong": {
+    "name": "combined",
+    "qidx": 3,
+    "ref": "5",
+    "pred": "19",
+    "correct": 0,
+    "completion": "Trey can run 10 + 4 = <|python_start|>10+4<|python_end|><|output_start|>14<|output_end|>14 laps.\nShaelyn can run 14/2 = <|python_start|>14/2<|python_end|><|output_start|>7.0<|output_end|>7 laps.\nBethany can run 10 + 14 + 7 = <|python_start|>10+14+7<|python_end|><|output_start|>31<|output_end|>31 laps.\nQuinn can run 14 - 2 = <|python_start|>14-2<|python_end|><|output_start|>12<|output_end|>12 laps.\nBethany can run 31 - 12 = <|python_start|>31-12<|python_end|><|output_start|>19<|output_end|>19 more laps.\n#### 19",
+    "format": 1.0,
+    "coverage": 1.0,
+    "eligible": true,
+    "question": "Bethany can run 10 laps on the track in one hour.  Trey can run 4 more laps than Bethany.  Shaelyn can run half as many laps as Trey.  Quinn can run 2 fewer laps than Shaelyn.  How many more laps can Bethany run compared to Quinn?",
+    "reference_solution": "Trey can run 10 + 4 = <<10+4=14>>14 laps in one hour.\nShaelyn can run 14 / 2 = <<14/2=7>>7 laps in one hour.\nQuinn can run 7 - 2 = <<7-2=5>>5 laps.\nBethany can run 10 - 5 = <<10-5=5>>5 more laps compared to Quinn.\n#### 5",
+    "baseline_pred": "19"
+  }
+}

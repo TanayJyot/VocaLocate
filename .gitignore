@@ -25,6 +25,13 @@ crash.log
 /model_002520.pt
 /meta_002520.json
 
+# A4 local source logs, datasets, and checkpoint copies.
+/a4/part-4-rewards/local/
+
+# Local report drafts and their authoring script.
+/a4/part-4-rewards/report/
+/a4/part-4-rewards/build_report.py
+
 # Python build output
 build/
 dist/

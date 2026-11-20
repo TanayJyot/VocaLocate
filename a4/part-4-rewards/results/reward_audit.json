@@ -1,0 +1,70 @@
+{
+  "purpose": "Offline reward audit, not a trained-model evaluation",
+  "selection": "All train records from the downloaded rank files; no test outputs analyzed",
+  "group_size": 16,
+  "training_split_rows": 7473,
+  "train_data_sha256": "24821d61d5b8a27fce93fa28959b66b4e667a39baa72f602b7696c88db476aa3",
+  "reward_code_sha256": "345f64aedb670d26140c10d00fe495fe7e727e39ea2157301a72371ca2b30cee",
+  "audit_code_sha256": "22fd5f3a393d1ea642a8300543e2861e937d6dea8279eb9dbcccc188026f9b61",
+  "run_manifest_sha256": "ee9f6d05b471907a602a02ce0140e6134cd8748a762dd0b0d808fcaaf49d89cc",
+  "sources": [
+    {
+      "name": "rank0.jsonl",
+      "bytes": 8765627,
+      "sha256": "6506fe27d8898842aded4123537fcad2086078a34f0c6661bd2ee975d56b9d3f"
+    },
+    {
+      "name": "rank1.jsonl",
+      "bytes": 8904880,
+      "sha256": "ba83338d60c3b46c15427bca79d5eb3404c3492750e10a3def982b434777848f"
+    },
+    {
+      "name": "rank2.jsonl",
+      "bytes": 8836986,
+      "sha256": "011ef69c1a89e519242da8febd9cf552f27e82704c71ad1d632832d31cc1cc16"
+    },
+    {
+      "name": "rank3.jsonl",
+      "bytes": 8949578,
+      "sha256": "716ac7d92c73bccfaa82eac9aac8a8f3acd9e6a8e9012fc7ba3e52ccff7f8b2c"
+    }
+  ],
+  "counts": {
+    "nontraining_records_excluded": 12800,
+    "train_responses": 59776,
+    "strict_correct": 15944,
+    "complete_answer_format": 40064,
+    "any_reference_calculation": 37215,
+    "reference_coverage_sum": 28441.592857142976,
+    "correct_with_reference_calculations": 14584,
+    "incorrect": 43832,
+    "incorrect_with_format_credit": 24132,
+    "incorrect_with_reference_credit": 22631,
+    "incorrect_with_reference_but_no_final_marker": 7706
+  },
+  "groups": {
+    "question_groups": 3736,
+    "all_wrong_groups": 1637,
+    "strict_zero_variance_groups": 1884
+  },
+  "questions_with_eligible_reference_calculations": 3521,
+  "per_run": {
+    "format": {
+      "nonconstant_reward_groups": 3162,
+      "all_wrong_groups_with_nonconstant_reward": 1310,
+      "previously_constant_groups_with_nonconstant_reward": 1310
+    },
+    "reference": {
+      "nonconstant_reward_groups": 2918,
+      "all_wrong_groups_with_nonconstant_reward": 1066,
+      "previously_constant_groups_with_nonconstant_reward": 1066
+    },
+    "combined": {
+      "nonconstant_reward_groups": 3347,
+      "all_wrong_groups_with_nonconstant_reward": 1495,
+      "previously_constant_groups_with_nonconstant_reward": 1495
+    }
+  },
+  "example_selection": "First training completion satisfying each named condition, in rank-file order",
+  "elapsed_seconds": 3.566
+}

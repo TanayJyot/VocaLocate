@@ -1,0 +1,9 @@
+{
+  "baseline_results": "a4/part-3-rl/results/fulltest_sft_vs_rl.csv",
+  "baseline_csv_sha256": "e88bfdeede9ccdee64d1517d27b2b7a70a4da6c781454b809b24b04e97a0d4a9",
+  "test_parquet_sha256": "ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59",
+  "questions": 1319,
+  "all_question_indices_and_reference_answers_match": true,
+  "baseline_correct": 265,
+  "sft_correct": 36
+}

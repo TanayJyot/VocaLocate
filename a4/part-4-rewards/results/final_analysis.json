@@ -1,0 +1,174 @@
+{
+  "final": {
+    "baseline": {
+      "correct": 265,
+      "n": 1319,
+      "accuracy": 0.20090978013646701,
+      "parsed": 947,
+      "parseable_rate": 0.7179681576952237,
+      "correct_given_parseable": 0.27983104540654696,
+      "categories": {
+        "Other wrong answer": 603,
+        "No extracted answer": 372,
+        "Correct": 265,
+        "Reference intermediate": 79
+      }
+    },
+    "format": {
+      "correct": 260,
+      "n": 1319,
+      "accuracy": 0.19711902956785443,
+      "parsed": 1072,
+      "parseable_rate": 0.8127369219105383,
+      "correct_given_parseable": 0.24253731343283583,
+      "categories": {
+        "No extracted answer": 247,
+        "Correct": 260,
+        "Other wrong answer": 739,
+        "Reference intermediate": 73
+      },
+      "format_rate": 0.8127369219105383,
+      "eligible": 1249,
+      "coverage_mean": 0.3542014564032178,
+      "any_reference_match": 628,
+      "full_reference_match": 304,
+      "full_reference_match_correct": 189,
+      "wrong_with_match": 415,
+      "paired_vs_baseline": {
+        "gained": 96,
+        "lost": 101,
+        "net": -5,
+        "delta_pp": -0.37907505686125853,
+        "ci_low_pp": -2.4260803639120545,
+        "ci_high_pp": 1.6679302501895374,
+        "both_correct": 164,
+        "both_wrong": 958
+      }
+    },
+    "reference": {
+      "correct": 270,
+      "n": 1319,
+      "accuracy": 0.2047005307050796,
+      "parsed": 888,
+      "parseable_rate": 0.6732373009855952,
+      "correct_given_parseable": 0.30405405405405406,
+      "categories": {
+        "Reference intermediate": 65,
+        "No extracted answer": 431,
+        "Correct": 270,
+        "Other wrong answer": 553
+      },
+      "format_rate": 0.6732373009855952,
+      "eligible": 1249,
+      "coverage_mean": 0.36146059704906786,
+      "any_reference_match": 643,
+      "full_reference_match": 305,
+      "full_reference_match_correct": 189,
+      "wrong_with_match": 424,
+      "paired_vs_baseline": {
+        "gained": 96,
+        "lost": 91,
+        "net": 5,
+        "delta_pp": 0.37907505686125853,
+        "ci_low_pp": -1.6679302501895374,
+        "ci_high_pp": 2.4260803639120545,
+        "both_correct": 174,
+        "both_wrong": 958
+      }
+    },
+    "combined": {
+      "correct": 264,
+      "n": 1319,
+      "accuracy": 0.2001516300227445,
+      "parsed": 1038,
+      "parseable_rate": 0.7869598180439727,
+      "correct_given_parseable": 0.2543352601156069,
+      "categories": {
+        "No extracted answer": 281,
+        "Reference intermediate": 92,
+        "Other wrong answer": 682,
+        "Correct": 264
+      },
+      "format_rate": 0.7869598180439727,
+      "eligible": 1249,
+      "coverage_mean": 0.3602310419764383,
+      "any_reference_match": 654,
+      "full_reference_match": 296,
+      "full_reference_match_correct": 175,
+      "wrong_with_match": 450,
+      "paired_vs_baseline": {
+        "gained": 85,
+        "lost": 86,
+        "net": -1,
+        "delta_pp": -0.0758150113722517,
+        "ci_low_pp": -1.9711902956785443,
+        "ci_high_pp": 1.819560272934041,
+        "both_correct": 179,
+        "both_wrong": 969
+      }
+    }
+  },
+  "late_training_steps_311_to_466": {
+    "baseline": {
+      "strict_accuracy": 0.31495392628205127,
+      "reward": 0.31495392628205127,
+      "zero_variance": 0.5272435897435898,
+      "p_marker": 0.6367938701923077,
+      "mean_tokens": 139.48999999999998
+    },
+    "format": {
+      "strict_accuracy": 0.3114483173076923,
+      "reward": 0.35543619791666625,
+      "zero_variance": 0.18108974358974358,
+      "p_marker": 0.7513772035256411,
+      "mean_tokens": 144.2171153846154
+    },
+    "reference": {
+      "strict_accuracy": 0.31555488782051283,
+      "reward": 0.3383041199252134,
+      "zero_variance": 0.2832532051282051,
+      "p_marker": 0.6517177483974359,
+      "mean_tokens": 142.00442307692305
+    },
+    "combined": {
+      "strict_accuracy": 0.34815705128205127,
+      "reward": 0.4166814760760073,
+      "zero_variance": 0.16546474358974358,
+      "p_marker": 0.7940705128205128,
+      "mean_tokens": 146.58634615384616
+    }
+  },
+  "periodic_last": [
+    {
+      "name": "baseline",
+      "step": 420,
+      "pass@1_first_sample": 0.19,
+      "pass@8": 0.335,
+      "acc_all_samples": 0.1659375
+    },
+    {
+      "name": "format",
+      "step": 420,
+      "pass@1_first_sample": 0.1925,
+      "pass@8": 0.36,
+      "acc_all_samples": 0.1925
+    },
+    {
+      "name": "reference",
+      "step": 420,
+      "pass@1_first_sample": 0.2025,
+      "pass@8": 0.3475,
+      "acc_all_samples": 0.1728125
+    },
+    {
+      "name": "combined",
+      "step": 420,
+      "pass@1_first_sample": 0.1675,
+      "pass@8": 0.3325,
+      "acc_all_samples": 0.1725
+    }
+  ],
+  "source_test_sha256": "ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59",
+  "item_bootstrap_replicates": 20000,
+  "analysis_scope": "All 8 ranks for every new run; baseline aggregates and per-question labels from Part 3"
+}

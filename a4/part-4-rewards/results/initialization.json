@@ -1,0 +1,94 @@
+{
+  "files": [
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/chatsft_checkpoints/d20-baseline-long/meta_000932.json",
+      "bytes": 934,
+      "sha256": "671ac8df770942877b56d417d6ecaa15c1e204bf6431ec7128190813a639ef31"
+    },
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/chatsft_checkpoints/d20-baseline-long/model_000932.pt",
+      "bytes": 2663446486,
+      "sha256": "897871f6159072b656b966e13eb76196dc24252c6dae480843f9a4e10c2ba4e7"
+    },
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/task_data/openai--gsm8k/main/test/00000.parquet",
+      "bytes": 419088,
+      "sha256": "ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59"
+    },
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/task_data/openai--gsm8k/main/test/manifest.json",
+      "bytes": 17,
+      "sha256": "fd9cfeeb8fcf1b7b5a57854e62ceaf837d28460b1e91e0ebeedaf30770592ac2"
+    },
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/task_data/openai--gsm8k/main/train/00000.parquet",
+      "bytes": 2306545,
+      "sha256": "ea82612ea9582142387730c793eb67d3b12849002bc0b7fa6f8efafa7351419d"
+    },
+    {
+      "path": "a3/sft_runs/d20-baseline-long-sft/task_data/openai--gsm8k/main/train/manifest.json",
+      "bytes": 17,
+      "sha256": "fd9cfeeb8fcf1b7b5a57854e62ceaf837d28460b1e91e0ebeedaf30770592ac2"
+    },
+    {
+      "path": "a3/tokenizer/token_bytes.pt",
+      "bytes": 132649,
+      "sha256": "42317d1460274d9f175fe3532d0cc6a04d06396ed06d3338ce3f733c9f986665"
+    },
+    {
+      "path": "a3/tokenizer/tokenizer.pkl",
+      "bytes": 412009,
+      "sha256": "46a1a55e1154ec68b217dde7deffbfeb1f754e911982d9d7f53a7523b356ab89"
+    }
+  ],
+  "workspace": "justinzhaoovo",
+  "volume": "vocalocate-a4-part4",
+  "code_revision": "7cde29d73a4332b04d6f51451c4e1a8d4bd3f94b",
+  "reward_code_sha256": "345f64aedb670d26140c10d00fe495fe7e727e39ea2157301a72371ca2b30cee",
+  "run_manifest_sha256": "ee9f6d05b471907a602a02ce0140e6134cd8748a762dd0b0d808fcaaf49d89cc",
+  "local_python": "3.11.9",
+  "modal_client": "1.6.4",
+  "metadata": {
+    "step": 932,
+    "val_bpb": 0.27769396446033245,
+    "model_config": {
+      "sequence_len": 2048,
+      "vocab_size": 32768,
+      "n_layer": 20,
+      "n_head": 10,
+      "n_kv_head": 10,
+      "n_embd": 1280,
+      "window_pattern": "SSSL",
+      "n_loops": 1,
+      "n_prelude": 0,
+      "n_coda": 0
+    },
+    "user_config": {
+      "run": "d20-baseline-long-sft",
+      "device_type": "",
+      "model_tag": "d20-baseline-long",
+      "model_step": 21328,
+      "load_optimizer": 1,
+      "num_iterations": -1,
+      "max_seq_len": null,
+      "device_batch_size": null,
+      "total_batch_size": null,
+      "embedding_lr": null,
+      "unembedding_lr": null,
+      "matrix_lr": null,
+      "init_lr_frac": 0.8,
+      "warmup_ratio": 0.0,
+      "warmdown_ratio": 0.5,
+      "final_lr_frac": 0.0,
+      "eval_every": 200,
+      "eval_tokens": 20971520,
+      "chatcore_every": 200,
+      "chatcore_max_cat": -1,
+      "chatcore_max_sample": 24,
+      "mmlu_epochs": 3,
+      "gsm8k_epochs": 4
+    }
+  },
+  "verified_at_utc": "2026-11-16T21:11:04.353661+00:00",
+  "verified_files": 8
+}
