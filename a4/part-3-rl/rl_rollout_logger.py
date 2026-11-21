@@ -16,6 +16,7 @@ Environment:
     RL_SMOKE_STEPS   optional int; limit training to this many steps
     WANDB_PROJECT    optional W&B project override
     RL_REWARD        optional reward spec for training, e.g. "strict,my_format:0.2" (see rewards.py)
+    RL_SCRIPT        optional training script under scripts/ (default "chat_rl"; Part 5 uses "chat_distill")
 """
 
 import json
@@ -119,9 +120,10 @@ gsm8k.GSM8K.evaluate = _patched_evaluate
 gsm8k.GSM8K.reward = _patched_reward
 
 # --- run the stock script ----------------------------------------------------
+SCRIPT = os.environ.get("RL_SCRIPT", "chat_rl")
 if sys.argv[1:2] == ["--"]:
     del sys.argv[1]
-sys.argv[0] = "scripts/chat_rl.py"
+sys.argv[0] = f"scripts/{SCRIPT}.py"
 RESUME = int(os.environ.get("RL_RESUME_STEP", "0") or 0)
 
 
@@ -140,7 +142,7 @@ def resume_source(src, start):
     ]
     for old, new in edits:
         if src.count(old) != 1:
-            raise RuntimeError(f"chat_rl.py changed; cannot apply resume edit: {old!r}")
+            raise RuntimeError(f"{SCRIPT}.py changed; cannot apply resume edit: {old!r}")
         src = src.replace(old, new)
     return src
 
@@ -148,7 +150,7 @@ def resume_source(src, start):
 try:
     if RESUME:
         import types
-        path = os.path.join(os.getcwd(), "scripts", "chat_rl.py")
+        path = os.path.join(os.getcwd(), "scripts", f"{SCRIPT}.py")
         src = resume_source(open(path).read(), RESUME)
         main_mod = types.ModuleType("__main__")
         main_mod.__file__ = path
@@ -156,6 +158,6 @@ try:
         print(f"[rl_rollout_logger] resuming at step {RESUME} from chatrl checkpoint step {RESUME - 1}", flush=True)
         exec(compile(src, path, "exec"), main_mod.__dict__)
     else:
-        runpy.run_module("scripts.chat_rl", run_name="__main__", alter_sys=True)
+        runpy.run_module(f"scripts.{SCRIPT}", run_name="__main__", alter_sys=True)
 finally:
     _out.close()

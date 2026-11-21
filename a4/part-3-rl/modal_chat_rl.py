@@ -3,7 +3,9 @@
 Based on Carmen's a4/part-2-sft/modal_chat_sft.py (same image and volume layout), with:
   * per-rollout jsonl logging through rl_rollout_logger.py (no edits to chat_rl.py);
   * periodic volume commits so logs/checkpoints survive a crash;
-  * --smoke-steps N to run only N optimisation steps for timing.
+  * --smoke-steps N to run only N optimisation steps for timing;
+  * --script chat_distill to run Part 5's on-policy distillation trainer (a4/part-5-distill/chat_distill.py)
+    instead of the stock chat_rl.py, with its options passed through --rl-args.
 
 Example (full run; uses the repo's a3/nanochat, or set NANOCHAT_REPO to another checkout):
     modal run --detach modal_chat_rl.py \
@@ -32,7 +34,9 @@ SCRIPT_PATH = Path(__file__).resolve()
 HERE = SCRIPT_PATH.parent
 if HERE == Path("/root"):
     REPO = Path("/root/nanochat")
+    DISTILL_SCRIPT = REPO / "scripts" / "chat_distill.py"
 else:
+    DISTILL_SCRIPT = HERE.parent / "part-5-distill" / "chat_distill.py"
     REPO = Path(os.environ.get("NANOCHAT_REPO", HERE.parents[1] / "a3" / "nanochat")).expanduser().resolve()
     if not (REPO / "scripts" / "chat_rl.py").is_file():
         raise FileNotFoundError(f"Set NANOCHAT_REPO to a nanochat checkout: {REPO}")
@@ -51,6 +55,9 @@ image = image.add_local_dir(
     REPO, "/root/nanochat", ignore=[".venv", ".git", "**/__pycache__", "**/.pytest_cache"]
 ).add_local_file(HERE / "rl_rollout_logger.py", "/root/rl_rollout_logger.py").add_local_file(
     HERE / "eval_logger.py", "/root/eval_logger.py").add_local_file(HERE / "rewards.py", "/root/rewards.py")
+if DISTILL_SCRIPT.is_file():
+    image = image.add_local_file(DISTILL_SCRIPT, "/root/nanochat/scripts/chat_distill.py")
+SCRIPTS = ("chat_rl", "chat_distill")
 app = modal.App("nanochat-a4-rl", image=image)
 
 
@@ -60,7 +67,7 @@ VOLUME_NAME = os.environ.get("RL_VOLUME", "vocalocate-a3")
 @app.function(timeout=12 * 3600, cpu=8, gpu="H100!:8", volumes={"/vol": modal.Volume.from_name(VOLUME_NAME)})
 def train(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step: int,
           output_tag: str, run_name: str, gpus: int, smoke_steps: int, rl_args: tuple,
-          wandb_mode: str, wandb_project: str, reward: str = "strict"):
+          wandb_mode: str, wandb_project: str, reward: str = "strict", script: str = "chat_rl"):
     vol = modal.Volume.from_name(volume)
     base_dir = Path("/vol") / base_path
     sft_dir = base_dir / "sft_runs" / sft_tag
@@ -122,6 +129,7 @@ def train(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step:
     if smoke_steps:
         env["RL_SMOKE_STEPS"] = str(smoke_steps)
     env["RL_REWARD"] = reward  # training reward spec (rewards.py); evaluation always stays strict
+    env["RL_SCRIPT"] = script  # chat_rl (stock RL) or chat_distill (Part 5)
     if resume:
         env["RL_RESUME_STEP"] = str(resume)
         run_name = f"{run_name}-resume{resume}"
@@ -153,7 +161,7 @@ def train(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step:
         rc = proc.wait()
     stop.set()
     result = {"command": command, "input_checkpoint": str(ckpt), "output_dir": str(out_dir),
-              "resumed_at_step": resume or None, "reward": reward,
+              "resumed_at_step": resume or None, "reward": reward, "script": script,
               "rollout_dir": str(rollout_dir), "gpus": gpus, "smoke_steps": smoke_steps,
               "wandb_mode": wandb_mode, "wandb_project": wandb_project, "returncode": rc,
               "elapsed_seconds": time.time() - started, "log_path": str(log_path)}
@@ -165,20 +173,27 @@ def train(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step:
 
 
 @app.function(timeout=4 * 3600, cpu=8, gpu="H100!:8", volumes={"/vol": modal.Volume.from_name(VOLUME_NAME)})
-def final_eval(volume: str, base_path: str, output_tag: str, model_tag: str, checkpoints: tuple):
+def final_eval(volume: str, base_path: str, output_tag: str, model_tag: str, checkpoints: tuple, gpus: int = 8):
     """Stock chat_eval (all 5 tasks, full test sets, greedy, 512 new tokens: Karpathy's report-card
     protocol) on each (source, step) in `checkpoints`, logging every GSM8K completion."""
     vol = modal.Volume.from_name(volume)
     run_dir = Path("/vol") / base_path / "rl_runs" / output_tag
     eval_dir = run_dir / "final_eval"
     eval_dir.mkdir(parents=True, exist_ok=True)
+    # A run folder copied from another volume lacks the links train() makes; recreate them for chat_eval.
+    base_dir = Path("/vol") / base_path
+    cached = sorted(base_dir.glob("sft_runs/*/task_data"))
+    for name, target in (("tokenizer", base_dir / "tokenizer"), ("task_data", cached[0] if cached else None)):
+        link = run_dir / name
+        if target is not None and not link.exists():
+            link.symlink_to(target, target_is_directory=True)
     env = dict(os.environ, NANOCHAT_BASE_DIR=str(run_dir), EVAL_LOG_DIR=str(eval_dir),
                PYTHONUNBUFFERED="1", OMP_NUM_THREADS="1")
     summary = {}
     for source, step in checkpoints:
         name = f"{source}_step{step:06d}"
         env["EVAL_LOG_NAME"] = f"gsm8k_{name}"
-        cmd = ["torchrun", "--standalone", "--nproc_per_node=8", "/root/eval_logger.py", "--",
+        cmd = ["torchrun", "--standalone", f"--nproc_per_node={gpus}", "/root/eval_logger.py", "--",
                "-i", source, "-g", model_tag, "-s", str(step)]
         print("Launching:", shlex.join(cmd), flush=True)
         log_path = eval_dir / f"chat_eval_{name}.log"
@@ -203,11 +218,15 @@ def final_eval(volume: str, base_path: str, output_tag: str, model_tag: str, che
 
 
 @app.function(timeout=600, volumes={"/vol": modal.Volume.from_name(VOLUME_NAME)})
-def kickoff(*args, fn: str = "train"):
+def kickoff(*args, fn: str = "train", eval_gpus: int = 8):
     """Spawn the GPU job from inside Modal and return at once. A detached app whose client drops
     mid-call can stop that call (it did once, on a laptop DNS failure); a call spawned by a
     container is not tied to the laptop at all."""
-    call = {"train": train, "final_eval": final_eval}[fn].spawn(*args)
+    if fn == "final_eval" and eval_gpus != 8:
+        # fewer GPUs so an evaluation can run next to an 8-GPU training job under the workspace GPU limit
+        call = final_eval.with_options(gpu=f"H100!:{eval_gpus}").spawn(*args, eval_gpus)
+    else:
+        call = {"train": train, "final_eval": final_eval}[fn].spawn(*args)
     return call.object_id
 
 
@@ -215,13 +234,17 @@ def kickoff(*args, fn: str = "train"):
 def main(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step: int,
          output_tag: str, run_name: str, gpus: int = 8, smoke_steps: int = 0, rl_args: str = "",
          wandb_mode: str = "offline", wandb_project: str = "a4-rl", final_eval: str = "",
-         reward: str = "strict"):
+         reward: str = "strict", script: str = "chat_rl", eval_gpus: int = 8):
+    if script not in SCRIPTS:
+        raise ValueError(f"--script must be one of {SCRIPTS}")
     if final_eval:
         # e.g. --final-eval sft:932,rl:466  (same protocol for every checkpoint)
         ckpts = tuple((s.split(":")[0], int(s.split(":")[1])) for s in final_eval.split(","))
         if any(src not in ("sft", "rl") for src, _ in ckpts):
             raise ValueError("--final-eval entries must be sft:<step> or rl:<step>")
-        call_id = kickoff.remote(volume, base_path, output_tag, model_tag, ckpts, fn="final_eval")
+        if eval_gpus not in (1, 2, 4, 8):
+            raise ValueError("--eval-gpus must be 1, 2, 4 or 8")
+        call_id = kickoff.remote(volume, base_path, output_tag, model_tag, ckpts, fn="final_eval", eval_gpus=eval_gpus)
         print(f"Spawned final-eval call {call_id}. Results: /{base_path}/rl_runs/{output_tag}/final_eval/")
         return
     if volume != VOLUME_NAME:
@@ -241,5 +264,5 @@ def main(volume: str, base_path: str, sft_tag: str, model_tag: str, model_step: 
     import rewards  # validate the reward spec locally before paying for GPUs
     rewards.parse_spec(reward)
     call_id = kickoff.remote(volume, base_path, sft_tag, model_tag, model_step, output_tag, run_name, gpus,
-                             smoke_steps, extra, wandb_mode, wandb_project, reward)
+                             smoke_steps, extra, wandb_mode, wandb_project, reward, script)
     print(f"Spawned training call {call_id}. Follow /{base_path}/logs/{output_tag}.log on the volume.")
