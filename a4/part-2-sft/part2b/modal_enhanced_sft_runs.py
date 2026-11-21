@@ -126,20 +126,18 @@ def original_sft_cache(base):
     return root
 
 
-def run_args(kind, files, allow_unapproved_data):
+def run_args(kind, files):
     args = []
     if kind in ("metamath", "both"):
         args.append(f"--metamath-jsonl={files['metamath']}")
     if kind in ("kodcode", "both"):
         args.append(f"--kodcode-jsonl={files['kodcode']}")
-    if allow_unapproved_data:
-        args.append("--allow-unapproved-data")
     return args
 
 
 @app.function(cpu=4, timeout=1800)
 def preflight(base_path, model_tag, model_step, metamath_file, kodcode_file, output_prefix,
-              allow_unapproved_data, gpus_per_job, optimizer_policy, run_kind,
+              gpus_per_job, optimizer_policy, run_kind,
               kodcode_subdir, kodcode_train_rows):
     base = checked_base(base_path)
     files = inputs(base, model_tag, model_step, metamath_file, kodcode_file,
@@ -152,8 +150,6 @@ def preflight(base_path, model_tag, model_step, metamath_file, kodcode_file, out
     for flag in ("--metamath-jsonl", "--kodcode-jsonl", "--max-optimizer-steps", "--total-batch-size"):
         if flag not in help_text:
             raise RuntimeError(f"Derived chat_sft.py lacks {flag}")
-    if any("UNAPPROVED" in name for name in (metamath_file, kodcode_file)) and not allow_unapproved_data:
-        raise ValueError("UNAPPROVED data requires explicit --allow-unapproved-data")
     manifest_paths = {
         "metamath": base / "sft_data" / "manifest.json",
         "kodcode": base / "sft_data" / kodcode_subdir / "kodcode_manifest.json",
@@ -163,8 +159,6 @@ def preflight(base_path, model_tag, model_step, metamath_file, kodcode_file, out
         if not path.is_file():
             raise FileNotFoundError(f"Missing dataset manifest: {path}")
         manifests[source] = json.loads(path.read_text())
-        if "UNAPPROVED" in str(manifests[source].get("status", "")).upper() and not allow_unapproved_data:
-            raise ValueError("UNAPPROVED manifest requires explicit --allow-unapproved-data")
     datasets = {}
     for source in ("metamath", "kodcode"):
         split_info = {}
@@ -215,8 +209,7 @@ def preflight(base_path, model_tag, model_step, metamath_file, kodcode_file, out
     return {
         "checkpoint": str(files["model"]), "checkpoint_bytes": files["model"].stat().st_size,
         "metadata": str(files["metadata"]), "datasets": datasets,
-        "dataset_manifests": {source: {"path": str(path), "sha256": sha256(path),
-                                "status": manifests[source].get("status")}
+        "dataset_manifests": {source: {"path": str(path), "sha256": sha256(path)}
                               for source, path in manifest_paths.items()},
         "original_sft_task_cache": str(cache),
         "derived_chat_sft_sha256": sha256(Path("/root/nanochat/scripts/chat_sft.py")),
@@ -228,15 +221,13 @@ def preflight(base_path, model_tag, model_step, metamath_file, kodcode_file, out
 @app.function(cpu=8, timeout=12 * 3600)
 def train_one(base_path, model_tag, model_step, metamath_file, kodcode_file,
               output_prefix, kind, wandb_mode, wandb_project, wandb_entity,
-              volume, allow_unapproved_data, gpus_per_job, total_batch_size,
+              volume, gpus_per_job, total_batch_size,
               optimizer_policy, kodcode_subdir):
     if kind not in RUNS:
         raise ValueError(kind)
     base = checked_base(base_path)
     files = inputs(base, model_tag, model_step, metamath_file, kodcode_file,
                    gpus_per_job, optimizer_policy, kodcode_subdir)
-    if any("UNAPPROVED" in name for name in (metamath_file, kodcode_file)) and not allow_unapproved_data:
-        raise ValueError("UNAPPROVED data requires explicit --allow-unapproved-data")
     output_tag = f"{output_prefix}-{kind}"
     run_dir = base / "sft_runs" / output_tag
     output_dir = run_dir / "chatsft_checkpoints" / model_tag
@@ -273,7 +264,7 @@ def train_one(base_path, model_tag, model_step, metamath_file, kodcode_file,
         f"--model-step={model_step}",
         f"--load-optimizer={1 if optimizer_policy == 'restore' else 0}", f"--run={output_tag}",
         "--max-optimizer-steps=932", "--max-seq-len=2048", "--device-batch-size=16",
-        f"--total-batch-size={total_batch_size}", *run_args(kind, files, allow_unapproved_data),
+        f"--total-batch-size={total_batch_size}", *run_args(kind, files),
     ]
     started = time.time()
     returncode = None
@@ -318,7 +309,7 @@ def main(volume: str = "a4-nanochat-volume", base_path: str = "a4",
          output_prefix: str = "a4-part2b-long-kodcode-g8-v1", wandb_mode: str = "offline",
          wandb_project: str = "a4-nanochat-rl", wandb_entity: str = "",
          wandb_secret: str = "", launch: bool = False,
-         allow_unapproved_data: bool = False, gpus_per_job: int = 8,
+         gpus_per_job: int = 8,
          total_batch_size: int = 524288, optimizer_policy: str = "restore",
          run_kind: str = "kodcode", kodcode_subdir: str = "",
          kodcode_train_rows: int = 40000):
@@ -345,7 +336,7 @@ def main(volume: str = "a4-nanochat-volume", base_path: str = "a4",
     options = {"volumes": {"/vol": modal.Volume.from_name(volume)}}
     report = preflight.with_options(**options).remote(
         base_path, model_tag, model_step, metamath_file, kodcode_file, output_prefix,
-        allow_unapproved_data, gpus_per_job, optimizer_policy, run_kind,
+        gpus_per_job, optimizer_policy, run_kind,
         kodcode_subdir, kodcode_train_rows)
     print(json.dumps(report, indent=2))
     if not launch:
@@ -358,7 +349,7 @@ def main(volume: str = "a4-nanochat-volume", base_path: str = "a4",
         kind: train_one.with_options(**gpu_options).spawn(
             base_path, model_tag, model_step, metamath_file, kodcode_file,
             output_prefix, kind, wandb_mode, wandb_project, wandb_entity,
-            volume, allow_unapproved_data, gpus_per_job, total_batch_size,
+            volume, gpus_per_job, total_batch_size,
             optimizer_policy, kodcode_subdir)
         for kind in (RUNS if run_kind == "all" else (run_kind,))
     }

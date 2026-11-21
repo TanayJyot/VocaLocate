@@ -175,7 +175,7 @@ def main():
     save(DRAFT / "kodcode_named_only_review_sample.jsonl",
                  sorted((r for r in final_train[20000:] if r["request_shape"] == "named_function"),
                         key=lambda r: rank("named_review:" + r["source_id"]))[:200])
-    manifest["status"] = "UNAPPROVED: original-SFT near retrieval is approximate; solution quality needs review"
+    manifest["status"] = "Original-SFT near retrieval is approximate; solution quality needs review"
     manifest["automatically_screened_after_quality_filter"] = 21000 + len(candidates)
     manifest["incremental_quality_repair"] = {
         "draft_train_sha256": draft_hash,

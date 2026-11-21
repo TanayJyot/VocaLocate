@@ -1,81 +1,63 @@
-# Run SFT and evaluate your baseline
+# A4 Part 2: SFT and chat evaluation
 
-Run both commands from the **VocaLocate repository root**, two levels above this README. The launcher uses the Nanochat code in `a3/nanochat/`. Use whichever authenticated Modal CLI you have set up. The examples use `./a3/modal/.venv/bin/modal`, which you can replace with `.venv/bin/modal`.
+This folder records the comparison between the pretrained d20-baseline-long
+model, Standard SFT, and three SFT runs with added math or coding examples.
+Run launchers from the VocaLocate repository root.
 
-## Before you start
+## What the files do
 
-Both modes require four values that identify your **pretrained** checkpoint. Use the same values in both commands.
+- `modal_chat_sft.py` runs Standard SFT. Its `--eval-pretrained` mode runs
+  ChatCORE on the pretrained model.
+- `part2b/metamath/` and `part2b/kodcode/` contain the selection code and
+  manifests for MetaMathQA and KodCode. `part2b/shared/` supports overlap checks.
+- `part2b/integration/` contains a JSONL loader and a patch for a separate
+  Nanochat checkout. The patch adds examples to SFT training and records how
+  many examples from each source were used. It leaves the reported BPB
+  validation mixture and ChatCORE scorer unchanged.
+- `part2b/modal_enhanced_sft_runs.py` runs MetaMathQA-only, KodCode-only, or
+  combined SFT. Without `--launch`, it checks inputs but does not train.
+- `modal_gsm8k_replay.py` evaluates a saved SFT checkpoint with Nanochat's
+  GSM8K scorer and saves individual questions, completions, and scores.
+  `NANOCHAT_GSM8K_FULL_TEST=1` selects all 1,319 test questions.
+- `a4/modal/` holds the selected run summaries, training/evaluation logs,
+  and full GSM8K response files. Trained checkpoints remain on Modal.
 
-| Flag | What to enter | Original d20 example |
-|---|---|---|
-| `--volume` | The Modal volume that holds your files | `a4-nanochat-volume` |
-| `--base-path` | The folder inside that volume that contains `base_checkpoints/` and `tokenizer/` | `a4` |
-| `--model-tag` | The subfolder under `base_checkpoints/` that holds your checkpoint | `d20-baseline-8-H100` |
-| `--model-step` | The step shared by your model and metadata filenames, as an integer | `9960` |
+## Data and training
 
-If you downloaded the files to your machine, upload them to your Modal volume in this layout. Keep the checkpoint filenames and use the tokenizer that belongs to the baseline.
+Standard SFT uses Nanochat's 789,759-row training mixture: SmolTalk,
+MMLU auxiliary training data repeated three times, and GSM8K training data
+repeated four times. Enhanced SFT adds 60,000 selected MetaMathQA examples,
+40,000 selected KodCode examples, or both. Separate 3,000-row MetaMathQA
+and 1,000-row KodCode holdouts support dataset auditing; they are not used
+in the reported BPB validation score.
 
-```text
-<base-path>/
-  base_checkpoints/<model-tag>/
-    model_<six-digit-step>.pt
-    meta_<six-digit-step>.json
-    optim_<six-digit-step>_rank<N>.pt  # one per rank when using --load-optimizer
-  tokenizer/
-    tokenizer.pkl
-    token_bytes.pt
-```
+The enhanced runs assume the pretrained model, metadata, and eight matching
+optimizer shards are at:
 
-SFT loads the optimizer by default, so upload the baseline optimizer shards for the same checkpoint step alongside the weights and metadata. With eight GPUs, include ranks 0 through 7. Evaluation does not need optimizer shards; to run SFT without them, pass `--no-load-optimizer`.
+`a4-nanochat-volume:/a4/base_checkpoints/d20-baseline-long/`
 
-## 1. Train SFT from your baseline
+The historical Standard SFT run and pretrained ChatCORE evaluation instead
+read `vocalocate-a3:/a3/base_checkpoints/d20-baseline-long/`. All reported
+runs identify pretrained step 21,328 and use eight H100s, 524,288
+batch-token positions per update, a 2,048-token sequence limit, and 932
+SFT optimizer updates. Added data changes the examples seen within that
+fixed update budget. The archived summaries do not include cross-volume
+checkpoint hashes.
 
-Replace the example values below with yours. Choose a new output tag for each run.
+## Running and reproducing results
 
-```bash
-./a3/modal/.venv/bin/modal run --detach a4/part-2-sft/modal_chat_sft.py \
-  --volume YOUR_VOLUME \
-  --base-path YOUR_BASE_PATH \
-  --model-tag YOUR_BASELINE_TAG \
-  --model-step YOUR_BASELINE_STEP \
-  --output-tag YOUR_SFT_OUTPUT_TAG \
-  --run-name YOUR_WANDB_RUN_NAME \
-  --gpus 8 \
-  --wandb-mode online \
-  --wandb-project YOUR_WANDB_PROJECT \
-  --wandb-entity YOUR_WANDB_ENTITY \
-  --wandb-secret YOUR_MODAL_SECRET
-```
+Run `modal_chat_sft.py` for Standard SFT, or add `--eval-pretrained` to
+evaluate the pretrained checkpoint. Run
+`part2b/modal_enhanced_sft_runs.py` with `--run-kind metamath`,
+`--run-kind kodcode`, or `--run-kind both` for enhanced SFT. The reported
+enhanced runs used `--gpus-per-job 8`, `--total-batch-size 524288`,
+`--optimizer-policy restore`, `--kodcode-subdir kodcode_40k_v2`, and
+`--launch`. The archived `run_summary.json` files give each historical
+command and output tag; older commands include an approval override that
+the current launcher no longer needs.
 
-By default, SFT loads the matching optimizer shards for the baseline checkpoint. Upload those shards alongside the weights and metadata (for eight GPUs, include ranks 0 through 7). If you do not want to load the optimizer, or only have weights and metadata, pass `--no-load-optimizer`. For online logging, the named Modal secret must contain `WANDB_API_KEY`. For offline logging, use `--wandb-mode offline` and omit the entity and secret flags. Keep the project flag.
-
-The trained checkpoint goes to `<base-path>/sft_runs/<output-tag>/chatsft_checkpoints/<model-tag>/` on the volume. The training log and run summary go under `<base-path>/logs/` and `<base-path>/results/`.
-
-## 2. Evaluate the pretrained baseline on ChatCORE
-
-Use the same volume, base path, model tag, and step from before SFT. This evaluation can run before or after training. It reads the pretrained checkpoint from `base_checkpoints/`, and needs only the checkpoint and tokenizer.
-
-```bash
-./a3/modal/.venv/bin/modal run a4/part-2-sft/modal_chat_sft.py \
-  --eval-pretrained \
-  --volume YOUR_VOLUME \
-  --base-path YOUR_BASE_PATH \
-  --model-tag YOUR_BASELINE_TAG \
-  --model-step YOUR_BASELINE_STEP \
-  --gpus 8 \
-  --eval-cache-tag YOUR_SFT_OUTPUT_TAG \
-  --eval-log a4/part-2-sft/YOUR_BASELINE-chat-eval.log
-```
-
-Keep the terminal attached until the local log is saved. Choose a fresh log filename on each run, or omit `--eval-log` to generate one automatically. Use `--gpus 4` if the eight-H100 request is queued.
-
-The evaluator runs the full ARC-Easy, ARC-Challenge, and MMLU test sets and 24 examples each from GSM8K and HumanEval, matching the standard SFT task limits. To reuse cached test data, pass your SFT output tag with `--eval-cache-tag`. Omit it to download test data into temporary container storage. If a selected cache lacks a task manifest, the evaluator downloads that task. The log records the data source. The log reports per-task accuracy, five-task ChatCORE, and categorical ChatCORE. Compare these with the corresponding SFT scores. The A3 CORE score comes from a different benchmark suite.
-
-
-## Defaults
-
-- Both modes request eight strict H100s. Use `--gpus` to select 1, 2, 4, or 8.
-- Training defaults to loading matching optimizer shards and using offline W&B. It requires `--output-tag`, `--run-name`, and `--wandb-project`. Extra SFT arguments and W&B entity and secret are optional. Online W&B requires the secret.
-- Evaluation uses one greedy completion per generative question, temperature 0, a 512-token limit, and the batch size from checkpoint metadata. Without `--eval-log`, it creates a unique log in your current directory.
-
-For a separate GSM8K evaluation of a saved SFT checkpoint, see the [GSM8K replay guide](modal_gsm8k_README.md).
+The screened JSONL, raw source files, reference index, original task cache,
+and isolated patched Nanochat checkout are kept outside Git. The committed
+manifests record selected row counts and hashes, but the repository alone
+does not recreate every historical input. Automated screening also does
+not independently establish that every solution is correct.

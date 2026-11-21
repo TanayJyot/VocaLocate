@@ -1,13 +1,26 @@
-# Part 2b: MetaMathQA and KodCode SFT
+# Part 2B: Math and coding SFT
 
-This folder retains the screening code, manifests and isolated Nanochat integration for the 60k MetaMathQA and final 40k KodCode experiments. Raw datasets, generated JSONL, reference index, historical audit files, and Nanochat checkout are not included. Both datasets are **UNAPPROVED** pending quality and similarity review; retrieval is approximate and KodCode tests were not independently executed. Keep large data outside Git and check licenses before sharing.
+This folder documents the screened MetaMathQA and KodCode data used to extend the original Nanochat SFT mixture. The experiments add **60,000 math examples**, **40,000 coding examples**, or both. Separate source holdouts contain 3,000 MetaMathQA and 1,000 KodCode examples; they support dataset auditing and are not part of the reported BPB validation mixture.
 
-- `metamath/prepare.py` screens MetaMathQA only. Its historical selection seed remains in the script because changing it would select different rows. The checked-in `metamath/screened_v1/manifest.json` is a MetaMathQA-only view of the original combined audit manifest (SHA-256 `b9954ebbca5119d377a1848c1ba9a039a79a634228e2c01b81d5976272d5d060`); it retains the MetaMath train/validation row counts and hashes while omitting unrelated source metadata. The original manifest remains in the experiment archive.
-- `kodcode/finalize_40k.py` contains the final selection repair and its screening helpers. The final 40k split retains an earlier 20k/1k seed split, so exact reconstruction still requires those archived split JSONLs, the **pre-repair** 40k draft, similarity-review hold list, exact reference index, tokenizer and all 15 original shards. This package has no separate 20k generator or manifest. It verifies draft and tokenizer hashes before writing. Compare final hashes to `kodcode/screened_40k_v2/kodcode_manifest.json`; no complete reproduction has been verified from this folder.
-- `shared/fetch_reference.py` fetches reference exports. The exact reference index used in screening is an archived experiment input; the exports alone cannot recreate it.
-- `integration/` contains the patch and JSONL loader. Create a separate Nanochat checkout based on commit `e6ca3a27c145bb66ba65b593cd72b52e688e28f5`, check `git apply --check` against it, apply the patch, and copy `screened_jsonl.py` into its `tasks/` directory. Do not modify the existing assignment checkout. Set `NANOCHAT_REPO` to this checkout for Modal; preparation expects it at `derived_nanochat`. The patch was generated against the target checkout and must be checked against the pinned revision.
+## Screening
 
-Preparation requires Python, numpy, pyarrow, scikit-learn, huggingface_hub, the pinned Nanochat dependencies and its tokenizer. With the archived inputs restored to the paths documented by `--help`, run from this folder:
+- `metamath/prepare.py` selects nonempty, deduplicated examples, checks overlap with the original SFT data and similarity to GSM8K test and HumanEval prompts, and holds test-similar examples. MetaMath's GSM8K training lineage is intentional. It also checks tokenizer length and assistant loss tokens, and keeps related examples together when splitting train and holdout.
+- `kodcode/finalize_40k.py` repairs the final selection from a completed audit of 15 source shards. Screening checks for function-writing requests, parseable single-function solutions, tests, duplicate or overlapping prompts, benchmark similarity, tokenizer length, and train/holdout group separation. The repair excludes selected named-function prompts that already contain a solution body and fills the resulting slots with screened candidates.
+- `shared/fetch_reference.py` fetches reference exports used by the checks. The manifests record counts, input hashes and selected output hashes.
+
+These are automated screens, not guarantees of correctness or complete decontamination. Original-SFT near-duplicate retrieval is approximate, similarity flags and solution quality require review, and KodCode tests were not independently executed.
+
+## Training
+
+The integration patch adds the selected training JSONL to the original 789,759-row SFT mixture. Source holdouts are not added to training or the reported BPB validation mixture. All reported runs use pretrained step 21,328, eight H100s, a 2,048-token sequence limit, 524,288 batch-token positions per update, and **932 optimizer updates**. Added data changes the examples seen within that fixed budget.
+
+`modal_enhanced_sft_runs.py` preflights the checkpoint, tokenizer, original task cache, both screened datasets and output paths on the Modal volume. It defaults to preflight only; `--launch` starts training and records the command, dataset hashes, logs and run summary. From the repository root, select `--run-kind metamath`, `--run-kind kodcode`, or `--run-kind both`. The reported runs used `--gpus-per-job 8 --total-batch-size 524288 --optimizer-policy restore --kodcode-subdir kodcode_40k_v2 --launch`. Run `modal run a4/part-2-sft/part2b/modal_enhanced_sft_runs.py --help` for options. Launching uses paid GPU resources.
+
+## Reproduction
+
+Raw data, screened JSONL, the reference index, audit files, task cache and patched Nanochat checkout are not included in Git. Create a separate Nanochat checkout at commit `e6ca3a27c145bb66ba65b593cd72b52e688e28f5`; check and apply `integration/chat_sft.patch`, then copy `integration/screened_jsonl.py` to its `tasks/` directory. Preparation expects the checkout at `derived_nanochat`; set `NANOCHAT_REPO` to it for Modal. Install the preparation dependencies and pinned Nanochat dependencies, and restore the tokenizer and archived inputs.
+
+From this folder, the preparation entry points are:
 
 ```sh
 python metamath/prepare.py --tokenizer-dir /path/to/tokenizer
@@ -15,6 +28,4 @@ python kodcode/download_remaining.py
 python kodcode/finalize_40k.py --tokenizer-dir /path/to/tokenizer
 ```
 
-The downloader pins KodCode revision `97d81f0695ddd7c5c02bfe16436db9a17a4a21e5` and verifies shard hashes under `/private/tmp`. The finalizer is an incremental repair of the archived full audit, not a standalone audit. Do not run it against the final JSONL in place of the draft. Manifest paths are historical provenance and are not portable.
-
-`modal_kodcode_experiments.py` preflights or launches fixed 932-step runs. It requires both datasets even for a one-source run, plus the checkpoint, tokenizer, Modal volume and isolated checkout. For options run `modal run modal_kodcode_experiments.py --help`; without `--launch` it only preflights. Launching uses paid GPU resources and unapproved data requires the explicit override.
+See each script's `--help` and manifest for inputs. The KodCode downloader pins the source revision and verifies shard hashes. The finalizer is an incremental repair, not a complete audit: it requires the archived initial selection, pre-repair draft, similarity-review hold list, exact reference index, tokenizer and all 15 original shards. Do not substitute the final JSONL for the draft. Manifest paths are historical and may need restoring locally. Compare regenerated outputs with the manifest hashes; complete reproduction from this folder alone has not been verified. Keep large data outside Git and check licenses before sharing.

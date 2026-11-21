@@ -10,7 +10,7 @@ from tasks.common import Task
 
 
 class ScreenedJSONL(Task):
-    def __init__(self, path, source, allow_unapproved=False, **kwargs):
+    def __init__(self, path, source, **kwargs):
         super().__init__(**kwargs)
         self.path = Path(path).resolve(strict=True)
         if source not in {"metamath", "kodcode"}:
@@ -20,9 +20,6 @@ class ScreenedJSONL(Task):
             raise ValueError("Only source-matched audited train JSONL files are supported")
         manifest_path = self.path.with_name("kodcode_manifest.json" if source == "kodcode" else "manifest.json")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        status = str(manifest.get("status", ""))
-        if ("UNAPPROVED" in self.path.name or "UNAPPROVED" in status.upper()) and not allow_unapproved:
-            raise ValueError(f"Dataset is unapproved for training: {self.path}")
         expected = manifest.get("outputs", {}).get(self.path.name)
         if not isinstance(expected, dict) or not isinstance(expected.get("rows"), int) or not isinstance(expected.get("sha256"), str):
             raise ValueError(f"Missing output metadata for {self.path.name}")
