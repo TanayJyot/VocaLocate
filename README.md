@@ -9,7 +9,14 @@ app built on top.
 ## Code coverage
 
 <!-- coverage:start -->
-The coverage table populates after the first successful coverage run on `main`.
+| Python source | Covered lines | Total lines | Coverage |
+| --- | ---: | ---: | ---: |
+| Pipeline | 1369 | 1422 | 96.27% |
+| Demo | 1970 | 2239 | 87.99% |
+| Modal training | 0 | 84 | 0.00% |
+| **Combined** | 3339 | 3745 | **89.16%** |
+
+Scope: first-party VocaLocate Python code. Frontend JavaScript coverage is unmeasured. Terraform is checked separately by the infra workflow. Vendored EfficientAT and the A3/A4 Nanochat experiments are excluded.
 <!-- coverage:end -->
 
 GitHub Actions runs both pytest suites, then combines their line coverage for
