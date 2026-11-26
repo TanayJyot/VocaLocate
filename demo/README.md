@@ -273,6 +273,175 @@ How to read the recipe results:
   reference, so "related" excluded imitations are imitations of *other* sounds. Their paper also
   reports single runs with no ablation, so its gain from C was never isolated.
 
+## Replicating the winners' data and protocol: VimSketch, QVIM DEV and QVIM EVAL
+
+The runs above train on the Vocal Imitation Set alone, so they cannot say whether C fails here only
+because our data differs from theirs. This replication removes that difference. It trains on the
+winners' own data and scores on the challenge's own evaluation set, with every other setting held
+as above.
+
+**Training data.**
+- [VimSketch](https://doi.org/10.5281/zenodo.2596911), the data the challenge baseline and the
+  winners trained on. It holds 542 sounds and 12,453 imitations, 13–37 per sound.
+- [VocalSketch 1.1.2](https://doi.org/10.5281/zenodo.1251982)'s 9,553 excluded takes, as
+  `unpaired_imitation` clips. Each one is linked to the sound it imitates.
+- One reference was rejected as too short (a clock tick), so its 17 imitations have no pair.
+- Hashing by sound splits the rest into 486 train sounds (11,205 pairs) and 55 validation sounds
+  (1,220 pairs). There is no test split, because the two QVIM sets are the test sets.
+
+**Test data.**
+- **QVIM DEV:** 969 queries over 119 references.
+  - This is the version on Zenodo, which the organisers updated after the challenge (1,014 queries
+    before cleaning). The challenge was scored on a 985-query version.
+  - We dropped 33 queries that are byte-identical copies of another imitator's takes, and 12 whose
+    reference is silent or duplicated.
+- **QVIM EVAL** ([MR20VI](https://zenodo.org/records/17453307)), the set the challenge's objective
+  ranking used: 1,039 queries over 98 references.
+  - The organisers list 1,062 queries over 100 references. We dropped 8 duplicate queries, plus 15
+    queries whose reference is a byte-identical copy of another reference.
+  - EVAL is scored only at the end, on both kept checkpoints, so it never influences which epoch is
+    kept.
+- **Leakage check:** no VimSketch clip is identical to any DEV or EVAL clip
+  (`v_cross_source_duplicates`). The one cross-set duplicate is `Whip06.wav`, a reference that
+  appears in both DEV and EVAL.
+
+**Runs.** The seven runs above, plus two more:
+- `excluded_same`, the paper's exact rule for C ("same-class negatives when available, random
+  otherwise"). It uses the anchor sound's own rejected takes, or random ones for the sounds that
+  have none.
+- `excluded_same_noaug`, the same without augmentation.
+
+`excluded` keeps our earlier variant of C, which uses excluded takes of related, *different*
+sounds.
+
+```bash
+VOCALOCATE_MODAL_GPU=L40S VOCALOCATE_MODAL_VOLUME=vocalocate-vim modal run --detach \
+    demo/modal/recipe_app.py --no-sync --source vimsketch --extra-bench qvim_eval \
+    --models greif,shared,excluded_same,excluded_same_noaug,excluded,retrieval,metadata,random
+```
+
+The 24 trainings (8 runs × 3 seeds, 30 epochs each, batch 64) ran on Modal L40S GPUs in 65 minutes
+of wall time. They used about 11–12 GPU-hours (≈ $25), of which 8.8 was training.
+
+### Results (3 seeds: 490, 491, 492)
+
+Every run was scored under two ways of choosing which epoch to keep:
+- **"val":** the epoch that scored best on our validation split. This is the fair protocol,
+  because no test set influences the choice.
+- **"DEV":** the epoch that scored best on QVIM DEV. This is the winners' protocol. It inflates
+  the DEV score, but EVAL remains unseen.
+
+Mean ± std over 3 seeds; Δ is versus `shared`, with the number of seeds on which the run beat
+`shared` in brackets.
+
+| run | DEV MRR (val) | DEV MRR (DEV) | **EVAL MRR (val)** | Δ EVAL (val) | EVAL MRR (DEV) | EVAL R@1 | EVAL R@5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `greif`: two towers + augmentation | 0.268 ± 0.006 | 0.275 ± 0.005 | 0.321 ± 0.003 | −0.022 (0/3) | 0.327 ± 0.005 | 0.179 | 0.491 |
+| **`shared`: shared encoder + augmentation** | **0.289 ± 0.005** | **0.294 ± 0.004** | 0.343 ± 0.005 | – | 0.340 ± 0.005 | 0.200 | 0.514 |
+| `excluded_same` (C, paper-exact) | 0.283 ± 0.001 | 0.286 ± 0.002 | 0.342 ± 0.001 | −0.001 (2/3) | 0.341 ± 0.001 | 0.198 | 0.517 |
+| `excluded_same_noaug`: C without augmentation | 0.273 ± 0.004 | 0.275 ± 0.001 | 0.335 ± 0.001 | −0.008 (0/3) | 0.335 ± 0.001 | 0.192 | 0.501 |
+| `excluded` (C, related-sound variant) | 0.284 ± 0.001 | 0.290 ± 0.003 | 0.347 ± 0.004 | +0.004 (3/3) | 0.347 ± 0.002 | 0.202 | 0.522 |
+| `retrieval` (A): re-mined top wrong SFX | 0.287 ± 0.006 | 0.292 ± 0.005 | 0.343 ± 0.001 | +0.000 (2/3) | 0.343 ± 0.005 | 0.199 | 0.521 |
+| `metadata` (B): metadata-related SFX | 0.285 ± 0.003 | 0.289 ± 0.001 | **0.349 ± 0.003** | +0.006 (2/3) | 0.341 ± 0.001 | 0.203 | 0.521 |
+| `random`: control | 0.289 ± 0.003 | 0.291 ± 0.005 | 0.347 ± 0.001 | +0.003 (2/3) | 0.346 ± 0.002 | 0.200 | 0.515 |
+
+**The official challenge results**, each a single submitted model:
+
+| team | DEV MRR | EVAL MRR | listening test (MOS) |
+| --- | ---: | ---: | ---: |
+| QMUL, the winners (Bhattacharjee et al.) | 0.299 | 0.348 | 68.5 |
+| Chung | 0.310 | 0.359 | 61.8 |
+| Aalto | 0.303 | 0.345 | 54.7 |
+| challenge baseline (Greif et al. two towers) | 0.282 | 0.326 | 62.5 |
+
+The challenge was ranked by the listening test, not by MRR. The winners chose their checkpoint on
+DEV.
+
+**What the replication shows.**
+- **It reproduces both reference points on EVAL.**
+  - Our `greif` run scores 0.327 on EVAL under the winners' DEV protocol; the official baseline,
+    the same recipe, scored 0.326.
+  - Our paper-exact C scores 0.341 under the same protocol (0.339–0.343 across seeds); the
+    winners' single model scored 0.348.
+  - Our DEV numbers sit a little lower than the official ones, as expected, because our DEV is the
+    later, cleaned version.
+- **The winners' EVAL gain over the baseline comes from the shared encoder and augmentation, not
+  from mining.**
+  - Going from two towers to one shared encoder adds about 0.02 MRR on both sets. That is about
+    the whole gap between the official baseline and the winner.
+  - Adding C's triplet on top changes nothing: −0.001 on EVAL and −0.006 on DEV.
+- **No negative source clearly beats contrastive training alone.**
+  - On EVAL every mining run is within ±0.006 of `shared`, which is about one to two seed standard
+    deviations. B's 0.349 is the best mean, but it beats `shared` on only 2 of 3 seeds and drops
+    to 0.341 under DEV selection.
+  - The random control does as well as A, B and C. On DEV no mining run beats `shared` on more
+    than 1 of 3 seeds.
+  - This repeats the Vocal Imitation Set result, now on the winners' own data.
+- **Augmentation still matters more than any negative source.** Removing it from C costs 0.010 on
+  DEV and 0.007 on EVAL.
+- **Choosing the epoch on DEV mostly inflates DEV only.** It raises DEV by 0.002–0.007 in every
+  run, but leaves EVAL the same or lower in every run except `greif` (+0.006). So DEV numbers
+  chosen this way, including the challenge's, overstate performance on unseen data.
+- **Validation keeps early epochs** (6–17 of 30). C without augmentation keeps epoch 6 on every
+  seed, which suggests it overfits VimSketch quickly.
+
+The share of anchors whose semi-hard triplet is still active, from epoch 1 to epoch 30:
+- paper-exact C stays near 0.8 (0.82 → 0.79);
+- the related-sound C and random fall (0.89 → 0.67 and 0.93 → 0.67), as on the Vocal Imitation Set;
+- A rises (0.72 → 0.96).
+
+**Caveats.**
+- Our numbers are means of 3 seeds; each official number is one model.
+- Our DEV and EVAL are slightly smaller than the challenge's after removing duplicate clips, so
+  the EVAL comparison is close but not exact.
+- The winners also trained in ways we did not copy, such as their own epoch count and
+  hyperparameter search. They report no ablation, so the size of their gain from C is not known.
+
+## Same-class negatives: the Fine-grained Vocal Imitation Set
+
+None of the negatives above can be "another recording of the same class" whose wrongness we know:
+- VimSketch has one recording per class.
+- The Vocal Imitation Set's ~9 extra recordings per class were never imitated.
+
+The [Fine-grained Vocal Imitation Set](https://zenodo.org/records/3538534) fills that gap for 12
+animal classes. Each class has 9 recordings (exactly those classes' Vocal Imitation Set extras),
+with 705 imitations of them.
+
+Three sources go into the VimSketch lake:
+- `fgvis`: the fine-grained set. Each of its 108 recordings pairs with its own imitations, and all of
+  it goes to train.
+- `vis_extras`: the Vocal Imitation Set's 2,633 un-imitated recordings, as library clips. Each one
+  takes the category and split of its class's VimSketch reference.
+- `vimsketch`, as before.
+
+Both new sources use VimSketch's class names. A fine-grained class then holds 10 imitated
+recordings, and every Vocal Imitation Set class gains about 9 un-imitated ones.
+
+| run | negatives |
+| --- | --- |
+| `shared` | none (the reference) |
+| `same_class` | other *imitated* recordings of the anchor's class (12 classes) |
+| `same_class_extras` | the same plus the class's un-imitated recordings (all 302 VIS classes) |
+| `random` | random SFX (control) |
+
+The four runs are set up so that only the negatives differ:
+- **Same data in every run.** All four load the three sources, with the fine-grained pairs repeated
+  4 times per epoch (`--oversample fgvis=4`), so enough batches hold a same-class triplet.
+- **What counts as a class.** It means the same category *and* tag set, so VocalSketch's coarse
+  subsets never count as one class.
+- **No fallback.** An anchor with no other recording of its class gets no triplet.
+
+```bash
+vocalocate-pipeline --config demo/configs/vimsketch.toml ingest-dataset --source fgvis --path ~/data/fgvis
+vocalocate-pipeline --config demo/configs/vimsketch.toml ingest-dataset --source vis_extras --path ~/data/VocalImitationSet
+VOCALOCATE_MODAL_GPU=L40S VOCALOCATE_MODAL_VOLUME=vocalocate-vim modal run --detach demo/modal/recipe_app.py \
+    --no-sync --source vimsketch+fgvis+vis_extras --oversample fgvis=4 --extra-bench qvim_eval \
+    --models shared,same_class,same_class_extras,random
+```
+
+The 108 fine-grained recordings are byte-identical to Vocal Imitation Set extras. The loader keeps
+one copy of each clip, as the imitated reference.
+
 ## The synthetic data
 
 `synth.py` writes a dataset in the `sfx_meta` layout so the demo runs offline
@@ -376,9 +545,9 @@ Text branch (frozen `laion/clap-htsat-unfused`, 145 test imitations with a hint 
 
 ## Limits and next steps
 
-* Real data so far is the Vocal Imitation Set only. Adding VocalSketch (as extra imitations or, as
-  the challenge winner did, extra negatives) and FSD50K as a larger candidate pool are the next
-  data steps. VimSketch labels are one per reference, so they give approach B no related pools.
+* Training data so far is the Vocal Imitation Set and VimSketch (with VocalSketch's excluded takes as
+  negatives). FSD50K as a larger candidate pool, and a test set of team imitations of real-library
+  sounds, are the next data steps.
 * Negatives are mined once from the baseline. Re-mining during fine-tuning
   and tuning `band` / `top_k` on validation are the obvious next experiments.
 * Search is a brute-force cosine over cached embeddings. FAISS slots in where

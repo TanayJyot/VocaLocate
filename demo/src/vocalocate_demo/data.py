@@ -133,6 +133,11 @@ def load_dataset(cfg: PipelineConfig, sources: list[str]) -> Dataset:
         for c in cols:
             if c in df:
                 df[c] = [rebase_lake_path(v, cfg.lake_root) for v in df[c]]
+    if not candidates.empty:
+        # The same audio can sit in two sources (a Fine-grained VIS reference is also a Vocal
+        # Imitation Set extra). Keep one copy per clip, preferring the imitated reference.
+        candidates = (candidates.assign(_ref=candidates.role != "reference").sort_values(["_ref", "clip_id"])
+                      .drop_duplicates("clip_id").drop(columns="_ref").sort_values("clip_id").reset_index(drop=True))
     if pairs.empty:
         raise ValueError(f"No training pairs for {sources} in {cfg.warehouse_path}; run the dataset flow first")
     return Dataset(pairs=pairs, candidates=candidates, hints=hints, unpaired=unpaired)

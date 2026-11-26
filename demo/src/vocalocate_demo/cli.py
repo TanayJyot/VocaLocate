@@ -32,8 +32,10 @@ RECIPE_ORDER = ("greif", "shared", "excluded", "excluded_noaug", "retrieval", "m
 # The VimSketch replication: C exactly as the paper samples it, plus our related-sound variant.
 VIMSKETCH_ORDER = ("greif", "shared", "excluded_same", "excluded_same_noaug", "excluded", "retrieval", "metadata",
                    "random")
+# Same-class negatives on VimSketch + the Fine-grained Vocal Imitation Set (+ the VIS extras).
+FINEGRAINED_ORDER = ("shared", "same_class", "same_class_extras", "random")
 ALL_RECIPES = ("greif", "shared", "excluded_same", "excluded_same_noaug", "excluded", "excluded_noaug", "retrieval",
-               "metadata", "random")
+               "metadata", "random", "same_class", "same_class_extras")
 
 
 def _train_args(p: argparse.ArgumentParser) -> None:
@@ -118,10 +120,14 @@ def _parser() -> argparse.ArgumentParser:
     bo.add_argument("--label", default="onnx")
 
     rp = sub.add_parser("recipe", help="train the QVIM 2025 winning recipe with each negative source, one seed")
-    rp.add_argument("--source", default="vis")
+    rp.add_argument("--source", default="vis",
+                    help="training source, or several joined by '+' (e.g. vimsketch+fgvis+vis_extras)")
     rp.add_argument("--models", default=",".join(RECIPE_ORDER),
                     help="comma-separated recipe names: " + ", ".join(ALL_RECIPES)
-                    + f" (VimSketch replication: {','.join(VIMSKETCH_ORDER)})")
+                    + f" (VimSketch replication: {','.join(VIMSKETCH_ORDER)};"
+                    + f" fine-grained: {','.join(FINEGRAINED_ORDER)})")
+    rp.add_argument("--oversample", default="",
+                    help="repeat a source's train pairs each epoch, e.g. fgvis=4 (applies to every recipe)")
     rp.add_argument("--no-results-file", action="store_true",
                     help="write only the per-run <name>.json files (for parallel jobs; collect with a later run)")
     rp.add_argument("--preload", action="store_true",
@@ -268,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             overrides["n_cands"] = args.n_cands
         if args.no_amp:
             overrides["amp"] = False
+        if args.oversample:
+            overrides["oversample"] = args.oversample
         names = [n.strip() for n in args.models.split(",") if n.strip()]
         res = run_recipe_suite(cfg, args.source, tcfg, names, bench=args.bench or None, overrides=overrides,
                                write_results=not args.no_results_file, preload=args.preload,

@@ -258,3 +258,38 @@ def captdure_dir(tmp_path) -> Path:
     body = "\n".join("\t".join(r) for r in rows)
     (root / "single_source_caption.csv").write_text("﻿" + header + "\n" + body + "\n", encoding="utf-8")
     return root
+
+
+@pytest.fixture
+def fgvis_dir(tmp_path) -> Path:
+    """Fine-grained Vocal Imitation Set, unzipped as released: 2 classes x 2 recordings, 5 imitations."""
+    root = tmp_path / "fgvis"
+    fg = root / "Fine-grained_VocalImitationSet"
+    classes = {"001Animal_Domestic animals_ pets_Cat_Hiss": ("hiss_a.wav", "hiss_b.wav"),
+               "021Animal_Wild animals_Bird_Crow_Caw": ("caw_a.wav", "caw_b.wav")}
+    for i, (cls, files) in enumerate((c, f) for c, fs in classes.items() for f in fs):
+        write(fg / "original_recordings" / cls / files, tone(300 + 90 * i, 1.5, 44_100), 44_100)
+    with open(_mk(fg / "original_recordings_license.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["filename", "username", "user_url", "file_url", "freesound_id"])
+        for i, name in enumerate(n for fs in classes.values() for n in fs):
+            w.writerow([name, "u", "", "", str(2000 + i)])
+    imits = [
+        # imitation, reference, included, participant, description
+        ("001Animal_Domestic animals_ pets_Cat_Hiss-1.wav", "hiss_a.wav", "True", "7", "air leaking"),
+        ("001Animal_Domestic animals_ pets_Cat_Hiss-2.wav", "hiss_b.wav", "True", "8", ""),
+        ("001Animal_Domestic animals_ pets_Cat_Hiss-3.wav", "hiss_b.wav", "False", "9", "practice"),
+        ("021Animal_Wild animals_Bird_Crow_Caw-1.wav", "caw_a.wav", "True", "7", "a crow"),
+        ("021Animal_Wild animals_Bird_Crow_Caw-2.wav", "caw_b.wav", "True", "8", "nan"),
+    ]
+    with open(_mk(fg / "vocal_imitations.txt"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["", "imitation_filename", "category_index", "category_d1", "category_d2", "category_d3",
+                    "category_d4", "category_d5", "category_d6", "reference_filename", "included", "draft",
+                    "training", "participant_id", "satisfaction", "participants_sound_recording_description",
+                    "participants_sound_recording_description_confidence"])
+        for i, (name, ref, inc, pid, desc) in enumerate(imits):
+            folder = "included" if inc == "True" else "excluded"
+            write(fg / "vocal_imitations" / folder / name, tone(250 + 70 * i, 1.2, 16_000), 16_000)
+            w.writerow([i, name, 2, "Animal", "", "", "", "", "", ref, inc, "False", "False", pid, "", desc, ""])
+    return root

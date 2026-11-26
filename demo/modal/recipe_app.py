@@ -38,6 +38,14 @@ demo/configs/vimsketch.toml) uses its own lake and volume:
         --source vimsketch --extra-bench qvim_eval \
         --models greif,shared,excluded_same,excluded_same_noaug,excluded,retrieval,metadata,random
 
+Same-class negatives (VimSketch + the Fine-grained Vocal Imitation Set + the Vocal Imitation Set's
+un-imitated recordings, all in the VimSketch lake; every run loads all three sources and the same
+oversampling, so only the negatives differ):
+
+    VOCALOCATE_MODAL_VOLUME=vocalocate-vim modal run --detach demo/modal/recipe_app.py --no-sync \
+        --source vimsketch+fgvis+vis_extras --oversample fgvis=4 --extra-bench qvim_eval \
+        --models shared,same_class,same_class_extras,random
+
 A run that was interrupted resumes: finished recipes (<name>.json on the volume) are skipped.
 The GPU type comes from VOCALOCATE_MODAL_GPU (default A100-80GB; batch 64 needs ~30 GB), the
 volume from VOCALOCATE_MODAL_VOLUME (default vocalocate-lake) and the AWS secret from
@@ -101,7 +109,7 @@ def pull_lake(source: str, bench: str, extra_bench: str = "") -> str:
     from vocalocate_pipeline.sync import sync
 
     lake.reload()
-    prefixes = ["warehouse", f"gold/features/{source}", f"gold/features/{bench}",
+    prefixes = ["warehouse", *(f"gold/features/{s}" for s in source.split("+")), f"gold/features/{bench}",
                 *(f"gold/features/{b}" for b in extra_bench.split(",") if b)]
     res = sync(os.environ["VOCALOCATE_LAKE_URI"], LAKE, prefixes, s3=_s3())
     lake.commit()
@@ -120,7 +128,7 @@ def publish(source: str) -> str:
 
 @app.function(gpu=GPU, volumes={LAKE: lake}, timeout=8 * 3600, cpu=8.0, memory=48 * 1024)
 def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, bench: str,
-              extra_bench: str = "") -> dict:
+              extra_bench: str = "", oversample: str = "") -> dict:
     import json
     import time
 
@@ -134,6 +142,8 @@ def train_one(source: str, name: str, seed: int, batch_size: int, epochs: int, b
             "--no-results-file", "--preload", "--extra-bench", extra_bench]
     if epochs:
         args += ["--recipe-epochs", str(epochs)]
+    if oversample:
+        args += ["--oversample", oversample]
     _cli(args)
     lake.commit()
     res = json.loads(out.read_text(encoding="utf-8"))
@@ -157,12 +167,13 @@ def collect(source: str, seed: int, names: str, bench: str, extra_bench: str = "
 
 @app.local_entrypoint()
 def main(seeds: str = "490,491,492", models: str = RECIPES, batch_size: int = 64, epochs: int = 0,
-         source: str = "vis", bench: str = "qvim_dev", extra_bench: str = "", sync: bool = True):
+         source: str = "vis", bench: str = "qvim_dev", extra_bench: str = "", sync: bool = True,
+         oversample: str = ""):
     if sync:
         print(pull_lake.remote(source, bench, extra_bench))
     seed_list = [int(s) for s in seeds.split(",") if s.strip()]
     names = [n.strip() for n in models.split(",") if n.strip()]
-    jobs = [(source, n, s, batch_size, epochs, bench, extra_bench) for s in seed_list for n in names]
+    jobs = [(source, n, s, batch_size, epochs, bench, extra_bench, oversample) for s in seed_list for n in names]
     print(f"{len(jobs)} trainings on {GPU}, batch {batch_size}{f', {epochs} epochs' if epochs else ''}")
     failed = []
     for job, res in zip(jobs, train_one.starmap(jobs, return_exceptions=True, order_outputs=True)):

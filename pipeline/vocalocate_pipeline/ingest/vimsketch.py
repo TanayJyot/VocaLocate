@@ -60,6 +60,17 @@ def reference_name(filename: str) -> str:
     return "_".join(filename.split("_")[1:])
 
 
+def vis_class_sound(classname: str) -> str:
+    """VimSketch's name for a Vocal Imitation Set class: its reference name after the prefix.
+
+    VimSketch turns "_ " (from the ontology's commas), "-" and runs of "_" into a single "_":
+    '017Animal_Livestock_ farm animals_ working animals_Horse_Snort (horse)' ->
+    '017Animal_Livestock_farm animals_working animals_Horse_Snort (horse).wav'. Checked against
+    all 302 classes of the release.
+    """
+    return re.sub(r"_+", "_", classname.replace(" _", "_").replace("_ ", "_").replace("-", "_")) + ".wav"
+
+
 def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 

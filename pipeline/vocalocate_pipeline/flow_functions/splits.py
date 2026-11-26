@@ -18,6 +18,9 @@ BENCHMARK_SOURCES = {"qvim_dev", "qvim_eval", "captdure"}
 # before recording into a validation group, for tuning the fusion weight, and a test group.
 HELD_OUT_SOURCES = {"team"}
 HELD_OUT_SPLITS = {"val", "test"}
+# Sources whose every clip is training data: the fine-grained set's value is its within-class
+# negatives, which need each whole class in the training split.
+TRAIN_SOURCES = {"fgvis"}
 
 
 def split_for_group(group_key: str, cfg: SplitConfig) -> str:
@@ -56,6 +59,8 @@ def assign_splits(
                  or f"{clip['source']}:clip:{clip['clip_id']}")
         if clip["source"] in BENCHMARK_SOURCES:
             split, strategy = "test", "benchmark"
+        elif clip["source"] in TRAIN_SOURCES:
+            split, strategy = "train", "train_only"
         elif clip["source"] in HELD_OUT_SOURCES and clip["source_key"] in given:
             split, strategy = given[clip["source_key"]], clip["source"]
         elif clip["source"] in HELD_OUT_SOURCES:

@@ -220,3 +220,102 @@ def test_lake_paths_from_another_machine_are_rebased(tmp_path):
     here.write_bytes(b"")
     assert rebase_lake_path(str(here), tmp_path / "elsewhere") == str(here)  # existing paths are kept
     assert rebase_lake_path(None, tmp_path) is None
+
+
+def _fine_grained_sources(root):
+    """VimSketch (8 VIS-half classes), the Fine-grained VIS (3 recordings of classes 0 and 1) and the
+    Vocal Imitation Set's extras (2 per class; class 0's are the fine-grained recordings' own files)."""
+    classes = [f"00{k}Animal_Fam {k // 4}_ sub_Class{k}" for k in range(8)]  # VIS names, "_ " as released
+    vim = root / "Vim_Sketch_Dataset"
+    refs, imits = [], []
+    for k, cls in enumerate(classes):
+        name = cls.replace("_ ", "_")
+        refs.append(f"{k + 1:03d}_{name}.wav")
+        sf.write(str(_mk(vim / "references" / refs[-1])), *_tone(200 + 60 * k, sr=44_100))
+        for j in range(3):
+            imits.append(f"{len(imits):05d}_{name}.wav")
+            sf.write(str(_mk(vim / "vocal_imitations" / imits[-1])), *_tone(203 + 60 * k + 5 * j))
+    (vim / "reference_file_names.csv").write_text("\n".join(refs), encoding="utf-8")
+    (vim / "vocal_imitation_file_names.csv").write_text("\n".join(imits), encoding="utf-8")
+
+    def extra(k, i):  # one audio per (class, recording), shared by the fine-grained set and the extras
+        return _tone(230 + 60 * k + 11 * i, sr=44_100)
+
+    fg = root / "fgvis" / "Fine-grained_VocalImitationSet"
+    rows = []
+    for k in (0, 1):
+        for i in range(3):
+            name = f"c{k}_r{i}.wav"
+            sf.write(str(_mk(fg / "original_recordings" / classes[k] / name)), *extra(k, i))
+            for j in range(2):
+                im = f"{classes[k]}-{i}{j}.wav"
+                sf.write(str(_mk(fg / "vocal_imitations" / "included" / im)), *_tone(232 + 60 * k + 11 * i + 3 * j))
+                rows.append([len(rows), im, k, "Animal", "", "", "", "", "", name, "True", "False", "False",
+                             f"p{j}", "", "", ""])
+    with open(fg / "vocal_imitations.txt", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["", "imitation_filename", "category_index", "category_d1", "category_d2", "category_d3",
+                    "category_d4", "category_d5", "category_d6", "reference_filename", "included", "draft",
+                    "training", "participant_id", "satisfaction", "participants_sound_recording_description",
+                    "participants_sound_recording_description_confidence"])
+        w.writerows(rows)
+
+    vis = root / "VocalImitationSet"
+    with open(_mk(vis / "original_recordings_classes.txt"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["filename", "classname", "category_d1", "category_d2", "category_d3", "category_d4",
+                    "category_d5", "category_d6", "is_reference", "multi_labeled"])
+        for k, cls in enumerate(classes):
+            w.writerow([f"ref{k}.wav", cls, "Animal", "", "", "", "", "", "True", "False"])
+            for i in range(2):
+                name = f"c{k}_r{i}.wav"
+                sf.write(str(_mk(vis / "original_recordings" / "non_reference" / name)), *extra(k, i))
+                w.writerow([name, cls, "Animal", "", "", "", "", "", "False", "False"])
+    return vim, fg.parent, vis
+
+
+def test_fine_grained_sources_train_with_same_class_negatives(tmp_path):
+    from vocalocate_pipeline.flow_functions.splits import split_for_group
+
+    from vocalocate_demo.cli import FINEGRAINED_ORDER
+    from vocalocate_demo.recipe import oversample_pairs, same_class_pools
+
+    vim, fg, vis = _fine_grained_sources(tmp_path)
+    groups = [f"vimsketch:00{k}Animal_Fam {k // 4}_sub_Class{k}.wav" for k in range(8)]
+    seed = next(s for s in range(490, 600) if {split_for_group(g, SplitConfig(seed=s, train=0.9, val=0.1))
+                                               for g in groups} == {"train", "val"})
+    cfg = PipelineConfig(lake_root=tmp_path / "lake", workers=1, splits=SplitConfig(seed=seed, train=0.9, val=0.1))
+    for source, path in (("vimsketch", vim), ("fgvis", fg), ("vis_extras", vis), ("qvim_dev", _qvim_dev_dir(tmp_path / "dev"))):
+        run_dataset_flow(source, path, cfg)
+    ds = load_dataset(cfg, ["vimsketch", "fgvis", "vis_extras"])
+    # Class 0's fine-grained recordings are also VIS extras: one copy each, kept as the reference.
+    assert ds.candidates.clip_id.is_unique
+    meta, role = ds.meta(), dict(zip(ds.candidates.clip_id, ds.candidates.role))
+    src = dict(zip(ds.candidates.clip_id, ds.candidates.source))
+
+    imitated = same_class_pools(ds, RECIPES["same_class"])
+    with_extras = same_class_pools(ds, RECIPES["same_class_extras"])
+    for ref, pool in imitated.items():
+        assert all(role[c] == "reference" and meta[c].category == meta[ref].category and c != ref for c in pool)
+        assert set(pool) <= set(with_extras[ref])
+    # Only the two fine-grained classes have other imitated recordings; the extras reach every class in train.
+    has_imitated = {meta[r].category for r, p in imitated.items() if p}
+    assert has_imitated <= {meta[r].category for r in ds.pairs.reference_clip_id if src[r] == "fgvis"}
+    assert any(src[c] == "vis_extras" for p in with_extras.values() for c in p)
+
+    pairs = ds.split_pairs("train")
+    doubled = oversample_pairs(pairs, "fgvis=2")
+    assert (doubled.source == "fgvis").sum() == 2 * (pairs.source == "fgvis").sum()
+    assert (doubled.source == "vimsketch").sum() == (pairs.source == "vimsketch").sum()
+
+    lake = ["--lake", str(cfg.lake_root)]
+    assert main(lake + ["recipe", "--source", "vimsketch+fgvis+vis_extras", "--models", ",".join(FINEGRAINED_ORDER),
+                        "--oversample", "fgvis=2", "--encoder", "cnn", "--frames", "32", "--batch-size", "4",
+                        "--recipe-epochs", "1", "--bench", "qvim_dev", "--device", "cpu"]) in (0, None)
+    out = cfg.lake_root / "models" / "vimsketch+fgvis+vis_extras" / "recipe-490"
+    res = json.loads((out / "results.json").read_text(encoding="utf-8"))
+    assert list(res["models"]) == list(FINEGRAINED_ORDER)
+    assert res["recipes"]["same_class_extras"]["same_class_library"] is True
+    assert all(r["oversample"] == "fgvis=2" for r in res["recipes"].values())
+    assert res["data"]["train_pairs_by_source"]["fgvis"] == 12
+    assert "Same-class negatives" in summarize([out])

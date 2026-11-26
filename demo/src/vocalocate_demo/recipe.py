@@ -19,6 +19,15 @@ Here every run uses that recipe and changes one thing, so the comparison is fair
 * ``retrieval``   + triplet, negatives = the current model's top wrong SFX, re-mined every few epochs (A)
 * ``metadata``    + triplet, negatives = metadata-related SFX (B)
 * ``random``      + triplet, negatives = random SFX (control)
+* ``same_class``  + triplet, negatives = other *imitated* recordings of the anchor's own class (on
+  VimSketch + the Fine-grained Vocal Imitation Set: the 12 classes with 10 imitated recordings each)
+* ``same_class_extras``  the same, plus the class's un-imitated Vocal Imitation Set recordings
+  (source ``vis_extras``), which reach all 302 Vocal Imitation Set classes
+
+Training can draw on several sources at once ("vimsketch+fgvis+vis_extras"): pairs and candidates
+come from all of them, and ``oversample`` repeats one source's pairs each epoch ("fgvis=4"), so the
+few fine-grained pairs reach enough batches. Every run of a comparison should load the same sources
+and oversampling, so only the negatives differ.
 
 Choices the paper leaves open, and ours:
 
@@ -26,6 +35,9 @@ Choices the paper leaves open, and ours:
   imitation than to a rejected take of the same sound (``excluded_same``) or to an imitation of a
   related sound (``excluded``). For SFX negatives (A, B, random) the anchor
   is the imitation: it should be closer to its target than to the negative SFX.
+* ``same_class``: the class is the candidate's category *and* tag set, so VocalSketch sounds (which
+  share only a coarse subset category) never count as one class. Anchors whose class has no other
+  recording get no triplet, so the run tests same-class negatives alone, without a random fallback.
 * "Same class" in the Vocal Imitation Set means the same sound (one reference per class), so an
   excluded imitation of the same class would be a false negative. Related means a different
   reference that shares the category or at least `min_shared_tags` AudioSet ontology tags
@@ -68,7 +80,7 @@ from .model import DualEncoder
 
 log = logging.getLogger(__name__)
 
-NEGATIVES = ("none", "excluded", "retrieval", "metadata", "random")
+NEGATIVES = ("none", "excluded", "retrieval", "metadata", "random", "same_class")
 
 
 @dataclass
@@ -84,6 +96,8 @@ class RecipeConfig:
     min_shared_tags: int = 2
     excluded_match: str = "related"  # excluded negatives: "related" (different sounds) or "same" (paper)
     remine_every: int = 5  # retrieval: epochs between re-mining with the current model
+    same_class_library: bool = False  # same_class: also un-imitated library recordings of the class
+    oversample: str = ""  # "fgvis=4": repeat that source's train pairs 4 times per epoch
     epochs: int = 30
     lr_max: float = 2e-4
     lr_min: float = 5e-5
@@ -105,6 +119,8 @@ RECIPES = {
     "retrieval": RecipeConfig("retrieval", negatives="retrieval"),
     "metadata": RecipeConfig("metadata", negatives="metadata"),
     "random": RecipeConfig("random", negatives="random"),
+    "same_class": RecipeConfig("same_class", negatives="same_class"),
+    "same_class_extras": RecipeConfig("same_class_extras", negatives="same_class", same_class_library=True),
 }
 REFERENCE_MODEL = "shared"
 RECIPE_NAMES = {
@@ -117,6 +133,8 @@ RECIPE_NAMES = {
     "retrieval": "A: retrieval-driven semi-hard negatives (re-mined)",
     "metadata": "B: metadata-guided semi-hard negatives",
     "random": "Control: random SFX negatives",
+    "same_class": "Same-class negatives: other imitated recordings of the class",
+    "same_class_extras": "Same-class negatives, plus the class's un-imitated recordings",
 }
 
 
@@ -192,6 +210,40 @@ def metadata_pools(ds: Dataset, rc: RecipeConfig, rng: np.random.Generator) -> d
                 tiers[rel].append(c)
         pools[ref] = _pick(rng, [tiers[t] for t in METADATA_TIERS], [], rc.pool_size)
     return pools
+
+
+def same_class_pools(ds: Dataset, rc: RecipeConfig) -> dict[str, list[str]]:
+    """Reference clip_id -> other train recordings of its class (same category and tags).
+
+    Imitated recordings (references) only, unless ``same_class_library``; never the same recording.
+    """
+    meta = ds.meta()
+    cands = ds.split_candidates("train")
+    if not rc.same_class_library:
+        cands = cands[cands.role == "reference"]
+    by_class: dict[tuple, list[str]] = {}
+    for c in cands.clip_id:
+        m = meta[c]
+        if m.category is not None:
+            by_class.setdefault((m.category, m.tags), []).append(c)
+    pools = {}
+    for ref in ds.split_pairs("train").reference_clip_id.unique():
+        m = meta.get(ref, SFXMeta(None, frozenset(), None))
+        pools[ref] = [c for c in by_class.get((m.category, m.tags), [])
+                      if c != ref and (m.recording_id is None or meta[c].recording_id != m.recording_id)]
+    return pools
+
+
+def oversample_pairs(pairs, spec: str):
+    """Repeat the pairs of each named source: spec "fgvis=4" keeps 4 copies of every fgvis pair."""
+    factors = {}
+    for part in filter(None, (p.strip() for p in spec.split(","))):
+        name, _, k = part.partition("=")
+        factors[name.strip()] = int(k)
+    if not factors:
+        return pairs
+    reps = pairs.source.map(lambda s: factors.get(s, 1)).to_numpy()
+    return pairs.loc[pairs.index.repeat(reps)].reset_index(drop=True)
 
 
 def random_pool(ds: Dataset) -> list[str]:
@@ -297,7 +349,7 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig,
                         pretrained=tcfg.pretrained, frames=tcfg.frames, shared=rc.shared).to(device)
     model.log_tau.requires_grad_(rc.learn_tau)
 
-    pairs = ds.split_pairs("train")
+    pairs = oversample_pairs(ds.split_pairs("train"), rc.oversample)
     epoch_batches = [T._unique_reference_batches(pairs, tcfg.batch_size, rng) for _ in range(rc.epochs)]
     steps = [len(b) for b in epoch_batches]
     params = [p for p in model.parameters() if p.requires_grad]
@@ -316,6 +368,12 @@ def train_recipe(ds: Dataset, tcfg: T.TrainConfig, rc: RecipeConfig,
         pools = metadata_pools(ds, rc, rng)
     elif rc.negatives == "random":
         any_pool = random_pool(ds)
+    elif rc.negatives == "same_class":
+        pools = same_class_pools(ds, rc)
+        n_anchor = sum(1 for r in pairs.reference_clip_id if pools.get(r))
+        log.info("%s: %d of %d train pairs have a same-class negative", rc.name, n_anchor, len(pairs))
+        if not n_anchor:
+            raise ValueError("no train reference has another recording of its class; ingest fgvis or vis_extras")
     meta = ds.meta()
 
     pin = device.type == "cuda"
@@ -436,7 +494,7 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
     """
     out = recipe_dir(cfg, source, tcfg.seed)
     out.mkdir(parents=True, exist_ok=True)
-    ds = load_dataset(cfg, [source])
+    ds = load_dataset(cfg, source.split("+"))
     if bench:
         bench_ds = load_dataset(cfg, [bench])
     extra = {b: load_dataset(cfg, [b]) for b in extra_benches if b and b != bench}
@@ -453,6 +511,7 @@ def run_recipe_suite(cfg: PipelineConfig, source: str, tcfg: T.TrainConfig, name
         "train_config": asdict(tcfg),
         "data": {
             "train_pairs": int((ds.pairs.split == "train").sum()),
+            "train_pairs_by_source": {k: int(v) for k, v in ds.split_pairs("train").source.value_counts().items()},
             "unpaired_train": int(len(ds.split_unpaired("train"))),
             "candidate_sfx_train": int((ds.candidates.split == "train").sum()),
         },

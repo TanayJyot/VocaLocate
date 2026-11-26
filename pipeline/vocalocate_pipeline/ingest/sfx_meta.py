@@ -19,6 +19,9 @@ same-class recordings or our synthetic demo set. Layout:
 * recording_id groups clips cut from the same original recording. All clips of
   a recording, and the imitations of its reference, share a group key and so
   always land in the same split. A recording may have at most one reference.
+* group_id (optional, for references and library clips) replaces that group key verbatim. A
+  library clip can use it to follow another source's split, e.g. a Vocal Imitation Set
+  recording following its class's VimSketch reference.
 """
 
 from __future__ import annotations
@@ -51,6 +54,7 @@ def ingest_rows(
     metadata to these rows and call this under their own source name. `file` may be absolute.
     """
     recording_of: dict[str, str] = {}
+    group_of: dict[str, str] = {}
     reference_of_recording: dict[str, str] = {}
     for row in rows:
         role = row["role"].strip()
@@ -61,6 +65,7 @@ def ingest_rows(
         sound_id = row["sound_id"].strip()
         recording = _clean(row.get("recording_id")) or sound_id
         recording_of[sound_id] = recording
+        group_of[sound_id] = _clean(row.get("group_id")) or f"{source}:{recording}"
         if role == "reference":
             other = reference_of_recording.setdefault(recording, sound_id)
             if other != sound_id:
@@ -73,8 +78,7 @@ def ingest_rows(
         role = row["role"].strip()
         if role in IMITATION_ROLES:
             target = row["imitates"].strip()
-            recording = recording_of.get(target)
-            group = f"{source}:{recording}" if target in reference_of_recording.values() else None
+            group = group_of[target] if target in reference_of_recording.values() else None
             present = b.add_file(
                 row["file"], role, label=_clean(row.get("category")), group_key=group,
                 imitator_id=_clean(row.get("imitator_id")),
@@ -85,7 +89,7 @@ def ingest_rows(
             continue
         sound_id = row["sound_id"].strip()
         recording = recording_of[sound_id]
-        if b.add_file(row["file"], role, label=_clean(row.get("category")), group_key=f"{source}:{recording}",
+        if b.add_file(row["file"], role, label=_clean(row.get("category")), group_key=group_of[sound_id],
                       extra={"sound_id": sound_id}):
             tags = [t.strip() for t in (row.get("tags") or "").split(";") if t.strip()]
             b.add_metadata(row["file"], _clean(row.get("category")), _clean(row.get("description")), tags or None,
