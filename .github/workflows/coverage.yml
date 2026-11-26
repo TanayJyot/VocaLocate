@@ -1,0 +1,152 @@
+name: Tests and coverage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      VOCALOCATE_REPO_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        id: dependencies
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e 'pipeline[dev]' -e 'demo[dev]' 'pytest-cov>=6'
+      - name: Test pipeline
+        working-directory: pipeline
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/.coverage.pipeline
+        run: python -m pytest -q --cov --cov-config=../.coveragerc --cov-report=
+      - name: Test demo
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        working-directory: demo
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/.coverage.demo
+        run: python -m pytest -q --cov --cov-config=../.coveragerc --cov-report=
+      - name: Combine and report
+        run: |
+          python -m coverage combine "$RUNNER_TEMP/.coverage.pipeline" "$RUNNER_TEMP/.coverage.demo"
+          python -m coverage report
+          python -m coverage json -o coverage.json
+          python - <<'PY' > coverage.md
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("coverage.json").read_text(encoding="utf-8"))
+          print("| Python source | Covered lines | Total lines | Coverage |")
+          print("| --- | ---: | ---: | ---: |")
+          for label, prefix in (
+              ("Pipeline", "pipeline/vocalocate_pipeline/"),
+              ("Demo", "demo/src/vocalocate_demo/"),
+              ("Modal training", "demo/modal/"),
+          ):
+              files = [
+                  entry["summary"] for name, entry in report["files"].items()
+                  if name.startswith(prefix)
+              ]
+              total = sum(entry["num_statements"] for entry in files)
+              if not total:
+                  raise SystemExit(f"No executable Python lines found for {label}.")
+              covered = sum(entry["covered_lines"] for entry in files)
+              print(f"| {label} | {covered} | {total} | {100 * covered / total:.2f}% |")
+          total = report["totals"]
+          print(f'| **Combined** | {total["covered_lines"]} | {total["num_statements"]} | '
+                f'**{total["percent_covered_display"]}%** |')
+          print()
+          print("Scope: first-party VocaLocate Python code. Frontend JavaScript coverage is unmeasured. "
+                "Terraform is checked separately by the infra workflow. "
+                "Vendored EfficientAT and the A3/A4 Nanochat experiments are excluded.")
+          PY
+          cat coverage.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: |
+            coverage.json
+            coverage.md
+          if-no-files-found: error
+
+  comment:
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: code-coverage
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+            const marker = '<!-- vocalocate-coverage -->';
+            const issue = { ...context.repo, issue_number: context.issue.number };
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `${marker}\n## Code coverage\n\n${fs.readFileSync('coverage.md', 'utf8').trim()}\n\n[Coverage report and CI run](${run})`;
+            const comments = await github.paginate(github.rest.issues.listComments, issue);
+            const previous = comments.find(comment =>
+              comment.user.login === 'github-actions[bot]' && comment.body.startsWith(marker)
+            );
+            if (previous) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...issue, body });
+            }
+
+  readme:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: code-coverage
+      - name: Update README on main
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+            echo "main has advanced. Its latest workflow will publish coverage."
+            exit 0
+          fi
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("README.md")
+          start, end = "<!-- coverage:start -->", "<!-- coverage:end -->"
+          before, after = path.read_text(encoding="utf-8").split(start)
+          _, after = after.split(end)
+          report = Path("coverage.md").read_text(encoding="utf-8").strip()
+          path.write_text(f"{before}{start}\n{report}\n{end}{after}", encoding="utf-8")
+          PY
+          if git diff --quiet -- README.md; then
+            exit 0
+          fi
+          git add README.md
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'docs: refresh coverage report'
+          if ! git push origin HEAD:main; then
+            git fetch origin main
+            if [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ]; then
+              exit 1
+            fi
+            echo "main has advanced. Its latest workflow will publish coverage."
+          fi

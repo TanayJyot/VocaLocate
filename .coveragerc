@@ -1,0 +1,11 @@
+[run]
+source =
+    vocalocate_pipeline
+    vocalocate_demo
+    ${VOCALOCATE_REPO_ROOT-.}/demo/modal
+omit =
+    */vocalocate_demo/efficientat/*
+
+[report]
+precision = 2
+show_missing = True

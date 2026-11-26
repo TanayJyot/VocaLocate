@@ -6,6 +6,25 @@ imitating it with their voice ("pshhh", "bonk"), optionally adding a short text 
 the search model, the AWS infrastructure that runs it, and the model experiments and local search
 app built on top.
 
+## Code coverage
+
+<!-- coverage:start -->
+The coverage table populates after the first successful coverage run on `main`.
+<!-- coverage:end -->
+
+GitHub Actions runs both pytest suites, then combines their line coverage for
+`pipeline/vocalocate_pipeline/`, `demo/src/vocalocate_demo/`, and the Modal training
+entry point in `demo/modal/`. The report includes Python files that the tests never
+execute, so an untested script counts against the combined percentage.
+
+The Python report excludes vendored EfficientAT and the separate A3/A4 Nanochat
+experiments. The search UI’s browser JavaScript is part of VocaLocate and its
+coverage is currently unmeasured. The independent [infra workflow](.github/workflows/infra.yml)
+runs `terraform validate` and `terraform test` for the project’s AWS deployment.
+
+The `code-coverage` artifact includes per-file results. Same-repository PRs get a
+coverage comment, and the Actions summary also shows the totals for fork PRs.
+
 ## Where each assignment part lives
 
 | A2 part | What it is | Where |
@@ -169,8 +188,7 @@ One line per file. Paths are relative to the folder in each heading.
 
 | File | What it does |
 | --- | --- |
-| `pipeline-tests.yml` | Runs the pipeline tests on every push that touches `pipeline/` |
-| `demo-tests.yml` | Runs the demo tests (with CPU PyTorch) when `demo/` or `pipeline/` changes |
+| `coverage.yml` | Runs both Python test suites and publishes coverage to the README and pull requests |
 | `infra.yml` | `terraform fmt`, `validate` and module tests on `infra/` changes; `plan` against dev on main |
 | `pipeline-image.yml` | Builds the pipeline image; when run by hand, pushes it to an environment's ECR |
 
