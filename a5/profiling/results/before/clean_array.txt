@@ -1,0 +1,34 @@
+# clean_array: 4.178 s wall time under cProfile (before)
+         80621 function calls in 4.167 seconds
+
+   Ordered by: cumulative time
+   List reduced from 146 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    4.167    4.167 profile_functions.py:73(run)
+      200    0.636    0.003    4.167    0.021 audio.py:106(clean_array)
+      200    0.014    0.000    1.331    0.007 audio.py:58(resample)
+      200    0.007    0.000    1.253    0.006 _signaltools.py:3884(resample_poly)
+     1000    0.144    0.000    1.207    0.001 _methods.py:115(_mean)
+     4000    1.108    0.000    1.108    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+      200    0.001    0.000    1.070    0.005 _upfirdn.py:108(upfirdn)
+      200    1.058    0.005    1.062    0.005 _upfirdn.py:91(apply_filter)
+      200    0.001    0.000    0.939    0.005 {method 'mean' of 'numpy.ndarray' objects}
+      400    0.300    0.001    0.368    0.001 audio.py:38(rms)
+      200    0.208    0.001    0.287    0.001 audio.py:42(noise_floor_dbfs)
+      200    0.154    0.001    0.272    0.001 audio.py:65(trim_silence)
+      800    0.003    0.000    0.271    0.000 fromnumeric.py:3737(mean)
+     1000    0.196    0.000    0.196    0.000 {method 'astype' of 'numpy.ndarray' objects}
+      200    0.023    0.000    0.166    0.001 _fir_filter_design.py:253(firwin)
+      200    0.001    0.000    0.107    0.001 numeric.py:675(flatnonzero)
+      400    0.001    0.000    0.106    0.000 fromnumeric.py:48(_wrapfunc)
+      200    0.000    0.000    0.105    0.001 fromnumeric.py:2031(nonzero)
+      200    0.105    0.001    0.105    0.001 {method 'nonzero' of 'numpy.ndarray' objects}
+      200    0.002    0.000    0.094    0.000 _windows.py:2387(get_window)
+      200    0.086    0.000    0.090    0.000 _windows.py:1202(kaiser)
+     1400    0.004    0.000    0.047    0.000 fromnumeric.py:66(_wrapreduction)
+     1000    0.002    0.000    0.047    0.000 fromnumeric.py:3049(max)
+      200    0.002    0.000    0.031    0.000 _function_base_impl.py:4065(percentile)
+      400    0.001    0.000    0.030    0.000 _delegation.py:768(sinc)
+
+

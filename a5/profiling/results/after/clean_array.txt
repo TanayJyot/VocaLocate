@@ -1,0 +1,34 @@
+# clean_array: 4.103 s wall time under cProfile (after)
+         79821 function calls in 4.081 seconds
+
+   Ordered by: cumulative time
+   List reduced from 146 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    4.081    4.081 profile_functions.py:73(run)
+      200    0.750    0.004    4.080    0.020 audio.py:126(clean_array)
+      200    0.018    0.000    1.727    0.009 audio.py:58(resample)
+      200    0.011    0.000    1.634    0.008 _signaltools.py:3884(resample_poly)
+      200    0.002    0.000    1.381    0.007 _upfirdn.py:108(upfirdn)
+      200    1.364    0.007    1.369    0.007 _upfirdn.py:91(apply_filter)
+      400    0.376    0.001    0.465    0.001 audio.py:38(rms)
+     3800    0.399    0.000    0.399    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+      200    0.255    0.001    0.362    0.002 audio.py:42(noise_floor_dbfs)
+      800    0.005    0.000    0.349    0.000 fromnumeric.py:3737(mean)
+      800    0.010    0.000    0.345    0.000 _methods.py:115(_mean)
+     1200    0.254    0.000    0.254    0.000 {method 'astype' of 'numpy.ndarray' objects}
+      200    0.032    0.000    0.230    0.001 _fir_filter_design.py:253(firwin)
+      200    0.080    0.000    0.221    0.001 audio.py:82(trim_silence)
+      200    0.108    0.001    0.215    0.001 audio.py:65(mix_to_mono)
+      200    0.003    0.000    0.133    0.001 _windows.py:2387(get_window)
+      200    0.122    0.001    0.128    0.001 _windows.py:1202(kaiser)
+      200    0.001    0.000    0.127    0.001 numeric.py:675(flatnonzero)
+      400    0.001    0.000    0.124    0.000 fromnumeric.py:48(_wrapfunc)
+      200    0.000    0.000    0.124    0.001 fromnumeric.py:2031(nonzero)
+      200    0.123    0.001    0.123    0.001 {method 'nonzero' of 'numpy.ndarray' objects}
+     1200    0.004    0.000    0.056    0.000 fromnumeric.py:66(_wrapreduction)
+      800    0.002    0.000    0.055    0.000 fromnumeric.py:3049(max)
+      400    0.001    0.000    0.043    0.000 _delegation.py:768(sinc)
+      200    0.002    0.000    0.042    0.000 _function_base_impl.py:4065(percentile)
+
+

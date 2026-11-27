@@ -1,0 +1,34 @@
+# log_mel: 4.797 s wall time under cProfile (before)
+         50402 function calls in 4.786 seconds
+
+   Ordered by: cumulative time
+   List reduced from 62 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.003    0.003    4.786    4.786 profile_functions.py:85(run)
+      400    2.880    0.007    4.782    0.012 features.py:40(log_mel)
+      400    0.001    0.000    1.575    0.004 _pocketfft.py:324(rfft)
+      400    1.573    0.004    1.573    0.004 _pocketfft.py:58(_raw_fft)
+      400    0.136    0.000    0.218    0.001 features.py:22(mel_filterbank)
+      800    0.014    0.000    0.104    0.000 _arraypad_impl.py:546(pad)
+      800    0.040    0.000    0.046    0.000 _arraypad_impl.py:87(_pad_simple)
+     2400    0.043    0.000    0.043    0.000 {method 'astype' of 'numpy.ndarray' objects}
+     1200    0.007    0.000    0.027    0.000 _arraypad_impl.py:471(_as_pairs)
+      400    0.007    0.000    0.023    0.000 _stride_tricks_impl.py:177(sliding_window_view)
+      400    0.008    0.000    0.011    0.000 _function_base_impl.py:3256(hanning)
+      400    0.007    0.000    0.010    0.000 _stride_tricks_impl.py:38(as_strided)
+      400    0.001    0.000    0.008    0.000 _stride_tricks_impl.py:474(broadcast_to)
+      400    0.006    0.000    0.008    0.000 _stride_tricks_impl.py:447(_broadcast_to)
+     1200    0.007    0.000    0.007    0.000 features.py:18(_kaldi_mel)
+      400    0.005    0.000    0.006    0.000 _arraypad_impl.py:297(_set_reflect_both)
+      800    0.001    0.000    0.005    0.000 fromnumeric.py:3620(round)
+     2400    0.005    0.000    0.005    0.000 {built-in method numpy.asarray}
+      800    0.004    0.000    0.005    0.000 _arraypad_impl.py:130(_set_pad_area)
+     1200    0.005    0.000    0.005    0.000 {built-in method numpy.arange}
+     4000    0.004    0.000    0.004    0.000 {built-in method numpy.array}
+      400    0.001    0.000    0.004    0.000 fromnumeric.py:2474(any)
+      800    0.001    0.000    0.004    0.000 fromnumeric.py:48(_wrapfunc)
+      400    0.002    0.000    0.003    0.000 fromnumeric.py:86(_wrapreduction_any_all)
+      800    0.003    0.000    0.003    0.000 {built-in method numpy.empty}
+
+

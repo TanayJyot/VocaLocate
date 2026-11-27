@@ -1,0 +1,34 @@
+# log_mel: 1.552 s wall time under cProfile (after)
+         30050 function calls (30039 primitive calls) in 1.542 seconds
+
+   Ordered by: cumulative time
+   List reduced from 120 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.003    0.003    1.542    1.542 profile_functions.py:85(run)
+      400    0.971    0.002    1.539    0.004 features.py:64(log_mel)
+      400    0.002    0.000    0.449    0.001 _backend.py:19(__ua_function__)
+      400    0.001    0.000    0.447    0.001 _basic_backend.py:89(rfft)
+      400    0.003    0.000    0.446    0.001 _basic_backend.py:27(_execute_1D)
+      400    0.003    0.000    0.442    0.001 basic.py:40(r2c)
+      400    0.430    0.001    0.431    0.001 {built-in method scipy.fft._duccfft.pyduccfft.r2c}
+      401    0.009    0.000    0.056    0.000 _arraypad_impl.py:546(pad)
+     1203    0.034    0.000    0.034    0.000 {method 'astype' of 'numpy.ndarray' objects}
+      400    0.009    0.000    0.029    0.000 _stride_tricks_impl.py:177(sliding_window_view)
+      401    0.022    0.000    0.025    0.000 _arraypad_impl.py:87(_pad_simple)
+      400    0.008    0.000    0.011    0.000 _stride_tricks_impl.py:38(as_strided)
+      402    0.004    0.000    0.010    0.000 _arraypad_impl.py:471(_as_pairs)
+      400    0.006    0.000    0.008    0.000 _arraypad_impl.py:297(_set_reflect_both)
+      400    0.001    0.000    0.005    0.000 fromnumeric.py:2474(any)
+     1602    0.005    0.000    0.005    0.000 {built-in method numpy.asarray}
+      400    0.003    0.000    0.004    0.000 helper.py:114(_asfarray)
+      400    0.002    0.000    0.004    0.000 fromnumeric.py:86(_wrapreduction_any_all)
+      401    0.001    0.000    0.004    0.000 fromnumeric.py:3620(round)
+     1201    0.003    0.000    0.003    0.000 {built-in method builtins.getattr}
+     2006    0.003    0.000    0.003    0.000 {built-in method numpy.array}
+      401    0.001    0.000    0.003    0.000 fromnumeric.py:48(_wrapfunc)
+      400    0.000    0.000    0.002    0.000 helper.py:195(_workers)
+      401    0.001    0.000    0.002    0.000 _function_base_impl.py:375(iterable)
+      401    0.002    0.000    0.002    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+
+

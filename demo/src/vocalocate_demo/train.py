@@ -87,14 +87,25 @@ def _unique_reference_batches(pairs, batch_size: int, rng: np.random.Generator) 
     """Shuffle pairs into batches where no reference appears twice, so in-batch negatives are real negatives."""
     refs = pairs.reference_clip_id.to_numpy()
     batches: list[tuple[list[int], set]] = []
+    # A5 Part One (profiling): the first-fit scan used to walk every batch, full ones included, so
+    # each pair cost O(number of batches) and an epoch was quadratic in the dataset size. Full
+    # batches can never take another pair, so only the open ones are scanned. They stay in creation
+    # order, so every pair lands in the same batch as before and the output is identical.
+    open_batches: list[tuple[list[int], set]] = []
     for i in rng.permutation(len(pairs)):
-        for rows, seen in batches:
-            if len(rows) < batch_size and refs[i] not in seen:
+        ref = refs[i]
+        for k, (rows, seen) in enumerate(open_batches):
+            if ref not in seen:
                 rows.append(int(i))
-                seen.add(refs[i])
+                seen.add(ref)
+                if len(rows) >= batch_size:
+                    del open_batches[k]
                 break
         else:
-            batches.append(([int(i)], {refs[i]}))
+            batch = ([int(i)], {ref})
+            batches.append(batch)
+            if batch_size > 1:
+                open_batches.append(batch)
     return [rows for rows, _ in batches if len(rows) > 1]
 
 

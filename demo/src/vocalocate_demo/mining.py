@@ -70,6 +70,43 @@ def relation(target: SFXMeta, cand: SFXMeta, min_shared_tags: int = 2) -> str:
 METADATA_TIERS = ("same_category+tags", "same_category", "shared_tags")
 
 
+class _PoolRelations:
+    """`relation(pool[p], pool[j])` for every j at once, cached per target p.
+
+    A5 Part One (profiling): `mine` called `relation` once per (imitation, pool SFX) pair,
+    4.5 million Python calls for 1,500 imitations over a 1,500-SFX pool, which was over half its
+    run time. The relation depends only on the target, so it is computed once per distinct target
+    with numpy (categories and recordings as integer codes, tags as a multi-hot matrix) and reused
+    by every imitation of that target. The result equals `relation` element for element.
+    """
+
+    def __init__(self, pool_meta: list[SFXMeta], min_shared_tags: int):
+        from .evaluate import value_codes
+
+        # none_is_unique: a None category or recording never matches (relation checks `is not None`).
+        self.cat = value_codes([m.category for m in pool_meta], none_is_unique=True)
+        self.rec = value_codes([m.recording_id for m in pool_meta], none_is_unique=True)
+        vocab = {t: k for k, t in enumerate(sorted({t for m in pool_meta for t in m.tags}))}
+        self.tags = np.zeros((len(pool_meta), max(len(vocab), 1)), dtype=np.int32)
+        for i, m in enumerate(pool_meta):
+            self.tags[i, [vocab[t] for t in m.tags]] = 1
+        self.min_shared_tags = min_shared_tags
+        self._cache: dict[int, np.ndarray] = {}
+
+    def of(self, p: int) -> np.ndarray:
+        if p not in self._cache:
+            same_rec = (self.rec == self.rec[p]) & (self.rec >= 0)
+            same_cat = (self.cat == self.cat[p]) & (self.cat >= 0)
+            shared = self.tags @ self.tags[p] >= self.min_shared_tags
+            rels = np.full(len(self.cat), "unrelated", dtype=object)
+            rels[shared] = "shared_tags"
+            rels[same_cat] = "same_category"
+            rels[same_cat & shared] = "same_category+tags"
+            rels[same_rec] = "same_recording"
+            self._cache[p] = rels
+        return self._cache[p]
+
+
 @dataclass
 class Mined:
     rows: list[dict]
@@ -139,6 +176,9 @@ def mine(
     rank_of = np.empty_like(order)
     rank_of[np.arange(len(order))[:, None], order] = np.arange(1, order.shape[1] + 1)
 
+    relations = _PoolRelations(pool_meta, cfg.min_shared_tags)
+    pool_idx = np.arange(len(pool_ids))
+
     rows, counters = [], Counter()
     for i, (qid, pid) in enumerate(zip(q_ids, pos_ids)):
         if pid not in index:
@@ -146,12 +186,9 @@ def mine(
             continue
         p = index[pid]
         s_pos = sims[i, p]
-        target_meta = pool_meta[p]
-        rels = [relation(target_meta, m, cfg.min_shared_tags) for m in pool_meta]
+        rels = relations.of(p)
         dup = pool_sims[p] > dup_threshold
-
-        def ok(j: int) -> bool:
-            return j != p and not dup[j] and rels[j] != "same_recording"
+        not_p = pool_idx != p
 
         def add(j: int, selection: str):
             rows.append(
@@ -163,13 +200,15 @@ def mine(
             return s_pos - cfg.band < sims[i, j] < s_pos
 
         if strategy == "random":
-            choices = [j for j in range(len(pool_ids)) if j != p and rels[j] != "same_recording"]
+            choices = np.flatnonzero(not_p & (rels != "same_recording")).tolist()
             for j in rng.choice(choices, size=min(cfg.n_neg, len(choices)), replace=False):
                 add(int(j), "random")
             continue
 
         if strategy == "retrieval":
-            top = [int(j) for j in order[i] if j != p][: cfg.top_k]
+            # Only the first top_k + 1 entries can matter (p may be one of them); the old version
+            # walked the whole ranked row in Python for every imitation.
+            top = [int(j) for j in order[i, : cfg.top_k + 1] if j != p][: cfg.top_k]
             kept = []
             for j in top:
                 if dup[j]:
@@ -190,15 +229,19 @@ def mine(
             continue
 
         # Metadata-guided: the pool is fixed by metadata before the model scores anything.
-        tiers = [[j for j in range(len(pool_ids)) if rels[j] == t and ok(j)] for t in METADATA_TIERS]
-        pool = [j for tier in tiers for j in tier]
+        # Tier membership and the band test are boolean masks over the pool instead of a Python
+        # loop over every pool SFX per imitation (same indices, same ascending order).
+        usable = not_p & ~dup
+        tiers = [np.flatnonzero(usable & (rels == t)) for t in METADATA_TIERS]
+        pool = [int(j) for tier in tiers for j in tier]
         counters["metadata_pool_size"] += len(pool)
         if not pool:
             counters["empty_metadata_pool"] += 1
             continue
         chosen: list[int] = []
         for tier in tiers:
-            band = [j for j in tier if in_band(j)]
+            s = sims[i, tier]
+            band = tier[(s_pos - cfg.band < s) & (s < s_pos)]
             chosen += [int(j) for j in rng.permutation(band)[: cfg.n_neg - len(chosen)]]
             if len(chosen) == cfg.n_neg:
                 break

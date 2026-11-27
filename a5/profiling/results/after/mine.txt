@@ -1,0 +1,34 @@
+# mine: 1.045 s wall time under cProfile (after)
+         444248 function calls (444194 primitive calls) in 1.038 seconds
+
+   Ordered by: cumulative time
+   List reduced from 117 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.030    0.030    1.039    1.039 profile_functions.py:120(run)
+        2    0.288    0.144    1.008    0.504 mining.py:153(mine)
+     3000    0.154    0.000    0.370    0.000 mining.py:96(of)
+     1890    0.204    0.000    0.216    0.000 numeric.py:323(full)
+     4502    0.003    0.000    0.128    0.000 fromnumeric.py:48(_wrapfunc)
+        2    0.000    0.000    0.118    0.059 fromnumeric.py:1115(argsort)
+        2    0.118    0.059    0.118    0.059 {method 'argsort' of 'numpy.ndarray' objects}
+     1502    0.041    0.000    0.087    0.000 {built-in method builtins.sorted}
+        2    0.000    0.000    0.030    0.015 _function_base_impl.py:4268(quantile)
+        2    0.000    0.000    0.030    0.015 _function_base_impl.py:4513(_quantile_unchecked)
+        2    0.001    0.000    0.030    0.015 _function_base_impl.py:3828(_ureduce)
+        2    0.000    0.000    0.029    0.015 _function_base_impl.py:4652(_quantile_ureduce_func)
+    99007    0.029    0.000    0.029    0.000 mining.py:251(<genexpr>)
+     4500    0.007    0.000    0.028    0.000 numeric.py:675(flatnonzero)
+        2    0.000    0.000    0.025    0.013 _function_base_impl.py:4727(_quantile)
+        2    0.025    0.012    0.025    0.012 {method 'partition' of 'numpy.ndarray' objects}
+     9000    0.013    0.000    0.023    0.000 mining.py:193(add)
+     1500    0.011    0.000    0.018    0.000 {built-in method builtins.sum}
+    97507    0.017    0.000    0.017    0.000 mining.py:251(<lambda>)
+        2    0.006    0.003    0.015    0.007 mining.py:133(_finish)
+     4500    0.002    0.000    0.012    0.000 fromnumeric.py:2031(nonzero)
+     1894    0.011    0.000    0.011    0.000 {built-in method numpy.empty}
+        2    0.007    0.004    0.011    0.005 mining.py:83(__init__)
+    21903    0.009    0.000    0.009    0.000 mining.py:199(in_band)
+     9000    0.008    0.000    0.008    0.000 mining.py:117(_row)
+
+

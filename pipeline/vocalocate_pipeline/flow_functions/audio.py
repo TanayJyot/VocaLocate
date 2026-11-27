@@ -62,12 +62,32 @@ def resample(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     return resample_poly(x, sr_out // g, sr_in // g).astype(np.float32)
 
 
+def mix_to_mono(data: np.ndarray) -> np.ndarray:
+    """Average a (samples, channels) array to float32 mono.
+
+    A5 Part One (profiling): `data.mean(axis=1)` reduces across the short, strided channel axis
+    and took ~6 ms per 10 s stereo clip, a fifth of clean_array. Adding whole channel columns is
+    a contiguous vector add per channel and gives the same result. It accumulates in the input's
+    float dtype (float64 for integer input), as `mean` does, then casts to float32.
+    """
+    acc = data.dtype if np.issubdtype(data.dtype, np.floating) else np.float64
+    x = data[:, 0].astype(acc, copy=True)
+    for c in range(1, data.shape[1]):
+        x += data[:, c]
+    if data.shape[1] > 1:
+        x /= data.shape[1]
+    return x.astype(np.float32, copy=False)
+
+
 def trim_silence(x: np.ndarray, threshold_db: float) -> np.ndarray:
     """Drop leading and trailing samples quieter than (peak + threshold_db)."""
-    peak = float(np.max(np.abs(x))) if x.size else 0.0
+    if not x.size:
+        return x
+    mag = np.abs(x)  # computed once, used for both the peak and the threshold test
+    peak = float(mag.max())
     if peak <= 0:
         return x
-    loud = np.flatnonzero(np.abs(x) >= peak * 10 ** (threshold_db / 20))
+    loud = np.flatnonzero(mag >= peak * 10 ** (threshold_db / 20))
     return x[loud[0] : loud[-1] + 1]
 
 
@@ -120,7 +140,7 @@ def clean_array(data: np.ndarray, sr: int, cfg: AudioConfig) -> CleanResult:
     clipped_ratio = float(np.mean(np.abs(data) >= cfg.clip_threshold))
     result.clipped = clipped_ratio >= cfg.clipped_ratio_flag
 
-    x = data.mean(axis=1).astype(np.float32)
+    x = mix_to_mono(data)
     result.noise_floor_dbfs = noise_floor_dbfs(x, sr)
     if dbfs(float(np.max(np.abs(x)))) < cfg.silence_peak_dbfs:
         result.status, result.reject_reason = "rejected", "silent"

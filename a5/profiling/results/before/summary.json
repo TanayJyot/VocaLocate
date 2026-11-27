@@ -1,0 +1,27 @@
+{
+  "clean_array": {
+    "profiled_sec": 4.1784,
+    "plain_best_of_3_sec": 4.1519,
+    "function_calls": 80621
+  },
+  "log_mel": {
+    "profiled_sec": 4.7975,
+    "plain_best_of_3_sec": 4.2297,
+    "function_calls": 50402
+  },
+  "score_metrics": {
+    "profiled_sec": 0.3477,
+    "plain_best_of_3_sec": 0.3341,
+    "function_calls": 16579
+  },
+  "mine": {
+    "profiled_sec": 4.5435,
+    "plain_best_of_3_sec": 2.3411,
+    "function_calls": 9561175
+  },
+  "unique_reference_batches": {
+    "profiled_sec": 0.4314,
+    "plain_best_of_3_sec": 0.08,
+    "function_calls": 2279943
+  }
+}
