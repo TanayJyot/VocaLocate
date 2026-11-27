@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from vocalocate_pipeline import warehouse
 from vocalocate_pipeline.config import PipelineConfig, SplitConfig
 from vocalocate_demo.cli import main
@@ -11,7 +13,7 @@ from vocalocate_demo.synth import generate
 from vocalocate_demo.train import TrainConfig
 
 
-def test_demo_runs_end_to_end(tmp_path, monkeypatch):
+def test_demo_runs_end_to_end(tmp_path, monkeypatch, capsys):
     import vocalocate_demo.demo_flow as flow
 
     tiny = dict(recordings_per_category=4, distractors_per_category=1, imitations_per_reference=3,
@@ -46,7 +48,6 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
     assert warehouse.query(cfg, "SELECT count(*) FROM embeddings WHERE tower = 'clap_audio'")[0][0] > 0
 
     # Second search via the CLI reuses the cached embeddings and the library index.
-    out = tmp_path / "search.json"
     query = demo["queries"][0]["query"]
     argv = ["--lake", str(cfg.lake_root), "search", "--root", str(tmp_path / "library"), "--name", "demo",
             "--query", query, "--model", "metadata", "-k", "3", "--json", "--text", "metallic", "--clap-backend", "fake"]
@@ -56,6 +57,11 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
         assert main(argv) == 0
     hits = json.loads(buf.getvalue())["metadata"][query]
     assert len(hits) == 3 and hits[0]["score"] >= hits[-1]["score"]
+    assert main([arg for arg in argv if arg != "--json"]) == 0
+    printed = capsys.readouterr().out
+    assert f'Query: {query}  + text "metallic"' in printed
+    assert "[metadata]" in printed
+    assert hits[0]["path"] in printed
 
     # External benchmark: score the trained models on a QVIM DEV-style set they never saw.
     import csv
@@ -63,7 +69,6 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
     import numpy as np
     import soundfile as sf
     from vocalocate_pipeline.flows import run_dataset_flow
-    from vocalocate_demo.experiment import run_benchmark
 
     qvim = tmp_path / "qvim-dev"
     rows = []
@@ -80,7 +85,11 @@ def test_demo_runs_end_to_end(tmp_path, monkeypatch):
         w.writerow(["Label", "Class", "Items", "Query 1", "Query 2", "Query 3"])
         w.writerows(rows)
     run_dataset_flow("qvim_dev", qvim, cfg)
-    bench = run_benchmark(cfg, "sfx_meta", "qvim_dev", device="cpu")
+    assert main(["--lake", str(cfg.lake_root), "benchmark", "--device", "cpu"]) == 0
+    printed = capsys.readouterr().out
+    assert "Models trained on sfx_meta, scored on the qvim_dev test split" in printed
+    assert "published: challenge winner" in printed
+    bench = json.loads((cfg.lake_root / "models" / "sfx_meta" / "benchmark_qvim_dev.json").read_text())
     assert set(bench["models"]) == {"baseline", "random", "retrieval", "metadata"}
     assert all(m["n_queries"] == 3 and m["n_candidates"] == 3 for m in bench["models"].values())
     assert bench["published_mrr"]["challenge winner"] == 0.293
@@ -115,6 +124,8 @@ def test_text_benchmark_on_a_captdure_like_set(tmp_path):
     assert out["n_clips"] == 9 and out["n_classes"] == 3 and out["metrics"]["n_queries"] == 18
     assert 0 < out["metrics"]["mrr"] <= 1 and set(out["per_class"]) == {"clock", "door", "fan"}
     assert abs(out["random"]["mrr"] - sum(1 / k for k in range(1, 10)) / 9) < 1e-9
+    with pytest.raises(ValueError, match="No captions for 'esc50'"):
+        main(["--lake", str(cfg.lake_root), "benchmark-text", "--on", "esc50", "--clap-backend", "fake"])
 
 
 def test_onnx_benchmark_on_a_qvim_like_set(tmp_path):

@@ -2,8 +2,12 @@
 
 import csv
 import json
+from dataclasses import replace
+from unittest.mock import Mock
 
 import numpy as np
+import pandas as pd
+import pytest
 import soundfile as sf
 import torch
 
@@ -11,8 +15,9 @@ from vocalocate_pipeline.config import PipelineConfig, SplitConfig
 from vocalocate_pipeline.flows import run_dataset_flow
 from vocalocate_demo.augment import TRANSFORMS, _FNS, augment_batch
 from vocalocate_demo.cli import RECIPE_ORDER, main
-from vocalocate_demo.data import load_dataset
-from vocalocate_demo.recipe import RECIPES, _semi_hard, excluded_pools
+from vocalocate_demo import recipe, train
+from vocalocate_demo.data import Dataset, load_dataset
+from vocalocate_demo.recipe import RECIPES, _prefetch, _semi_hard, excluded_pools, retrieval_pools
 from vocalocate_demo.summarize import summarize
 
 
@@ -206,7 +211,8 @@ def test_replication_on_a_source_without_test_split_selects_on_both(tmp_path):
     assert entry["benchmark"]["qvim_eval"]["n_queries"] == 8 and "qvim_eval" in picked
     assert all("qvim_eval" not in str(h) for h in entry["history"])
 
-    table = summarize([out])
+    table = summarize([out, tmp_path / "missing.json"])
+    assert "Skipped 1 run(s) without results.json:" in table
     assert "selected on qvim_dev" in table and "C: winner's method" in table
     assert "qvim_eval test metrics" in table and "qvim_eval is still unseen" in table
 
@@ -319,3 +325,107 @@ def test_fine_grained_sources_train_with_same_class_negatives(tmp_path):
     assert all(r["oversample"] == "fgvis=2" for r in res["recipes"].values())
     assert res["data"]["train_pairs_by_source"]["fgvis"] == 12
     assert "Same-class negatives" in summarize([out])
+
+
+def _recipe_dataset(tmp_path, split="train"):
+    features = tmp_path / "clip.npy"
+    np.save(features, np.zeros((16, 32), dtype=np.float32))
+    return Dataset(
+        pairs=pd.DataFrame([{"source": "vis", "split": split, "imitation_clip_id": "voice", "reference_clip_id": "anchor",
+                            "imitation_feature_path": str(features), "reference_feature_path": str(features)}]),
+        candidates=pd.DataFrame([
+            {"clip_id": "anchor", "split": split, "category": "bell", "recording_id": "original",
+             "tags": ["metal"], "feature_path": str(features)},
+            {"clip_id": "sibling", "split": split, "category": "bell", "recording_id": "original",
+             "tags": ["metal"], "feature_path": str(features)},
+            {"clip_id": "other", "split": split, "category": "bell", "recording_id": "other",
+             "tags": ["metal"], "feature_path": str(features)},
+        ]),
+    )
+
+
+def test_excluded_pool_ignores_another_take_of_the_target(tmp_path):
+    dataset = _recipe_dataset(tmp_path)
+    dataset.unpaired = pd.DataFrame([
+        {"clip_id": "own", "target_clip_id": "anchor", "split": "train"},
+        {"clip_id": "take", "target_clip_id": "sibling", "split": "train"},
+        {"clip_id": "other-take", "target_clip_id": "other", "split": "train"},
+    ])
+    pools = excluded_pools(dataset, replace(RECIPES["excluded"], pool_size=1), np.random.default_rng(0))
+    assert pools == {"anchor": ["other-take"]}
+
+
+def test_retrieval_pool_excludes_other_takes_and_respects_size_limit(tmp_path, monkeypatch):
+    dataset = _recipe_dataset(tmp_path)
+    embeddings = Mock(side_effect=[np.array([[1.0, 0.0]]), np.array([[1, 0], [0.9, 0.4], [0.6, 0.8]])])
+    monkeypatch.setattr(train, "embed", embeddings)
+    cfg = replace(RECIPES["retrieval"], pool_size=1)
+    assert retrieval_pools(None, dataset, train.TrainConfig(device="cpu"), cfg, dup_quantile=1.0) == {
+        "voice": ["other"]
+    }
+
+
+def test_prefetch_propagates_preprocessing_failure_after_previous_batch():
+    def prepare(sample):
+        if sample is None:
+            raise ValueError("missing audio")
+        return sample * 2
+
+    batches = _prefetch(prepare, [3, None, 8], depth=1)
+    assert next(batches) == 6
+    with pytest.raises(ValueError, match="missing audio"):
+        next(batches)
+    assert list(batches) == []
+
+
+def test_recipe_rejects_unknown_negatives_and_missing_unpaired_audio(tmp_path):
+    cfg = train.TrainConfig(encoder="cnn", frames=32, device="cpu")
+    rc = replace(RECIPES["excluded"], epochs=1)
+    with pytest.raises(ValueError, match="unknown negatives 'ranked'"):
+        recipe.train_recipe(None, cfg, replace(rc, negatives="ranked"))
+    with pytest.raises(ValueError, match="no unpaired imitations in the train split"):
+        recipe.train_recipe(_recipe_dataset(tmp_path), cfg, rc)
+
+
+def test_recipe_rejects_same_class_mining_without_another_recording(tmp_path):
+    dataset = _recipe_dataset(tmp_path)
+    dataset.candidates = dataset.candidates[dataset.candidates.clip_id != "other"].assign(role="reference")
+    cfg = train.TrainConfig(encoder="cnn", frames=32, device="cpu")
+    rc = replace(RECIPES["same_class"], epochs=1)
+    with pytest.raises(ValueError, match="no train reference has another recording of its class"):
+        recipe.train_recipe(dataset, cfg, rc)
+
+
+@pytest.mark.parametrize(("cuda", "mps", "expected"), [(True, True, "cuda"), (False, True, "mps"), (False, False, "cpu")])
+def test_auto_device_prefers_cuda_then_mps(monkeypatch, cuda, mps, expected):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda)
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: mps)
+    assert train.TrainConfig().resolved_device().type == expected
+
+
+def test_cuda_recipe_configures_cudnn_and_releases_cache(tmp_path, monkeypatch):
+    # A validation-only fixture exercises the CUDA lifecycle without allocating GPU tensors.
+    cfg = PipelineConfig(lake_root=tmp_path / "lake")
+    dataset = _recipe_dataset(tmp_path, split="test")
+    dataset.candidates["split"] = "train"
+    monkeypatch.setattr(recipe, "load_dataset", lambda cfg, sources: dataset)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda: "Test GPU")
+    empty_cache = Mock()
+    monkeypatch.setattr(torch.cuda, "empty_cache", empty_cache)
+    move = Mock()
+    original_to = recipe.DualEncoder.to
+
+    def keep_on_cpu(self, device):
+        move(device)
+        return original_to(self, torch.device("cpu"))
+
+    monkeypatch.setattr(recipe.DualEncoder, "to", keep_on_cpu)
+    monkeypatch.setattr(torch.backends.cudnn, "benchmark", False)
+    result = recipe.run_recipe_suite(cfg, "vis", train.TrainConfig(device="auto", encoder="cnn"), ["shared"],
+                                     bench=None, overrides={"epochs": 1, "amp": False})
+
+    move.assert_called_once_with(torch.device("cuda"))
+    assert torch.backends.cudnn.benchmark is True
+    assert result["models"]["shared"]["gpu"] == "Test GPU"
+    empty_cache.assert_called_once_with()

@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 
 from conftest import tone
-from vocalocate_pipeline.flow_functions.audio import clean_array, dbfs, rms
+from vocalocate_pipeline.flow_functions.audio import clean_array, dbfs, noise_floor_dbfs, rms, trim_silence
 from vocalocate_pipeline.config import AudioConfig, FeatureConfig
 from vocalocate_pipeline.flow_functions.features import log_mel, mel_filterbank, summary_vector
 
@@ -80,3 +81,16 @@ def test_noise_floor_is_measured_on_the_original_signal_before_normalisation():
     assert res.status == "ok"
     assert abs(res.noise_floor_dbfs - dbfs(rms(hiss))) < 3
     assert res.noise_floor_dbfs < -70 < res.rms_dbfs
+
+
+@pytest.mark.parametrize("audio", [np.array([]), np.array([0.5, np.nan])])
+def test_clean_rejects_empty_and_nonfinite_audio(audio):
+    result = clean_array(audio, CFG.sample_rate, CFG)
+    assert (result.status, result.reject_reason) == ("rejected", "empty_or_invalid")
+    assert result.audio is None
+
+
+def test_short_noise_floor_uses_clip_rms_and_silent_trim_preserves_signal():
+    assert noise_floor_dbfs(np.array([0.5, -0.5]), CFG.sample_rate) == pytest.approx(-6.0206)
+    silent = np.zeros(16)
+    np.testing.assert_array_equal(trim_silence(silent, -40), silent)

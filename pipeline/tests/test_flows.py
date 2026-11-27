@@ -1,11 +1,16 @@
 import csv
 import os
 import shutil
+from dataclasses import replace
+
+import numpy as np
+import pytest
 
 from conftest import tone, write
-from vocalocate_pipeline import warehouse
+from vocalocate_pipeline import flows, warehouse
 from vocalocate_pipeline.cli import main
 from vocalocate_pipeline.flows import run_dataset_flow, run_library_flow
+from vocalocate_pipeline.lake import Lake
 
 
 def _one(cfg, sql):
@@ -239,3 +244,49 @@ def test_warehouse_has_every_table_even_when_empty(cfg):
         assert name in TABLES and _one(cfg, f"SELECT count(*) FROM {name}") == 0
     for name in ("imitation_metadata", "relevance_judgements", "search_sessions"):
         assert name not in TABLES
+
+
+def test_ingest_rebuilds_missing_cached_feature(cfg, sfx_meta_dir):
+    run_dataset_flow("sfx_meta", sfx_meta_dir, cfg, load=False)
+    lake = Lake(cfg.lake_root)
+    feature = lake.read("features", "sfx_meta").to_pylist()[0]["feature_path"]
+    os.unlink(feature)
+
+    summary = run_dataset_flow("sfx_meta", sfx_meta_dir, cfg, load=False)
+    assert summary.n_ok > 0
+    assert os.path.isfile(feature)
+
+    changed = replace(cfg, audio=replace(cfg.audio, target_rms_dbfs=-18), workers=2)
+    rebuilt = run_dataset_flow("sfx_meta", sfx_meta_dir, changed, load=False)
+    assert rebuilt.n_processed == summary.n_ok
+    assert {row["config_fingerprint"] for row in lake.read("clips", "sfx_meta").to_pylist()} == {
+        changed.fingerprint()
+    }
+
+
+def test_ingest_omits_text_queries_for_rejected_audio(cfg, tmp_path):
+    team = _team(tmp_path, [("t/a.wav", "alice", "esc50:100", "bark", "description", "val")])
+    write(team / "t/a.wav", np.zeros(32_000), 32_000)
+    summary = run_dataset_flow("team", team, cfg, load=False)
+
+    assert summary.n_rejected == 1
+    assert Lake(cfg.lake_root).read("queries", "team").num_rows == 0
+
+
+def test_library_preserves_indexing_error_if_status_write_fails(cfg, tmp_path, monkeypatch, caplog):
+    def fail_scan(_):
+        raise OSError("cannot read library")
+
+    def fail_write(*_):
+        raise PermissionError("cannot update library status")
+
+    monkeypatch.setattr(flows, "_scan", fail_scan)
+    monkeypatch.setattr(flows, "_write_roots", fail_write)
+    with pytest.raises(OSError, match="cannot read library"):
+        run_library_flow([tmp_path], cfg, library="studio", load=False)
+
+    assert "could not record the failed index of studio" in caplog.text
+    lake = Lake(cfg.lake_root)
+    [part] = lake.parts("pipeline_runs")
+    [run] = lake.read("pipeline_runs", part.stem).to_pylist()
+    assert (run["status"], run["message"]) == ("failed", "OSError: cannot read library")

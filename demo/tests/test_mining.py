@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from vocalocate_demo.data import SFXMeta
 from vocalocate_demo.mining import MiningConfig, mine, relation
@@ -87,3 +88,31 @@ def test_random_control_never_picks_target_or_its_takes():
     mined = _mine("random", n_neg=4)
     assert not {"pos", "take"} & set(mined.negatives["q"])
     assert len(mined.negatives["q"]) == 4
+
+
+def test_retrieval_fills_from_candidates_below_a_narrow_band():
+    result = _mine("retrieval", n_neg=2, band=0.05)
+    assert result.negatives["q"] == ["band_same_cat", "band_other"]
+    assert [row["selection"] for row in result.rows] == ["fallback", "fallback"]
+
+
+def test_mining_skips_query_whose_target_is_missing_from_pool():
+    queries, ids, candidates, meta = _setup()
+    result = mine("retrieval", queries, ["query"], ["absent"], candidates, ids, meta,
+                  MiningConfig(), "test-model", "run-1")
+    assert result.negatives == {}
+    assert result.stats["skipped_positive_not_in_pool"] == 1
+
+
+def test_metadata_mining_ignores_an_empty_related_pool():
+    queries, ids, candidates, meta = _setup()
+    result = mine("metadata", queries, ["query"], ids[:1], candidates[:1], ids[:1], meta,
+                  MiningConfig(), "test-model", "run-1")
+    assert result.rows == []
+    assert result.stats["empty_metadata_pool"] == 1
+
+
+def test_mining_rejects_unknown_strategy():
+    queries, ids, candidates, meta = _setup()
+    with pytest.raises(ValueError, match="unknown strategy 'ranked'"):
+        mine("ranked", queries, ["query"], ids[:1], candidates, ids, meta, MiningConfig(), "test-model", "run-1")
