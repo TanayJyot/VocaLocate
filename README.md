@@ -11,10 +11,10 @@ app built on top.
 <!-- coverage:start -->
 | Python source | Covered lines | Total lines | Coverage |
 | --- | ---: | ---: | ---: |
-| Pipeline | 1369 | 1422 | 96.27% |
-| Demo | 1970 | 2239 | 87.99% |
-| Modal training | 0 | 84 | 0.00% |
-| **Combined** | 3339 | 3745 | **89.16%** |
+| Pipeline | 1422 | 1422 | 100.00% |
+| Demo | 2239 | 2239 | 100.00% |
+| Modal training | 84 | 84 | 100.00% |
+| **Combined** | 3745 | 3745 | **100.00%** |
 
 Scope: first-party VocaLocate Python code. Frontend JavaScript coverage is unmeasured. Terraform is checked separately by the infra workflow. Vendored EfficientAT and the A3/A4 Nanochat experiments are excluded.
 <!-- coverage:end -->
