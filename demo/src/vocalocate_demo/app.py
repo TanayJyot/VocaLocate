@@ -47,8 +47,12 @@ from .search import LibraryIndex, embed_query, index_library, search, text_score
 log = logging.getLogger(__name__)
 
 UI_DIR = Path(__file__).parent / "ui"
-# Order shown in the UI: the two VocaLocate versions first.
-UI_MODELS = ("metadata", "retrieval", "baseline", "random")
+# Order shown in the UI; the first one present is the default. `shared` is the recipe's shared
+# encoder + augmentation (no mining), the model chosen for the app: it ties the QVIM 2025 winners'
+# released model on QVIM DEV and EVAL and, unlike it, can be retrained (demo/README.md, "Choosing
+# the app's model").
+UI_MODELS = ("shared", "metadata", "retrieval", "baseline", "random")
+MODEL_LABELS = {**MODEL_NAMES, "shared": "VocaLocate: shared encoder + augmentation (recommended)"}
 HINT_SUGGESTIONS = ("metallic", "wooden", "short", "long", "high-pitched", "low-pitched", "distant", "electronic")
 
 
@@ -80,26 +84,35 @@ class Library:
 
 
 class AppState:
-    def __init__(self, cfg: PipelineConfig, source: str, clap=None, examples: Path | None = None):
+    def __init__(self, cfg: PipelineConfig, source: str, clap=None, examples: Path | None = None,
+                 models: Path | None = None):
+        """`models` is the folder of trained .pt files; default lake/models/<source>. Point it at a
+        recipe run (e.g. lake/models/vimsketch/recipe-492) to serve its `shared` model."""
         self.cfg, self.source, self.clap = cfg, source, clap
+        self.models_dir = Path(models) if models else model_dir(cfg, source)
         self.lock = threading.RLock()
         self.libraries: dict[str, Library] = {}
         self.models: dict[str, tuple] = {}
         self.query_cache: dict[tuple[str, str], np.ndarray] = {}
         self.text_cache: dict[tuple[str, str, str], np.ndarray] = {}
-        fusion = model_dir(cfg, source) / "fusion.json"
+        fusion = self.models_dir / "fusion.json"
         self.alphas = json.loads(fusion.read_text(encoding="utf-8"))["alpha"] if fusion.exists() else {}
         self.examples = _load_examples(examples) if examples else []
 
     # -- models -------------------------------------------------------------
     def available_models(self) -> list[str]:
-        d = model_dir(self.cfg, self.source)
-        return [m for m in UI_MODELS if (d / f"{m}.pt").exists()]
+        return [m for m in UI_MODELS if (self.models_dir / f"{m}.pt").exists()]
+
+    def default_model(self) -> str:
+        available = self.available_models()
+        if not available:
+            raise KeyError(f"no trained model in {self.models_dir}")
+        return available[0]
 
     def model(self, name: str):
         with self.lock:
             if name not in self.models:
-                path = model_dir(self.cfg, self.source) / f"{name}.pt"
+                path = self.models_dir / f"{name}.pt"
                 if not path.exists():
                     raise KeyError(f"no trained model {name!r} in {path.parent}")
                 model, tcfg, ckpt = T.load(path)
@@ -139,7 +152,7 @@ class AppState:
                 lib.message = (
                     "Reading, cleaning and featurising new or changed files (library pipeline)"
                     if i == 0
-                    else f"Embedding with {MODEL_NAMES[name]}"
+                    else f"Embedding with {MODEL_LABELS[name]}"
                 )
                 t0 = time.time()
                 idx = index_library(self.cfg, [Path(r) for r in lib.roots], lib.name, model, tcfg, version, scan=i == 0)
@@ -200,7 +213,7 @@ class AppState:
         return {
             "library": library,
             "model": model_name,
-            "model_label": MODEL_NAMES[model_name],
+            "model_label": MODEL_LABELS[model_name],
             "text": text,
             "alpha": alpha,
             "results": hits,
@@ -223,7 +236,7 @@ class AppState:
         return {
             "source": self.source,
             "lake": str(self.cfg.lake_root),
-            "models": [{"name": m, "label": MODEL_NAMES[m]} for m in self.available_models()],
+            "models": [{"name": m, "label": MODEL_LABELS[m]} for m in self.available_models()],
             "text": self.clap is not None,
             "clap": getattr(self.clap, "version", None),
             "alphas": self.alphas,
@@ -332,7 +345,7 @@ def make_handler(state: AppState):
                     if not audio:
                         raise ValueError("record or choose an imitation first")
                     out = state.search(
-                        body.get("library") or "default", body.get("model") or "metadata", audio,
+                        body.get("library") or "default", body.get("model") or state.default_model(), audio,
                         body.get("text") or "", int(body.get("k") or 10),
                     )
                     return self._json(out)

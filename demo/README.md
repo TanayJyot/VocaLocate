@@ -67,7 +67,14 @@ What was added to the pipeline for this (all covered by its tests):
 vocalocate-demo app --workdir demo_out            # after `vocalocate-demo run`; opens on http://127.0.0.1:8765
 vocalocate-demo app --workdir demo_mn_491 --text  # MobileNetV3 run with CLAP text hints
 vocalocate-demo app --lake demo_out/lake --root ~/SFX --name mine --text
+# the chosen model (see "Choosing the app's model"): the shared encoder from round 3, seed 492
+vocalocate-demo app --lake ~/vocalocate/lake --models runs_vim/models/vimsketch/recipe-492 --source vimsketch     --root ~/SFX --name mine --text
 ```
+
+`--models` points the app at any folder of trained `.pt` files, such as a recipe run. The first
+model present in the order `shared`, `metadata` (B), `retrieval` (A), `baseline`, `random` is the
+default, so a recipe folder opens on the shared model. The lake only holds the user's library
+index, so it can be a fresh folder.
 
 A local web UI over the same pipeline and models, following the product flow:
 
@@ -75,7 +82,8 @@ A local web UI over the same pipeline and models, following the product flow:
    library flow (incremental: unchanged files are skipped, moved files are recognised) and embedded
    once per model. Progress shows each folder, its file count and the current step.
 2. **Search**: record an imitation in the browser (or upload a file, or pick one of the demo's held-out
-   example imitations), add an optional text hint, and pick VocaLocate B, A or the baseline.
+   example imitations), add an optional text hint, and pick a model (the shared model by default
+   when it is present; otherwise VocaLocate B, A or the baseline).
 3. **Results** (a separate page): file name, project folder, path, similarity, a 5-second preview,
    copy path and drag-and-drop into an editor. Changing the hint reruns the search with the
    cached query embedding and library index; changing the model embeds the query once with that
@@ -248,7 +256,7 @@ epoch was chosen on validation, and it was a real epoch (8–24) in every run.
 | `retrieval` (A): re-mined top wrong SFX | 0.191 ± 0.007 | 0.419 ± 0.002 | 0.302 ± 0.005 | 0.324 ± 0.004 | −0.002 (1/3 seeds better) | 0.268 ± 0.004 |
 | `metadata` (B): metadata-related SFX | 0.182 ± 0.004 | 0.408 ± 0.006 | 0.291 ± 0.003 | 0.314 ± 0.001 | −0.014 (0/3 seeds better) | 0.262 ± 0.005 |
 | `random`: control | 0.184 ± 0.006 | 0.394 ± 0.002 | 0.288 ± 0.003 | 0.310 ± 0.004 | −0.016 (0/3 seeds better) | 0.264 ± 0.001 |
-| the winner's released model (`model_v1.onnx`, our pipeline, 32 kHz) | | | | | | 0.272 |
+| the winner's released model (`model_v1.onnx`, our pipeline, 32 kHz, one clip per call) | | | | | | 0.284 |
 | published: QVIM baseline / challenge winner | | | | | | 0.273 / 0.293 |
 
 The share of anchors with an active semi-hard triplet falls during training for C (0.88 → 0.63),
@@ -259,9 +267,11 @@ How to read the recipe results:
 
 * **The recipe is better than our earlier setup, and the gain comes from the shared encoder and
   augmentation, not the triplet term.** `shared` is the best run on both test sets: 0.304 test MRR
-  against 0.295 for the earlier baseline, and 0.275 on QVIM DEV against 0.263–0.270. That matches
-  the winners' released model on the same pipeline (0.272) and the published QVIM baseline (0.273),
-  trained on the Vocal Imitation Set alone. The gap to the published 0.293 remains.
+  against 0.295 for the earlier baseline, and 0.275 on QVIM DEV against 0.263–0.270. That is close
+  to the published QVIM baseline (0.273) while training on the Vocal Imitation Set alone, but below
+  the winners' released model on the same pipeline (0.284; this was first reported as 0.272, from a
+  benchmark that embedded clips in batches of 16, which this model does not handle the same way).
+  The gap to the published 0.293 remains.
 * **No negative source beats contrastive training alone.** Their method (C), A and B all fall
   slightly below `shared` on test and on QVIM DEV. A and C are within one standard deviation of it;
   B and the random control are clearly below it. This repeats what we found on our earlier setup,
@@ -396,6 +406,50 @@ The share of anchors whose semi-hard triplet is still active, from epoch 1 to ep
   the EVAL comparison is close but not exact.
 - The winners also trained in ways we did not copy, such as their own epoch count and
   hyperparameter search. They report no ablation, so the size of their gain from C is not known.
+
+## Choosing the app's model
+
+**Decision: the app uses `shared` (one shared MobileNetV3 + augmentation, contrastive loss only)
+trained on VimSketch, seed 492: `runs_vim/models/vimsketch/recipe-492/shared.pt`.** It ties the
+QVIM 2025 winners' released model on accuracy and wins the tie-break on practical grounds.
+
+The rule was fixed before the released model was scored on EVAL:
+- The primary metric is QVIM EVAL MRR, with the checkpoint chosen on our validation split, so
+  no test set influences the choice.
+- A gap under about 0.01 MRR (about 1,000 queries) counts as a tie. A tie is broken on
+  practical grounds: runs in the app, can be retrained, has text-hint results.
+
+All on the same pipeline, the same cleaned queries and the same test sets:
+
+| model | QVIM DEV MRR | QVIM EVAL MRR |
+| --- | ---: | ---: |
+| **`shared`, VimSketch, 3 seeds** | **0.289** (0.282–0.294) | **0.343** (0.340–0.350) |
+| `shared`, seed 492 (best validation MRR, 0.584) | 0.282 | 0.350 |
+| our rebuild of the winners' method (`excluded_same`) | 0.283 | 0.342 |
+| the winners' released model, `model_v1.onnx`, one clip per call | 0.284 | 0.338 |
+
+- **Accuracy is a tie.** `shared` is ahead by 0.005 on both sets, under the 0.01 threshold. Two
+  of our three seeds beat the released model on EVAL; one (0.340) is level with it.
+- **The tie-break picks `shared`.** It runs natively in the app's PyTorch pipeline and text-hint
+  fusion, we can retrain it on new data (FSD50K, our own recordings) with `vocalocate-demo recipe`,
+  and its training is fully known. The released model is a fixed ONNX file we can only run.
+- **The model from the paper is not on offer.** The released file
+  ([thatsoundslikeme](https://github.com/thatsoundslikeme/app), SHA-256 `a652b09c…d4d6`) is, per
+  its model card, *developed from* the winning entry for a web app; the checkpoint scored in the
+  challenge was never released. Our rebuild of their method scores the same as `shared`.
+- **Not `metadata` (B) or `excluded` (C, related-sound) either.** Their EVAL means (0.349, 0.347)
+  are within noise of `shared`, and random negatives score the same (0.347). Picking them would be
+  choosing on test-set luck. `shared` is also the simplest: no mining step.
+- **How the released model was scored:** 32 kHz, mono, zero-padded to 10 s, one clip per call
+  (`[1, samples]`), as its app does (`web/src/lib/model/embedding.ts`). In batches of 16 it scores
+  lower (DEV 0.272, EVAL 0.329), so `benchmark-onnx` now embeds one clip per call. It received the
+  pipeline's cleaned audio (trimmed, loudness-normalised), as our models do; its app feeds raw
+  audio. Outputs: `runs_vim/onnx_qmul_single_qvim_{dev,eval}.txt`.
+- **Not tested:** the winners' frozen-CED entry (0.288 DEV, published) and Chung's model (0.359
+  EVAL, published, not released).
+- **Text hints:** the fusion weight α was tuned only for the round 2 (Vocal Imitation Set) models.
+  A recipe folder has no `fusion.json`, so the app uses α = 0.5 until `recipe-text` is run for
+  the VimSketch models.
 
 ## Same-class negatives: the Fine-grained Vocal Imitation Set
 

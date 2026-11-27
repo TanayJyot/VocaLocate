@@ -161,6 +161,9 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument("--source", default="sfx_meta", help="which trained models to use (lake/models/<source>)")
     ap.add_argument("--root", type=Path, action="append", help="library folder to index at start (repeatable)")
     ap.add_argument("--name", default="default", help="library name for --root")
+    ap.add_argument("--models", type=Path,
+                    help="folder of trained .pt files (default lake/models/<source>); e.g. a recipe run such as "
+                         "lake/models/vimsketch/recipe-492, whose shared model is then the default")
     ap.add_argument("--text", action="store_true", help="enable CLAP text hints")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
@@ -231,7 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         from .app import AppState, serve
 
         examples = args.workdir / "queries" if args.workdir else None
-        state = AppState(cfg, args.source, clap=_clap(args) if args.text else None, examples=examples)
+        state = AppState(cfg, args.source, clap=_clap(args) if args.text else None, examples=examples,
+                         models=args.models)
         if args.workdir and (args.workdir / "library").is_dir():
             state.add_library("demo", [str(args.workdir / "library")])
         if args.root:

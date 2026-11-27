@@ -3,6 +3,7 @@
 import base64
 import http.client
 import json
+import shutil
 import threading
 import time
 import urllib.error
@@ -16,6 +17,7 @@ from vocalocate_pipeline.config import PipelineConfig, SplitConfig
 from vocalocate_demo import app
 from vocalocate_demo.app import AppState, Library, serve
 from vocalocate_demo.demo_flow import run_demo
+from vocalocate_demo.experiment import model_dir
 from vocalocate_demo.mining import MiningConfig
 from vocalocate_demo.synth import generate
 from vocalocate_demo.text import ClapScorer
@@ -33,7 +35,7 @@ def _call(base, path, body=None):
         return e.code, json.loads(e.read())
 
 
-def test_app_api_end_to_end(tmp_path, monkeypatch):
+def _tiny_demo(tmp_path, monkeypatch):
     import vocalocate_demo.demo_flow as flow
 
     tiny = dict(recordings_per_category=4, distractors_per_category=1, imitations_per_reference=3,
@@ -43,6 +45,47 @@ def test_app_api_end_to_end(tmp_path, monkeypatch):
     clap = ClapScorer(backend="fake")
     run_demo(tmp_path, cfg, TrainConfig(epochs=1, ft_epochs=1, frames=128, batch_size=8, device="cpu"),
              MiningConfig(), n_queries=2, clap=clap)
+    return cfg, clap
+
+
+def _wait_ready(base, name):
+    for _ in range(300):
+        lib = _call(base, f"/api/libraries/{name}")[1]
+        if lib["state"] in ("ready", "error"):
+            return lib
+        time.sleep(0.1)
+    return lib
+
+
+def test_app_serves_a_recipe_folder_and_defaults_to_its_shared_model(tmp_path, monkeypatch):
+    """--models points the app at a recipe run's folder; its shared model comes first and is the default."""
+    cfg, clap = _tiny_demo(tmp_path, monkeypatch)
+    recipe = tmp_path / "recipe-492"
+    recipe.mkdir()
+    # Stand-ins for a recipe run's checkpoints: same format (train.save), different names.
+    shutil.copy(model_dir(cfg, "sfx_meta") / "baseline.pt", recipe / "shared.pt")
+    shutil.copy(model_dir(cfg, "sfx_meta") / "metadata.pt", recipe / "metadata.pt")
+
+    state = AppState(cfg, "sfx_meta", clap=clap, examples=tmp_path / "queries", models=recipe)
+    assert state.available_models() == ["shared", "metadata"] and state.default_model() == "shared"
+    server = serve(state, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        st = _call(base, "/api/status")[1]
+        assert [m["name"] for m in st["models"]] == ["shared", "metadata"]
+        assert "recommended" in st["models"][0]["label"]
+        _call(base, "/api/libraries", {"name": "demo", "roots": [str(tmp_path / "library")]})
+        lib = _wait_ready(base, "demo")
+        assert lib["state"] == "ready" and sorted(lib["models_ready"]) == ["metadata", "shared"]
+        status, res = _call(base, "/api/search", {"library": "demo", "example": 0, "k": 3})  # no model given
+        assert status == 200 and res["model"] == "shared" and len(res["results"]) == 3
+    finally:
+        server.shutdown()
+
+
+def test_app_api_end_to_end(tmp_path, monkeypatch):
+    cfg, clap = _tiny_demo(tmp_path, monkeypatch)
 
     state = AppState(cfg, "sfx_meta", clap=clap, examples=tmp_path / "queries")
     server = serve(state, port=0)

@@ -9,7 +9,7 @@ const POLL_MS = 700;
 const state = {
   status: null,
   library: "",        // selected library name
-  model: "metadata",  // selected model name
+  model: "",          // selected model name; the server's first model (the default) once status loads
   hint: "",
   query: null,        // {kind: "audio"|"example", b64?, exampleId?, url, label, samples?}
   last: null,         // {query, library, model, hint} that produced state.results

@@ -353,13 +353,16 @@ def run_onnx_benchmark(cfg: PipelineConfig, onnx_path: Path, bench_source: str =
             x = resample_poly(x, sr // g, s // g).astype(np.float32)
         return np.pad(x[:n], (0, max(n - len(x), 0))).astype(np.float32)
 
-    def embed(paths: list[str], bs: int = 16) -> np.ndarray:
+    def embed(paths: list[str]) -> np.ndarray:
+        # One clip per call, [1, samples], as thatsoundslikeme's app runs it. model_v1.onnx declares a
+        # batch axis but does not embed a batch the same way: batches of 16 scored it 0.329 on QVIM
+        # EVAL instead of 0.338 (and 0.272 instead of 0.284 on DEV).
         out = []
-        for i in range(0, len(paths), bs):
-            batch = np.stack([load(p) for p in paths[i : i + bs]])
+        for p in paths:
+            x = load(p)[None]
             if len(inp.shape) == 3:
-                batch = batch[None]
-            e = np.asarray(sess.run([outp.name], {inp.name: batch})[0], dtype=np.float32)
+                x = x[None]
+            e = np.asarray(sess.run([outp.name], {inp.name: x})[0], dtype=np.float32)
             out.append(e.reshape(-1, e.shape[-1]))
         e = np.concatenate(out)
         return e / (np.linalg.norm(e, axis=1, keepdims=True) + 1e-9)
