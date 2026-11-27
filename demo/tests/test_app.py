@@ -164,6 +164,9 @@ def test_app_api_end_to_end(tmp_path, monkeypatch):
 def test_app_reports_missing_model_and_unindexed_library(tmp_path, caplog):
     state = AppState(PipelineConfig(lake_root=tmp_path / "lake"), "sfx_meta", examples=tmp_path / "queries")
     assert state.examples == []
+    assert state.available_models() == []
+    with pytest.raises(KeyError, match="no trained model in"):
+        state.default_model()
     with pytest.raises(KeyError, match="no trained model 'baseline'"):
         state.model("baseline")
     with pytest.raises(ValueError, match="is not indexed for model 'metadata'"):

@@ -83,13 +83,14 @@ def test_onnx_benchmark_ranks_matching_audio_and_writes_report(tmp_path, monkeyp
 
     def embed(outputs, inputs):
         assert outputs == ["embedding"]
-        batch = inputs["audio"]
-        shape = (2, rate * 10)
-        assert batch.shape == ((1, *shape) if extra_axis else shape)
-        assert batch.dtype == np.float32
-        np.testing.assert_allclose(np.abs(batch[..., 80]), 0.375, atol=1e-3)
-        assert not np.any(batch[..., 200:])
-        anchor = batch[..., 80]
+        # One clip per call, [1, samples] (or [1, 1, samples] for a model with an extra leading axis).
+        clip = inputs["audio"]
+        shape = (1, rate * 10)
+        assert clip.shape == ((1, *shape) if extra_axis else shape)
+        assert clip.dtype == np.float32
+        np.testing.assert_allclose(np.abs(clip[..., 80]), 0.375, atol=1e-3)
+        assert not np.any(clip[..., 200:])
+        anchor = clip[..., 80]
         return [np.stack([anchor > 0, anchor < 0], axis=-1).astype(np.float32)]
 
     session = SimpleNamespace(
@@ -108,7 +109,7 @@ def test_onnx_benchmark_ranks_matching_audio_and_writes_report(tmp_path, monkeyp
     inference.assert_called_once_with(str(model), providers=["CPUExecutionProvider"])
     dataset.split_pairs.assert_called_once_with("test")
     dataset.split_candidates.assert_called_once_with("test")
-    assert session.run.call_count == 2
+    assert session.run.call_count == 4  # 2 queries + 2 references, one clip each
 
     report = json.loads((lake / "benchmarks" / "fixture_qvim_dev_16k.json").read_text(encoding="utf-8"))
     assert report["model"] == str(model)
