@@ -1,0 +1,12 @@
+# Settings for the mining demo. Audio and features are the pipeline defaults (QVIM
+# baseline settings); only the split is changed, so the small synthetic set has
+# enough validation and test queries to compare models.
+
+[pipeline]
+lake_root = "demo_out/lake"
+workers = 4
+
+[splits]
+seed = 490
+train = 0.6
+val = 0.2

@@ -36,20 +36,11 @@ from . import train as T
 from .data import Dataset, load_dataset
 from .evaluate import evaluate_split
 from .mining import MiningConfig, mine
+from .names import MODEL_NAMES, model_dir  # noqa: F401  (re-exported)
 
 log = logging.getLogger(__name__)
 
 STRATEGIES = ("retrieval", "metadata", "random")
-MODEL_NAMES = {
-    "baseline": "QVIM baseline (no mining)",
-    "random": "Control: random real-SFX negatives",
-    "retrieval": "VocaLocate A: retrieval-driven semi-hard mining",
-    "metadata": "VocaLocate B: pre-constructed metadata-guided mining",
-}
-
-
-def model_dir(cfg: PipelineConfig, source: str) -> Path:
-    return cfg.lake_root / "models" / source
 
 
 def model_version(name: str, source: str, tcfg: T.TrainConfig, mcfg: MiningConfig | None) -> str:

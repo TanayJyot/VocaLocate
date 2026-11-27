@@ -63,6 +63,68 @@ What was added to the pipeline for this (all covered by its tests):
 
 ## The app
 
+VocaLocate is a local desktop app: hum or say a sound, and it finds the matching file in your
+sound folders. Nothing is uploaded.
+
+```bash
+cd demo
+pip install -e ../pipeline -e '.[text]'   # Python 3.11+; [text] adds the CLAP text hint
+vocalocate                                # opens the app window
+```
+
+On Windows, `scripts/install_windows.ps1 -Wheels <dir> [-Models <dir>] [-Autostart]` installs from
+the two wheels (`pip wheel --no-deps -w dist ../pipeline .`) into `%LOCALAPPDATA%\VocaLocate\venv`,
+optionally imports trained models, and adds a Start-menu shortcut.
+
+`vocalocate` starts the background server if it is not already running (one instance per data
+dir), waits for it, and opens its own window (Edge or Chrome in app mode, else your default
+browser). `vocalocate --background` starts the server without a window; `vocalocate --serve` runs
+it in the current process (this is what the launcher starts, logging to `logs/server.log`).
+`--home DIR` overrides the data dir.
+
+**Data dir:** `%LOCALAPPDATA%\VocaLocate` on Windows (`~/Library/Application Support/VocaLocate` on
+macOS, `~/.local/share/vocalocate` on Linux), or `VOCALOCATE_HOME`. It holds `lake/` (library index,
+cached embeddings, installed models), `settings.json` (libraries, preferred model, autostart),
+`server.json` and `logs/`.
+
+**First run** is a two-step setup screen:
+
+1. *Import models*: pick a folder of model files, a `.pt` per model plus `fusion.json`, for example a
+   run's `lake/models/vis`. They are copied into the data dir.
+2. *Add your sound folder*: pick the folder to search. Indexing runs in the background and search
+   works as soon as the first model's index is ready.
+
+**Later launches** restore the saved libraries from the cached index straight away and rescan them in
+the background (incremental: only new or changed files are embedded). A folder that is missing, such
+as an unplugged drive, keeps its cached index.
+
+**Searching** is one screen. Press Space to start recording and Space again to stop; the search runs
+automatically. Typing in the hint box re-ranks the results (a short delay after you stop typing)
+using the cached query embedding. Up/Down moves through the matches, Enter plays the selected one
+(5-second preview), and each result can be dragged into an editor or shown in its folder. The
+model (the shared model by default when it is installed; otherwise VocaLocate B, A or the baseline)
+is chosen in the settings popover (the sliders button, top right).
+
+**Start when I sign in** (Windows, off by default) is a setting in the app. It puts `VocaLocate.vbs`
+in your Startup folder, which starts the background server with no window. Turning it off deletes
+the file.
+
+| Setup | Search results |
+| --- | --- |
+| ![Setup screen](docs/app_setup.png) | ![Results screen](docs/app_results.png) |
+
+[`docs/app_walkthrough.mp4`](docs/app_walkthrough.mp4) shows the previous UI (demo CNN model,
+synthetic library, Chromium's fake microphone); the flow is the same but the screens differ.
+
+The server is standard-library Python (`app.py`) and binds to 127.0.0.1 only. Every request must
+carry a localhost `Host` header, a request with an `Origin` must come from the same localhost
+origin, and requests with a body must be JSON, which blocks DNS-rebinding and cross-site requests
+from web pages. It serves only files that are in a library index.
+
+### Dev and demo path
+
+The older command serves a pipeline run directly, without the data dir or onboarding:
+
 ```bash
 vocalocate-demo app --workdir demo_out            # after `vocalocate-demo run`; opens on http://127.0.0.1:8765
 vocalocate-demo app --workdir demo_mn_491 --text  # MobileNetV3 run with CLAP text hints
@@ -75,29 +137,6 @@ vocalocate-demo app --lake ~/vocalocate/lake --models runs_vim/models/vimsketch/
 model present in the order `shared`, `metadata` (B), `retrieval` (A), `baseline`, `random` is the
 default, so a recipe folder opens on the shared model. The lake only holds the user's library
 index, so it can be a fresh folder.
-
-A local web UI over the same pipeline and models, following the product flow:
-
-1. **Library**: add folders (paths on this machine, nothing is uploaded). They are indexed by the A2
-   library flow (incremental: unchanged files are skipped, moved files are recognised) and embedded
-   once per model. Progress shows each folder, its file count and the current step.
-2. **Search**: record an imitation in the browser (or upload a file, or pick one of the demo's held-out
-   example imitations), add an optional text hint, and pick a model (the shared model by default
-   when it is present; otherwise VocaLocate B, A or the baseline).
-3. **Results** (a separate page): file name, project folder, path, similarity, a 5-second preview,
-   copy path and drag-and-drop into an editor. Changing the hint reruns the search with the
-   cached query embedding and library index; changing the model embeds the query once with that
-   model (the library's embeddings for every model are cached at indexing time).
-
-A 68-second walkthrough is in [`docs/app_walkthrough.mp4`](docs/app_walkthrough.mp4) (demo CNN model,
-synthetic library, Chromium's fake microphone).
-
-| Search | Results |
-| --- | --- |
-| ![Search page](docs/app_search.png) | ![Results page](docs/app_results.png) |
-
-The server is standard-library Python (`app.py`) and binds to localhost only. It serves only
-files that are in a library index.
 
 ## Real data: Vocal Imitation Set, QVIM DEV and CAPTDURE
 

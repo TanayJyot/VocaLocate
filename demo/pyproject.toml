@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "vocalocate-demo"
 version = "0.1.0"
 description = "VocaLocate demos: retrieval-driven and metadata-guided semi-hard negative mining for query-by-vocal-imitation, on top of the A2 data pipeline."
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "vocalocate-pipeline",
     "numpy>=1.24",
@@ -27,11 +27,15 @@ onnx = ["onnxruntime>=1.16"]
 [project.scripts]
 vocalocate-demo = "vocalocate_demo.cli:main"
 
+[project.gui-scripts]
+# The desktop app: starts the backend in the background (single instance) and opens the app window.
+vocalocate = "vocalocate_demo.desktop:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-vocalocate_demo = ["ui/*", "efficientat/LICENSE"]
+vocalocate_demo = ["ui/*", "configs/*.toml", "efficientat/LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

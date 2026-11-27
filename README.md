@@ -183,7 +183,7 @@ One line per file. Paths are relative to the folder in each heading.
 | `src/vocalocate_demo/evaluate.py` | Retrieval metrics: Recall@K, MRR, nDCG |
 | `src/vocalocate_demo/experiment.py`, `demo_flow.py` | The end-to-end experiment and the one-command demo |
 | `src/vocalocate_demo/synth.py` | A synthetic sound set with imitations, so the demo runs offline |
-| `src/vocalocate_demo/search.py`, `app.py`, `ui/` | Indexes your folders and serves the local search web app |
+| `src/vocalocate_demo/search.py`, `app.py`, `ui/` | Indexes your folders and serves the local search app; `desktop.py` is the `vocalocate` launcher (data dir, single instance, autostart) |
 | `src/vocalocate_demo/report.py`, `summarize.py` | Write results as markdown and average them over seeds |
 | `modal/recipe_app.py` | Runs every training in its own Modal GPU container, reading from and writing to S3 |
 | `configs/demo.toml`, `configs/vimsketch.toml` | Settings for the synthetic demo and the VimSketch replication |

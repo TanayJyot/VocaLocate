@@ -22,6 +22,7 @@ negatives at training time.
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,15 +75,24 @@ def index_library(
     tcfg: TrainConfig,
     model_version: str,
     scan: bool = True,
+    lock=None,
+    progress=None,
 ) -> LibraryIndex:
+    """Scan (optional), then embed every library clip, reusing cached embeddings.
+
+    `lock` (a context manager) guards every warehouse access: the library flow then runs with
+    load=False and the warehouse is rebuilt under the lock, so concurrent readers never race the
+    rebuild. `progress(done, total)` is called while new clips are embedded.
+    """
+    guard = lock if lock is not None else nullcontext()
     if scan:
-        summary = run_library_flow(roots, cfg, library=library)
+        summary = run_library_flow(roots, cfg, library=library, load=lock is None)
+        if lock is not None:
+            with guard:
+                warehouse.load(cfg)
         log.info("library flow: %s", summary.as_dict())
-    rows = warehouse.query(
-        cfg,
-        "SELECT DISTINCT clip_id, path, project_id, feature_path FROM v_library_index "
-        f"WHERE library = {_sql_str(library)} ORDER BY path",
-    )
+    with guard:
+        rows = _library_rows(cfg, library)
     lake = Lake(cfg.lake_root)
     part = f"library_{library}__{model_version}"
     cached = lake.read("embeddings", part)
@@ -92,8 +102,13 @@ def index_library(
     missing = [cid for cid in clip_ids if cid not in known]
     if missing:
         feats = _Features({r[0]: r[3] for r in rows})
-        for cid, vec in zip(missing, embed(model, feats, missing, "sfx", tcfg)):
-            known[cid] = vec.tolist()
+        step = 256
+        for start in range(0, len(missing), step):
+            chunk = missing[start : start + step]
+            for cid, vec in zip(chunk, embed(model, feats, chunk, "sfx", tcfg)):
+                known[cid] = vec.tolist()
+            if progress is not None:
+                progress(min(start + step, len(missing)), len(missing))
     # Rewrite the part with only the clips that are still in the library.
     table = to_table(
         "embeddings",
@@ -117,6 +132,45 @@ def index_library(
     )
 
 
+def _library_rows(cfg: PipelineConfig, library: str) -> list[tuple]:
+    if not cfg.warehouse_path.exists():
+        return []
+    return warehouse.query(
+        cfg,
+        "SELECT DISTINCT clip_id, path, project_id, feature_path FROM v_library_index "
+        f"WHERE library = {_sql_str(library)} ORDER BY path",
+    )
+
+
+def cached_index(cfg: PipelineConfig, library: str, model_version: str, lock=None) -> LibraryIndex | None:
+    """The library's index from cached embeddings alone (no scan, no embedding), or None.
+
+    Only returned when the cache covers every clip of the last completed scan, so ids (positions in
+    the path-ordered list) agree with every other model's index of the library.
+    """
+    with lock if lock is not None else nullcontext():
+        rows = _library_rows(cfg, library)
+    if not rows:
+        return None
+    cached = Lake(cfg.lake_root).read("embeddings", f"library_{library}__{model_version}")
+    if cached is None:
+        return None
+    known = {r["clip_id"]: r["vector"] for r in cached.to_pylist()}
+    clip_ids = list(dict.fromkeys(r[0] for r in rows))
+    if any(cid not in known for cid in clip_ids):
+        return None
+    first_path = {}
+    for cid, path, project, _ in rows:
+        first_path.setdefault(cid, (path, project))
+    return LibraryIndex(
+        clip_ids=clip_ids,
+        paths=[first_path[c][0] for c in clip_ids],
+        projects=[first_path[c][1] for c in clip_ids],
+        vectors=np.array([known[c] for c in clip_ids], dtype=np.float32).reshape(len(clip_ids), -1),
+        n_embedded=0,
+    )
+
+
 @torch.no_grad()
 def embed_query(path: Path, model: DualEncoder, tcfg: TrainConfig, cfg: PipelineConfig) -> np.ndarray:
     """Clean and featurise a recorded imitation exactly like the SFX, then embed it."""
@@ -129,14 +183,15 @@ def embed_query(path: Path, model: DualEncoder, tcfg: TrainConfig, cfg: Pipeline
     return model.embed_imitation(torch.from_numpy(mel[None]).to(device)).cpu().numpy()[0]
 
 
-def text_scores(cfg: PipelineConfig, library: str, index: LibraryIndex, text: str, clap) -> np.ndarray:
+def text_scores(cfg: PipelineConfig, library: str, index: LibraryIndex, text: str, clap, lock=None) -> np.ndarray:
     """CLAP text-hint scores for every library clip (step 4 of the product flow). Audio embeddings are cached."""
     from .text import cached_audio_embeddings
 
-    rows = warehouse.query(
-        cfg,
-        f"SELECT clip_id, clean_path FROM clips WHERE source = {_sql_str('library_' + library)} AND status = 'ok'",
-    )
+    with lock if lock is not None else nullcontext():
+        rows = warehouse.query(
+            cfg,
+            f"SELECT clip_id, clean_path FROM clips WHERE source = {_sql_str('library_' + library)} AND status = 'ok'",
+        )
     clean = dict(rows)
     audio = cached_audio_embeddings(
         cfg, f"library_{library}__clap", index.clip_ids, [clean[c] for c in index.clip_ids], clap
